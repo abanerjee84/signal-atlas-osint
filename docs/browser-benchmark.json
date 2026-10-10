@@ -1,0 +1,19 @@
+{
+  "timestamp_utc": "2026-10-10T10:24:24.066Z",
+  "os": "win32 10.0.22635",
+  "chromium": "156.0.8078.4",
+  "viewport": "1440x960",
+  "rendering": "Headless Chromium with SwiftShader software WebGL",
+  "network": "CDP emulated 10 Mbps download, 5 Mbps upload, 50 ms latency; localhost production preview; new browser context per load",
+  "ready_definition": "Visible rendered observations and first API refresh complete",
+  "cold_load_samples_ms": [
+    1397,
+    1376,
+    1352,
+    1372,
+    1394
+  ],
+  "maximum_ms": 1397,
+  "median_ms": 1376,
+  "limitation": "Five local emulated-network samples, without deployed Nginx gzip or real broadband. Does not establish actual Ubuntu serving performance or sustained GPU interaction FPS."
+}

@@ -1,0 +1,6 @@
+Natural Earth 1:110m country boundaries, public domain.
+https://www.naturalearthdata.com/about/terms-of-use/
+Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_admin_0_countries.geojson
+Downloaded source SHA256: 6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f
+Boundaries are illustrative and do not express a position on disputed sovereignty.
+Features without ISO alpha-2 identifiers excluded: Northern Cyprus, Somaliland.

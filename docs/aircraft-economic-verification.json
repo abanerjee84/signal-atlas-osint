@@ -1,0 +1,12 @@
+{
+  "snapshot_first": "2026-10-10T20:16:15+00:00",
+  "snapshot_second": "2026-10-10T20:18:13+00:00",
+  "interval_seconds": 118.0,
+  "first_aircraft": 152,
+  "second_aircraft": 151,
+  "shared_aircraft": 151,
+  "changed_position": 138,
+  "economic_24h": 25,
+  "economic_mapped_24h": 12,
+  "comparison_basis": "Successive real OpenSky snapshots; reported position changes, not extrapolation."
+}

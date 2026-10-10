@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10171c" />
+    <meta
+      name="description"
+      content="Evidence-linked OSINT investigations, source search and case management."
+    />
+    <title>Investigations | Global OSINT</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <header class="investigation-header">
+      <a href="/" class="brand"
+        >GLOBAL <strong>OSINT</strong><small>INVESTIGATION WORKSPACE</small></a
+      >
+      <a class="map-return" href="/">← World map</a>
+      <form id="access-form">
+        <label for="access-token">Server access token</label
+        ><input
+          id="access-token"
+          type="password"
+          autocomplete="off"
+          placeholder="Existing dashboard token"
+        /><button>Connect</button>
+      </form>
+      <button id="disconnect" hidden>Disconnect</button>
+    </header>
+    <div id="notice" role="status" aria-live="polite">
+      Connect with the existing server access token to open private
+      investigations.
+    </div>
+    <div class="investigation-layout">
+      <aside class="navigation">
+        <p class="eyebrow">RESEARCH TOOLS</p>
+        <nav id="modules" aria-label="Investigation modules"></nav>
+        <div class="navigation-note">
+          Source-linked research. Reported observations and analytical
+          interpretations retain their evidence.
+        </div>
+      </aside>
+      <main id="workspace" tabindex="-1">
+        <div class="workspace-heading">
+          <div>
+            <p id="module-code" class="eyebrow"></p>
+            <h1 id="module-title">Search & resources</h1>
+            <p id="module-description"></p>
+          </div>
+          <button id="reload">Refresh</button>
+        </div>
+        <div class="workspace-toolbar">
+          <form id="filter-form">
+            <label for="query" class="visually-hidden">Search this module</label
+            ><input
+              id="query"
+              type="search"
+              maxlength="200"
+              placeholder="Search topics, countries, organizations…"
+            /><button>Search</button>
+          </form>
+          <label for="active-case">Save evidence to</label
+          ><select id="active-case">
+            <option value="">Choose a case</option></select
+          ><button id="new-case">New case</button>
+        </div>
+        <section id="controls" aria-label="Module actions"></section>
+        <div id="summary" class="summary" aria-live="polite"></div>
+        <div id="visual" hidden></div>
+        <section id="results" aria-label="Investigation results"></section>
+        <div id="pagination">
+          <button id="previous">← Previous</button
+          ><span id="page-description"></span><button id="next">Next →</button>
+        </div>
+      </main>
+      <aside
+        id="evidence-panel"
+        class="evidence-panel"
+        aria-label="Selected evidence"
+      >
+        <p class="eyebrow">EVIDENCE DESK</p>
+        <h2>Follow the source</h2>
+        <p>
+          Select a record, relationship or case to inspect its evidence and
+          provenance.
+        </p>
+        <div id="detail"></div>
+      </aside>
+    </div>
+    <dialog id="action-dialog">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Close">×</button>
+      </form>
+      <h2 id="dialog-title"></h2>
+      <form id="action-form"></form>
+    </dialog>
+    <script type="module" src="/src/advanced.js"></script>
+  </body>
+</html>

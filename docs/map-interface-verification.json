@@ -1,0 +1,24 @@
+{
+  "date_ist": "2026-10-11",
+  "backend_tests_passed": 152,
+  "node_tests_passed": 4,
+  "browser_tests_passed": 9,
+  "production_csp_test": "passed",
+  "production_build": "passed",
+  "python_lint": "passed",
+  "frontend_formatting": "passed",
+  "manual_checks": [
+    "distinct map and control monograms",
+    "homogeneous and mixed cluster count badges",
+    "regional context remains hollow",
+    "yellow aircraft remain heading-oriented",
+    "mention ranking and source counts",
+    "sentiment mean scores and thin samples",
+    "intelligence breadth with per-layer symbols",
+    "30-day live map comparison"
+  ],
+  "dashboard_url": "http://127.0.0.1:5173/",
+  "preview": "map-layer-symbols-country-ribbon.jpg",
+  "credentials_changed": false,
+  "schema_migration_required": false
+}

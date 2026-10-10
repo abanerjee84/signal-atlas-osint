@@ -1,0 +1,269 @@
+{
+  "verified_at": "2026-10-10T13:00:15.984349+00:00",
+  "window_hours": 24,
+  "military": {
+    "report_count": 51,
+    "sources": [
+      "aljazeera",
+      "bbc",
+      "bbc_us_and_canada",
+      "dvids",
+      "dw",
+      "france24",
+      "guardian",
+      "uk_mod",
+      "youtube_UC16niRr50-MSBwiO3YDb3RA",
+      "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg",
+      "youtube_UCknLrEdhRCp1aegoMqRaCZg"
+    ],
+    "official_count": 25,
+    "media_count": 26
+  },
+  "military_topics": [
+    {
+      "name": "Exercises & readiness",
+      "reports": 6,
+      "edges": 0
+    },
+    {
+      "name": "Procurement & capability",
+      "reports": 7,
+      "edges": 10
+    },
+    {
+      "name": "Defence cooperation",
+      "reports": 3,
+      "edges": 6
+    },
+    {
+      "name": "Conflict reporting",
+      "reports": 28,
+      "edges": 33
+    },
+    {
+      "name": "Defence policy",
+      "reports": 4,
+      "edges": 2
+    },
+    {
+      "name": "Other official defence reporting",
+      "reports": 11,
+      "edges": 4
+    },
+    {
+      "name": "Historical background",
+      "reports": 2,
+      "edges": 2
+    }
+  ],
+  "military_edges": 46,
+  "news": {
+    "report_count": 175,
+    "sources": [
+      "aljazeera",
+      "bbc",
+      "bbc_africa",
+      "bbc_latin_america",
+      "bbc_us_and_canada",
+      "dw",
+      "france24",
+      "guardian",
+      "youtube_UC16niRr50-MSBwiO3YDb3RA",
+      "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg",
+      "youtube_UCknLrEdhRCp1aegoMqRaCZg"
+    ],
+    "available_edges": 170,
+    "truncated": true
+  },
+  "news_displayed_edges": 100,
+  "social": {
+    "dataset_count": 27,
+    "sample_count": 25,
+    "known_origin_count": 0,
+    "unknown_origin_count": 27,
+    "sources": {
+      "reddit_browser": 3,
+      "reddit_worldnews_new": 24
+    }
+  },
+  "social_edges": 3,
+  "youtube": {
+    "dataset_count": 45,
+    "sample_count": 45,
+    "sources": {
+      "youtube_UCknLrEdhRCp1aegoMqRaCZg": 15,
+      "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg": 15,
+      "youtube_UC16niRr50-MSBwiO3YDb3RA": 15
+    }
+  },
+  "new_source_health": [
+    {
+      "source_id": "uk_mod",
+      "name": "UK Ministry of Defence announcements",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:59:46+00:00",
+      "stored": 20,
+      "delivery": "RSS/Atom"
+    },
+    {
+      "source_id": "dvids",
+      "name": "DVIDS military public reporting",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:51:30+00:00",
+      "stored": 20,
+      "delivery": "RSS/Atom"
+    },
+    {
+      "source_id": "reddit_archive_worldnews_post",
+      "name": "Reddit archive r/worldnews posts",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_archive_worldnews_comment",
+      "name": "Reddit archive r/worldnews comments",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_worldnews_new",
+      "name": "Reddit r/worldnews new",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:55:01+00:00",
+      "stored": 25,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "reddit_worldnews_comments",
+      "name": "Reddit r/worldnews comments",
+      "state": "error",
+      "error": "Provider HTTP 429; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "reddit_archive_geopolitics_post",
+      "name": "Reddit archive r/geopolitics posts",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_archive_geopolitics_comment",
+      "name": "Reddit archive r/geopolitics comments",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_geopolitics_new",
+      "name": "Reddit r/geopolitics new",
+      "state": "error",
+      "error": "Provider HTTP 429; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "reddit_geopolitics_comments",
+      "name": "Reddit r/geopolitics comments",
+      "state": "error",
+      "error": "Provider HTTP 429; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "reddit_archive_climate_post",
+      "name": "Reddit archive r/climate posts",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_archive_climate_comment",
+      "name": "Reddit archive r/climate comments",
+      "state": "error",
+      "error": "Provider HTTP 522; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Arctic Shift public JSON archive; free, no key"
+    },
+    {
+      "source_id": "reddit_climate_new",
+      "name": "Reddit r/climate new",
+      "state": "error",
+      "error": "Provider HTTP 429; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "reddit_climate_comments",
+      "name": "Reddit r/climate comments",
+      "state": "error",
+      "error": "Provider HTTP 429; retry budget exhausted",
+      "last_success": null,
+      "stored": 0,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "youtube_UC16niRr50-MSBwiO3YDb3RA",
+      "name": "BBC News uploads",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:55:52+00:00",
+      "stored": 15,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "youtube_UCknLrEdhRCp1aegoMqRaCZg",
+      "name": "DW News uploads",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:55:54+00:00",
+      "stored": 15,
+      "delivery": "Public RSS/Atom; no API key"
+    },
+    {
+      "source_id": "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg",
+      "name": "Al Jazeera English uploads",
+      "state": "ok",
+      "error": null,
+      "last_success": "2026-10-10T12:55:54+00:00",
+      "stored": 15,
+      "delivery": "Public RSS/Atom; no API key"
+    }
+  ],
+  "ai_verification": {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "analyzed_at": "2026-10-10T13:03:20+00:00",
+    "claims": 10,
+    "references": 3,
+    "browser_cache_reuse_verified": true,
+    "invalid_prior_response_rejected": true
+  },
+  "browser_capture": {
+    "stored": 3,
+    "source": "reddit_browser",
+    "method": "Visible public browser DOM; manual sample",
+    "no_social_api_key": true
+  },
+  "discussion_edges": 2
+}

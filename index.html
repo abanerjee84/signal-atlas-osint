@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10171c" />
+    <meta
+      name="description"
+      content="Source-grounded global intelligence research, geographic exploration and historical analysis."
+    />
+    <title>Global OSINT | Intelligence workspace</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <a class="skip-link" href="#event-list">Skip to event list</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Global OSINT home">
+        <svg
+          aria-hidden="true"
+          width="30"
+          height="30"
+          viewBox="0 0 32 32"
+          fill="none"
+        >
+          <circle cx="16" cy="16" r="12" stroke="currentColor" />
+          <path
+            d="M16 1v7m0 16v7M1 16h7m16 0h7M11 21l3-7 7-3-3 7-7 3Z"
+            stroke="currentColor"
+          />
+        </svg>
+        <span
+          >GLOBAL <strong>OSINT</strong
+          ><small>INTELLIGENCE WORKSPACE</small></span
+        >
+      </a>
+      <form id="search-form" role="search" class="search">
+        <label class="sr-only" for="search">Search events or topics</label
+        ><span aria-hidden="true">⌕</span
+        ><input
+          id="search"
+          type="search"
+          placeholder="Search events, sources, topics…"
+          maxlength="200"
+        /><button type="submit">Search</button>
+      </form>
+      <span id="system-status" class="system-status" role="status"
+        >Connecting</span
+      >
+      <a
+        href="/advanced.html"
+        class="button"
+        title="Search evidence and manage investigation cases"
+        >Investigate ↗</a
+      >
+      <time id="utc-clock" class="clock" aria-label="Current UTC time"></time>
+      <button
+        id="refresh"
+        class="icon-button"
+        aria-label="Refresh dashboard"
+        title="Refresh stored observations"
+      >
+        ↻
+      </button>
+      <button
+        id="settings-open"
+        class="icon-button"
+        aria-label="Open settings"
+        title="Settings"
+      >
+        ⚙
+      </button>
+    </header>
+    <main id="workspace" class="workspace">
+      <aside
+        class="panel left-panel"
+        id="left-panel"
+        aria-label="Intelligence controls"
+      >
+        <div class="panel-heading">
+          <h1>Intelligence layers</h1>
+          <button
+            class="icon-button collapse"
+            data-panel="left"
+            aria-controls="left-content"
+            aria-expanded="true"
+            aria-label="Collapse intelligence controls"
+          >
+            ‹
+          </button>
+        </div>
+        <div id="left-content" class="panel-content">
+          <p class="eyebrow">DISPLAY OVERLAYS</p>
+          <div
+            id="layers"
+            class="layers"
+            aria-label="Selectable intelligence layers"
+          ></div>
+          <p class="helper">
+            Counts match the period and geographic filters. Aviation shows
+            current positions when available; history playback uses retained
+            observations.
+          </p>
+          <details class="coverage-details" open>
+            <summary>Data coverage</summary>
+            <div id="coverage-summary"></div>
+          </details>
+          <div class="divider"></div>
+          <h2>Geographic focus</h2>
+          <label for="country" class="field-label">Country or region</label
+          ><select id="country">
+            <option value="">All countries</option>
+          </select>
+          <label class="check-row"
+            ><input id="viewport-filter" type="checkbox" /> Limit results to map
+            view</label
+          >
+          <p class="helper">
+            Country mentions indicate regional context. They do not establish an
+            incident location.
+          </p>
+          <div class="divider"></div>
+          <h2>Observation period</h2>
+          <label for="period" class="field-label">Time window</label
+          ><select id="period">
+            <option value="1">Last hour</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+            <option value="720">Last 30 days</option>
+            <option value="custom">Custom dates</option>
+          </select>
+          <div id="custom-dates" hidden>
+            <label for="start-date" class="field-label">From (UTC)</label
+            ><input id="start-date" type="datetime-local" /><label
+              for="end-date"
+              class="field-label"
+              >To (UTC)</label
+            ><input id="end-date" type="datetime-local" /><button
+              id="apply-dates"
+              class="wide"
+            >
+              Apply range
+            </button>
+          </div>
+          <label for="time-basis" class="field-label">Filter by</label
+          ><select id="time-basis">
+            <option value="event">Occurrence, publication fallback</option>
+            <option value="published">Publication time</option>
+            <option value="ingested">Ingestion time</option>
+          </select>
+          <div class="divider"></div>
+          <details id="source-details">
+            <summary>
+              Source health <span id="source-count">0 active</span>
+            </summary>
+            <div id="source-statuses" class="source-statuses"></div>
+          </details>
+          <div class="divider"></div>
+          <details id="evidence-gaps-details">
+            <summary>Coverage and known gaps</summary>
+            <div id="evidence-gaps" class="evidence-gaps"></div>
+          </details>
+          <p class="helper">
+            Public-source coverage is partial. A quiet map does not imply an
+            absence of activity.
+          </p>
+        </div>
+      </aside>
+      <section class="map-workspace" aria-label="World intelligence map">
+        <div
+          id="map"
+          aria-label="Interactive world map. Use the country selector or event list for keyboard access."
+        ></div>
+        <div class="map-toolbar">
+          <div class="map-toolbar-row">
+            <div class="map-heading">
+              <span class="eyebrow">GLOBAL OBSERVATIONS</span>
+              <h2 id="map-title">World view</h2>
+            </div>
+            <div class="map-summary">
+              <span><strong id="matched-count">0</strong> matching</span>
+              <span><strong id="mapped-count">0</strong> mapped</span>
+              <span id="refresh-time">Waiting for API</span>
+            </div>
+            <p
+              id="aircraft-live-status"
+              class="helper aircraft-live-status"
+              hidden
+            ></p>
+            <div class="map-actions">
+              <button id="reset-view" aria-label="Reset map to world view">
+                World view</button
+              ><button id="theme" aria-label="Switch to light theme">
+                ◐ <span>Light</span>
+              </button>
+            </div>
+          </div>
+          <div class="map-toolbar-row map-toolbar-toggles">
+            <span id="sentiment-key" hidden
+              >Score: green + · red − · gray 0</span
+            ><label
+              ><input id="news-connections" type="checkbox" checked /> News
+              links</label
+            ><label
+              ><input id="military-connections" type="checkbox" checked />
+              Defence</label
+            ><label
+              ><input id="cyber-connections" type="checkbox" checked /> Cyber
+              context</label
+            ><label><input id="heatmap" type="checkbox" /> Density</label
+            ><label
+              ><input id="density-confidence" type="checkbox" checked /> Weight
+              by evidence</label
+            ><label
+              ><input id="analysis-overlays" type="checkbox" /> Analysis
+              overlays</label
+            ><span class="legend-swatch"
+              ><span class="legend-point"></span> Reported</span
+            ><span class="legend-swatch"
+              ><span class="legend-region"></span> Context</span
+            >
+            <span id="network-summary" aria-live="polite"></span>
+            <details class="map-legend-details">
+              <summary title="Map legend and method">ⓘ Key</summary>
+              <div class="map-legend-body">
+                <div id="layer-symbol-key" class="layer-symbol-key"></div>
+                <p>
+                  Solid monograms: reported locations. Hollow dashed monograms:
+                  regional context. Number badges: loaded clusters; + means
+                  mixed layers. P: publisher base. Select a cluster to expand.
+                </p>
+                <p id="network-key">
+                  Solid: publisher base → country discussed. Dotted: countries
+                  mentioned together. Brief pulses show reports arriving along
+                  each link, tinted by their wording: green positive · red
+                  negative · gray neutral or unscored. Tone describes the
+                  reports travelling, not opinion of the receiving country.
+                </p>
+                <p id="aviation-key">
+                  Yellow aircraft: ADS-B classes 4 (Large) and 5 (High Vortex
+                  Large) only. Icons point along reported ground track,
+                  clockwise from true north. Class 6 and missing classes or
+                  tracks are excluded. Each aircraft shows its latest loaded
+                  position. Size class is not a military classification.
+                </p>
+                <p id="map-sample-note"></p>
+                <p>
+                  Country boundaries: Natural Earth, public domain. Illustrative
+                  borders.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+        <aside
+          id="country-ribbon"
+          class="country-ribbon"
+          aria-labelledby="country-ribbon-title"
+        >
+          <div class="country-ribbon-heading">
+            <h3 id="country-ribbon-title">Countries</h3>
+            <button
+              id="country-ribbon-toggle"
+              aria-expanded="true"
+              aria-controls="country-ribbon-body"
+              aria-label="Collapse country leaderboard"
+            >
+              ‹
+            </button>
+          </div>
+          <div id="country-ribbon-body">
+            <div
+              class="country-rank-modes"
+              role="group"
+              aria-label="Country leaderboard ranking"
+            >
+              <button data-country-rank="mentions" aria-pressed="true">
+                Mentions
+              </button>
+              <button data-country-rank="sentiment" aria-pressed="false">
+                Sentiment
+              </button>
+              <button
+                data-country-rank="intelligence"
+                aria-pressed="false"
+                title="Intelligence coverage breadth"
+              >
+                Intel
+              </button>
+            </div>
+            <div id="country-tone-controls" hidden>
+              <label class="sr-only" for="country-tone-order"
+                >Sentiment ranking order</label
+              >
+              <select id="country-tone-order">
+                <option value="negative">Most negative first</option>
+                <option value="positive">Most positive first</option>
+              </select>
+            </div>
+            <p id="country-ranking-scope" class="country-ranking-scope">
+              Country references in reports
+            </p>
+            <p id="country-ranking-status" role="status">
+              Reading country activity…
+            </p>
+            <ol id="country-ranking" aria-label="Ranked countries"></ol>
+            <div class="country-ribbon-footer">
+              <button id="country-ribbon-reset" hidden>
+                Clear country selection
+              </button>
+              <p id="country-ranking-note">Mentions indicate context</p>
+              <details>
+                <summary>Ranking method</summary>
+                <p id="country-ranking-method"></p>
+              </details>
+            </div>
+          </div>
+        </aside>
+        <div id="load-error" class="map-error" role="alert" hidden></div>
+        <section
+          id="analysis-evidence"
+          class="analysis-evidence"
+          aria-label="Cross-category and regional analysis evidence"
+          hidden
+        >
+          <h3>Analysis overlays</h3>
+          <div id="cross-category-body"></div>
+        </section>
+      </section>
+      <aside
+        class="panel right-panel"
+        id="right-panel"
+        aria-label="Intelligence details"
+      >
+        <div class="panel-heading">
+          <h2>Intelligence feed</h2>
+          <button
+            class="icon-button collapse"
+            data-panel="right"
+            aria-controls="right-content"
+            aria-expanded="true"
+            aria-label="Collapse intelligence details"
+          >
+            ›
+          </button>
+        </div>
+        <div id="right-content" class="panel-content">
+          <div class="tab-buttons" role="group" aria-label="Intelligence view">
+            <button id="feed-tab" aria-pressed="true">Events</button
+            ><button id="analysis-tab" aria-pressed="false">Analysis</button
+            ><button id="military-tab" aria-pressed="false">Military</button
+            ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
+          </div>
+          <section id="feed-view">
+            <div id="country-insight" class="country-insight" hidden></div>
+            <div id="event-detail" hidden></div>
+            <div class="feed-label">
+              <span id="list-label">LATEST MATCHING RECORDS</span
+              ><span id="list-count"></span>
+            </div>
+            <ul
+              id="event-list"
+              class="event-list"
+              tabindex="-1"
+              aria-label="Matching intelligence events"
+            ></ul>
+            <button id="load-more" class="wide" hidden>Load more events</button>
+          </section>
+          <section id="military-view" hidden>
+            <h3>Military evidence briefing</h3>
+            <p id="military-summary" class="helper"></p>
+            <p id="military-map-label" class="helper"></p>
+            <button id="military-all" class="wide">
+              Show all defence links
+            </button>
+            <details>
+              <summary>Sources and assessment limits</summary>
+              <div id="military-source-status"></div>
+            </details>
+            <div id="military-groups"></div>
+          </section>
+          <section id="analysis-view" hidden>
+            <h3>Evidence-grounded analysis</h3>
+            <p class="helper">
+              Analysis uses the selected event, military topic evidence or
+              current filters. Each claim must cite stored source records.
+            </p>
+            <p id="ai-usage" class="helper"></p>
+            <form id="ai-form">
+              <label for="ai-question" class="field-label"
+                >Analyst question</label
+              ><textarea
+                id="ai-question"
+                rows="4"
+                minlength="3"
+                maxlength="1000"
+                required
+                placeholder="Summarize the developments and identify gaps in the evidence."
+              ></textarea
+              ><button type="submit" id="ai-submit" class="primary wide">
+                Analyze source records
+              </button>
+            </form>
+            <p id="ai-error" class="error-text" role="alert"></p>
+            <div id="ai-result" aria-live="polite"></div>
+            <div id="anomaly-alerts"></div>
+          </section>
+          <section id="sentiment-view" hidden>
+            <h3>Global sentiment</h3>
+            <label for="sentiment-kind" class="field-label">Dataset</label
+            ><select id="sentiment-kind">
+              <option value="public" selected>
+                Social discussions · Reddit
+              </option>
+              <option value="youtube">
+                YouTube uploads · publisher wording
+              </option>
+              <option value="news">News and media</option>
+              <option value="official">Official and institutional</option>
+            </select>
+            <div id="social-controls">
+              <label for="sentiment-platform" class="field-label"
+                >Public feed platform</label
+              >
+              <select id="sentiment-platform">
+                <option value="all">All connected public feeds</option>
+                <option value="reddit">Reddit</option>
+                <option value="x">X · no public feed connected</option>
+              </select>
+              <label for="sentiment-geography" class="field-label"
+                >Map geography</label
+              >
+              <select id="sentiment-geography">
+                <option value="mentions">Countries discussed</option>
+                <option value="origin">Declared post origin</option>
+              </select>
+              <label class="checkbox-row"
+                ><input id="social-edges" type="checkbox" checked /> Discussion
+                connections</label
+              >
+              <div id="social-coverage" class="helper" aria-live="polite"></div>
+              <details id="reddit-browser-import">
+                <summary>Import captured Reddit posts</summary>
+                <p class="helper">
+                  Free browser capture, without RSS or a social API key. Import
+                  only a public thread snapshot. This is a manual sample; it
+                  expires after 24 hours. Ask Codex to capture an open public
+                  Reddit thread, or import a compatible snapshot file.
+                </p>
+                <form id="reddit-import-form">
+                  <label for="reddit-import-file" class="field-label"
+                    >Choose a public browser capture</label
+                  >
+                  <input
+                    id="reddit-import-file"
+                    type="file"
+                    accept="application/json,.json"
+                  />
+                  <label for="reddit-import-text" class="field-label"
+                    >Or paste public snapshot text</label
+                  >
+                  <textarea
+                    id="reddit-import-text"
+                    rows="3"
+                    maxlength="65536"
+                    placeholder="Paste a compatible public browser capture here"
+                  ></textarea>
+                  <button id="reddit-import-submit" type="submit" class="wide">
+                    Import public snapshot
+                  </button>
+                </form>
+                <p id="reddit-import-status" class="helper" role="status"></p>
+              </details>
+            </div>
+            <div id="sentiment-summary"></div>
+            <details id="sentiment-evidence-panel" hidden>
+              <summary>Heatmap evidence and sample strength</summary>
+              <div id="sentiment-evidence-body"></div>
+              <label class="check-row inline-toggle"
+                ><input id="sentiment-evidence" type="checkbox" checked /> Show
+                per-region evidence on map hover</label
+              >
+            </details>
+            <div
+              id="sentiment-chart"
+              class="sentiment-chart"
+              aria-label="Positive, negative and neutral wording distribution"
+            ></div>
+            <div id="sentiment-regions"></div>
+            <div id="topic-frequency"></div>
+            <div id="social-network-section" hidden>
+              <h3>Discussion relationships</h3>
+              <p class="helper">
+                Arrows follow explicit thread and reply references. Gray nodes
+                are linked posts outside the displayed sample.
+              </p>
+              <div
+                id="social-network-chart"
+                aria-label="Comment and thread relationships"
+              ></div>
+              <details>
+                <summary id="social-relations-label">
+                  Connection evidence
+                </summary>
+                <div id="social-relation-list"></div>
+              </details>
+            </div>
+            <section id="social-posts-section" hidden>
+              <h3>Source posts</h3>
+              <p id="social-post-count" class="helper"></p>
+              <div id="social-posts"></div>
+            </section>
+            <details>
+              <summary>Method and coverage</summary>
+              <div id="sentiment-method" class="helper"></div>
+            </details>
+          </section>
+        </div>
+      </aside>
+      <section
+        class="timeline-panel"
+        id="timeline-panel"
+        aria-label="Historical timeline"
+      >
+        <div class="timeline-heading">
+          <div>
+            <h2>Observation timeline</h2>
+            <span id="timeline-range" class="helper"
+              >Occurrence time; publication fallback</span
+            >
+          </div>
+          <div class="playback-controls">
+            <button id="playback" aria-pressed="false">▷ Play history</button
+            ><label class="sr-only" for="playhead">Historical playhead</label
+            ><input
+              id="playhead"
+              type="range"
+              min="0"
+              max="100"
+              value="100"
+            /><span id="playhead-time" class="helper">Latest</span
+            ><button
+              class="icon-button collapse"
+              data-panel="bottom"
+              aria-controls="timeline-content"
+              aria-expanded="true"
+              aria-label="Collapse timeline"
+            >
+              ⌄
+            </button>
+          </div>
+        </div>
+        <div id="timeline-content">
+          <div
+            id="timeline-chart"
+            class="timeline-chart"
+            aria-label="Event counts by time; exact numbers available in the timeline table"
+          ></div>
+          <details class="timeline-table">
+            <summary>Timeline data table</summary>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Time</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Events</th>
+                </tr>
+              </thead>
+              <tbody id="timeline-table-body"></tbody>
+            </table>
+          </details>
+        </div>
+      </section>
+    </main>
+    <dialog id="settings-dialog" aria-labelledby="settings-title">
+      <form id="settings-form">
+        <div class="dialog-heading">
+          <h2 id="settings-title">Workspace settings</h2>
+          <button
+            type="button"
+            id="settings-close"
+            class="icon-button"
+            aria-label="Close settings"
+          >
+            ×
+          </button>
+        </div>
+        <label for="admin-token" class="field-label"
+          >Protected analysis access token</label
+        ><input
+          id="admin-token"
+          type="password"
+          autocomplete="off"
+          aria-describedby="token-help"
+        />
+        <p id="token-help" class="helper">
+          Enter the administrator token configured on your server. Stored in
+          memory for this tab only. Provider API keys belong in the server
+          environment.
+        </p>
+        <button type="submit" class="primary wide">Save settings</button>
+        <p class="helper">
+          Automatic refresh: every 60 seconds. Refresh reads stored
+          observations; collection runs separately.
+        </p>
+        <a
+          href="/api/openapi.json"
+          id="api-docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          >API schema</a
+        >
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

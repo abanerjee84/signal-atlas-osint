@@ -1,0 +1,9 @@
+CREATE TABLE threat_catalog_state(source_id TEXT PRIMARY KEY REFERENCES sources(source_id),state TEXT NOT NULL DEFAULT 'never_run',version TEXT,last_attempt TEXT,last_success TEXT,next_run TEXT,error TEXT,checksum TEXT,object_count INTEGER NOT NULL DEFAULT 0,relation_count INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE threat_catalog_objects(source_id TEXT NOT NULL REFERENCES sources(source_id),external_id TEXT NOT NULL,entity_id TEXT NOT NULL REFERENCES entities(entity_id),type TEXT NOT NULL,name TEXT NOT NULL,description TEXT NOT NULL,aliases TEXT NOT NULL,profile TEXT NOT NULL,original_url TEXT NOT NULL,version TEXT NOT NULL,modified_at TEXT,retrieved_at TEXT NOT NULL,active INTEGER NOT NULL,license_classification TEXT NOT NULL,PRIMARY KEY(source_id,external_id));
+CREATE INDEX threat_objects_entity ON threat_catalog_objects(entity_id,active);
+CREATE INDEX threat_objects_type ON threat_catalog_objects(type,active,name);
+CREATE TABLE threat_catalog_relations(source_id TEXT NOT NULL REFERENCES sources(source_id),external_id TEXT NOT NULL,relationship_id TEXT NOT NULL REFERENCES relationships(relationship_id),original_url TEXT NOT NULL,refs TEXT NOT NULL,modified_at TEXT,retrieved_at TEXT NOT NULL,active INTEGER NOT NULL,PRIMARY KEY(source_id,external_id));
+CREATE INDEX threat_relations_edge ON threat_catalog_relations(relationship_id,active);
+CREATE TABLE threat_report_matches(record_id TEXT NOT NULL REFERENCES external_records(record_id) ON DELETE CASCADE,entity_id TEXT NOT NULL REFERENCES entities(entity_id),alias TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(record_id,entity_id));
+CREATE INDEX threat_matches_entity ON threat_report_matches(entity_id,status);
+CREATE TABLE threat_match_state(record_id TEXT PRIMARY KEY REFERENCES external_records(record_id) ON DELETE CASCADE,catalog_signature TEXT NOT NULL,content_hash TEXT NOT NULL);

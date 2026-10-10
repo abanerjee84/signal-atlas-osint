@@ -1,0 +1,34 @@
+{
+  "environment": "Windows-11-10.0.22635-SP0",
+  "workload": "Retained live database; sequential warm requests, 10 samples/operation; concurrency 1",
+  "external_latency_included": false,
+  "ubuntu_8gb_acceptance": "not executed",
+  "record_count": 29619,
+  "timings": {
+    "internal_search": {
+      "p95_ms": 50.96,
+      "median_ms": 20.78,
+      "samples": 10
+    },
+    "entity_detail": {
+      "p95_ms": 15.89,
+      "median_ms": 11.72,
+      "samples": 10
+    },
+    "graph_neighborhood": {
+      "p95_ms": 39.59,
+      "median_ms": 26.81,
+      "samples": 10
+    },
+    "narrative_aggregate": {
+      "p95_ms": 14.66,
+      "median_ms": 13.39,
+      "samples": 10
+    },
+    "source_registry": {
+      "p95_ms": 94.82,
+      "median_ms": 70.02,
+      "samples": 10
+    }
+  }
+}

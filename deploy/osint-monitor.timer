@@ -1,0 +1,9 @@
+[Unit]
+Description=Periodic Global OSINT resource monitoring
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target

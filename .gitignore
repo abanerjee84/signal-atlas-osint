@@ -1,0 +1,34 @@
+# Dependencies and build output
+.venv/
+venv/
+node_modules/
+dist/
+
+# Private configuration and runtime data
+data/
+.env
+.env.*
+!.env.example
+credentials*.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# Caches, test output and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+Thumbs.db

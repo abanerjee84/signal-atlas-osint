@@ -1,0 +1,15 @@
+[Unit]
+Description=Consistent Global OSINT SQLite backup
+
+[Service]
+Type=oneshot
+User=osint
+Group=osint
+WorkingDirectory=/opt/osint
+EnvironmentFile=/etc/osint/osint.env
+ExecStart=/opt/osint/.venv/bin/python scripts/backup.py --destination /var/backups/osint --keep 7
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/osint /var/backups/osint

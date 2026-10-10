@@ -1,0 +1,15 @@
+[Unit]
+Description=Global OSINT disk and database snapshot
+
+[Service]
+Type=oneshot
+User=osint
+Group=osint
+WorkingDirectory=/opt/osint
+EnvironmentFile=/etc/osint/osint.env
+ExecStart=/opt/osint/.venv/bin/python scripts/monitor.py
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/osint

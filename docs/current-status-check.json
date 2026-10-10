@@ -1,0 +1,882 @@
+{
+  "checked_at": "2026-10-10T17:06:11.166365+00:00",
+  "window_hours": 24,
+  "health": {
+    "http": 200,
+    "result": {
+      "status": "ok",
+      "version": "0.1.0",
+      "timestamp": "2026-10-10T17:06:11+00:00",
+      "database": "sqlite-wal"
+    }
+  },
+  "status": {
+    "http": 200,
+    "event_count": 28493,
+    "worker_alive": true,
+    "worker_heartbeat": "2026-10-10T17:05:58+00:00",
+    "storage_bytes": 88158208,
+    "source_states": {
+      "ok": 26,
+      "error": 13,
+      "access_required": 2
+    },
+    "sources": [
+      {
+        "source_id": "reddit_browser",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T13:28:10+00:00",
+        "stored": 36
+      },
+      {
+        "source_id": "usgs",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T17:01:39+00:00",
+        "stored": 999
+      },
+      {
+        "source_id": "gdelt",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 429; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "acled",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 403",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "firms",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:21:31+00:00",
+        "stored": 1000
+      },
+      {
+        "source_id": "reliefweb",
+        "state": "access_required",
+        "stale": true,
+        "error": "Provider-approved ReliefWeb appname required",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "opensky",
+        "state": "error",
+        "stale": false,
+        "error": "Collection failed (OperationalError)",
+        "last_success": "2026-10-10T16:12:34+00:00",
+        "stored": 388
+      },
+      {
+        "source_id": "maritime",
+        "state": "access_required",
+        "stale": true,
+        "error": "Licensed maritime JSON endpoint and explicitly allowed host required",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "cisa",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T15:49:38+00:00",
+        "stored": 1000
+      },
+      {
+        "source_id": "ncsc",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:34:18+00:00",
+        "stored": 20
+      },
+      {
+        "source_id": "ofac",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:34:18+00:00",
+        "stored": 0
+      },
+      {
+        "source_id": "bbc",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:51:51+00:00",
+        "stored": 29
+      },
+      {
+        "source_id": "nato",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 404",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "ecb",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:54:21+00:00",
+        "stored": 15
+      },
+      {
+        "source_id": "uk_mod",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T17:01:14+00:00",
+        "stored": 20
+      },
+      {
+        "source_id": "dvids",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:54:21+00:00",
+        "stored": 20
+      },
+      {
+        "source_id": "bbc_africa",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:53+00:00",
+        "stored": 30
+      },
+      {
+        "source_id": "bbc_asia",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:54+00:00",
+        "stored": 17
+      },
+      {
+        "source_id": "bbc_europe",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:55+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "bbc_latin_america",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:56+00:00",
+        "stored": 16
+      },
+      {
+        "source_id": "bbc_middle_east",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:56+00:00",
+        "stored": 32
+      },
+      {
+        "source_id": "bbc_us_and_canada",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:55:57+00:00",
+        "stored": 23
+      },
+      {
+        "source_id": "aljazeera",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:56:13+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "dw",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:57:14+00:00",
+        "stored": 139
+      },
+      {
+        "source_id": "guardian",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:57:13+00:00",
+        "stored": 45
+      },
+      {
+        "source_id": "france24",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:57:15+00:00",
+        "stored": 24
+      },
+      {
+        "source_id": "reddit_archive_worldnews_post",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_archive_worldnews_comment",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_worldnews_new",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:57:16+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "reddit_worldnews_comments",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 429; retry budget exhausted",
+        "last_success": "2026-10-10T14:26:02+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "reddit_archive_geopolitics_post",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_archive_geopolitics_comment",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_geopolitics_new",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 429; retry budget exhausted",
+        "last_success": "2026-10-10T15:57:26+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "reddit_geopolitics_comments",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:58:29+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "reddit_archive_climate_post",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_archive_climate_comment",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 522; retry budget exhausted",
+        "last_success": null,
+        "stored": 0
+      },
+      {
+        "source_id": "reddit_climate_new",
+        "state": "error",
+        "stale": true,
+        "error": "Provider HTTP 429; retry budget exhausted",
+        "last_success": "2026-10-10T15:28:15+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "reddit_climate_comments",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:59:07+00:00",
+        "stored": 25
+      },
+      {
+        "source_id": "youtube_UC16niRr50-MSBwiO3YDb3RA",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:59:08+00:00",
+        "stored": 15
+      },
+      {
+        "source_id": "youtube_UCknLrEdhRCp1aegoMqRaCZg",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:59:10+00:00",
+        "stored": 15
+      },
+      {
+        "source_id": "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg",
+        "state": "ok",
+        "stale": false,
+        "error": null,
+        "last_success": "2026-10-10T16:59:10+00:00",
+        "stored": 15
+      }
+    ]
+  },
+  "layers": {
+    "http": 200,
+    "items": [
+      {
+        "id": "geopolitical",
+        "health": {
+          "total": 16,
+          "current": 14,
+          "needs_access": 0,
+          "failing": 2,
+          "coverage": "degraded",
+          "detail": [
+            {
+              "source_id": "gdelt",
+              "name": "GDELT news discovery",
+              "state": "error",
+              "error": "Provider HTTP 429; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "acled",
+              "name": "ACLED conflict reporting",
+              "state": "error",
+              "error": "Provider HTTP 403",
+              "access_requirement": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "military",
+        "health": {
+          "total": 3,
+          "current": 2,
+          "needs_access": 0,
+          "failing": 1,
+          "coverage": "degraded",
+          "detail": [
+            {
+              "source_id": "nato",
+              "name": "NATO public announcements",
+              "state": "error",
+              "error": "Provider HTTP 404",
+              "access_requirement": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "aviation",
+        "health": {
+          "total": 1,
+          "current": 0,
+          "needs_access": 0,
+          "failing": 1,
+          "coverage": "none_current",
+          "detail": [
+            {
+              "source_id": "opensky",
+              "name": "OpenSky aircraft observations",
+              "state": "error",
+              "error": "Collection failed (OperationalError)",
+              "access_requirement": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "maritime",
+        "health": {
+          "total": 1,
+          "current": 0,
+          "needs_access": 1,
+          "failing": 0,
+          "coverage": "none_current",
+          "detail": [
+            {
+              "source_id": "maritime",
+              "name": "Authorized maritime feed",
+              "state": "access_required",
+              "error": "Licensed maritime JSON endpoint and explicitly allowed host required",
+              "access_requirement": "Licensed maritime JSON endpoint and explicitly allowed host required"
+            }
+          ]
+        }
+      },
+      {
+        "id": "sentiment",
+        "health": {
+          "total": 13,
+          "current": 4,
+          "needs_access": 0,
+          "failing": 9,
+          "coverage": "degraded",
+          "detail": [
+            {
+              "source_id": "reddit_archive_worldnews_post",
+              "name": "Reddit archive r/worldnews posts",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_archive_worldnews_comment",
+              "name": "Reddit archive r/worldnews comments",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_worldnews_comments",
+              "name": "Reddit r/worldnews comments",
+              "state": "error",
+              "error": "Provider HTTP 429; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_archive_geopolitics_post",
+              "name": "Reddit archive r/geopolitics posts",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_archive_geopolitics_comment",
+              "name": "Reddit archive r/geopolitics comments",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_geopolitics_new",
+              "name": "Reddit r/geopolitics new",
+              "state": "error",
+              "error": "Provider HTTP 429; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_archive_climate_post",
+              "name": "Reddit archive r/climate posts",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_archive_climate_comment",
+              "name": "Reddit archive r/climate comments",
+              "state": "error",
+              "error": "Provider HTTP 522; retry budget exhausted",
+              "access_requirement": null
+            },
+            {
+              "source_id": "reddit_climate_new",
+              "name": "Reddit r/climate new",
+              "state": "error",
+              "error": "Provider HTTP 429; retry budget exhausted",
+              "access_requirement": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "cyber",
+        "health": {
+          "total": 2,
+          "current": 2,
+          "needs_access": 0,
+          "failing": 0,
+          "coverage": "current",
+          "detail": []
+        }
+      },
+      {
+        "id": "economic",
+        "health": {
+          "total": 2,
+          "current": 2,
+          "needs_access": 0,
+          "failing": 0,
+          "coverage": "current",
+          "detail": []
+        }
+      },
+      {
+        "id": "environment",
+        "health": {
+          "total": 3,
+          "current": 2,
+          "needs_access": 1,
+          "failing": 0,
+          "coverage": "degraded",
+          "detail": [
+            {
+              "source_id": "reliefweb",
+              "name": "ReliefWeb humanitarian reporting",
+              "state": "access_required",
+              "error": "Provider-approved ReliefWeb appname required",
+              "access_requirement": "Provider-approved ReliefWeb appname required"
+            }
+          ]
+        }
+      },
+      {
+        "id": "analysis",
+        "health": {
+          "total": 0,
+          "current": 0,
+          "needs_access": 0,
+          "failing": 0,
+          "coverage": "no_sources",
+          "detail": []
+        }
+      }
+    ]
+  },
+  "events": {
+    "http": 200,
+    "total": 27028,
+    "category_counts": {
+      "aviation": 25141,
+      "environment": 1485,
+      "geopolitical": 217,
+      "military": 23,
+      "sentiment": 162
+    }
+  },
+  "military": {
+    "http": 200,
+    "report_count": 47,
+    "official_count": 23,
+    "media_count": 24,
+    "sources": [
+      "aljazeera",
+      "bbc",
+      "bbc_us_and_canada",
+      "dvids",
+      "dw",
+      "france24",
+      "guardian",
+      "uk_mod",
+      "youtube_UC16niRr50-MSBwiO3YDb3RA",
+      "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg",
+      "youtube_UCknLrEdhRCp1aegoMqRaCZg"
+    ],
+    "topics": [
+      {
+        "name": "Exercises & readiness",
+        "count": 8
+      },
+      {
+        "name": "Procurement & capability",
+        "count": 5
+      },
+      {
+        "name": "Defence cooperation",
+        "count": 3
+      },
+      {
+        "name": "Conflict reporting",
+        "count": 25
+      },
+      {
+        "name": "Defence policy",
+        "count": 4
+      },
+      {
+        "name": "Other official defence reporting",
+        "count": 9
+      },
+      {
+        "name": "Historical background",
+        "count": 2
+      }
+    ]
+  },
+  "sentiment": {
+    "http": 200,
+    "dataset_count": 160,
+    "sample_count": 151,
+    "known_origin_count": 0,
+    "unknown_origin_count": 160,
+    "sources": {
+      "reddit_geopolitics_comments": 25,
+      "reddit_climate_comments": 25,
+      "reddit_worldnews_new": 25,
+      "reddit_geopolitics_new": 12,
+      "reddit_climate_new": 14,
+      "reddit_worldnews_comments": 25,
+      "reddit_browser": 34
+    },
+    "discussion_links": 46
+  },
+  "cross-category": {
+    "http": 200,
+    "result": {
+      "regions": [
+        {
+          "country": "US",
+          "categories": {
+            "aviation": 4258,
+            "environment": 109,
+            "geopolitical": 14
+          },
+          "category_count": 3,
+          "total": 4381,
+          "basis": "3 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "IN",
+          "categories": {
+            "aviation": 1614,
+            "environment": 236,
+            "geopolitical": 20
+          },
+          "category_count": 3,
+          "total": 1870,
+          "basis": "3 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "BR",
+          "categories": {
+            "aviation": 880,
+            "environment": 119,
+            "geopolitical": 3
+          },
+          "category_count": 3,
+          "total": 1002,
+          "basis": "3 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "RU",
+          "categories": {
+            "aviation": 238,
+            "environment": 121,
+            "geopolitical": 6
+          },
+          "category_count": 3,
+          "total": 365,
+          "basis": "3 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "SA",
+          "categories": {
+            "aviation": 98,
+            "environment": 6,
+            "geopolitical": 4
+          },
+          "category_count": 3,
+          "total": 108,
+          "basis": "3 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "AU",
+          "categories": {
+            "aviation": 1112,
+            "environment": 66
+          },
+          "category_count": 2,
+          "total": 1178,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "CN",
+          "categories": {
+            "aviation": 1095,
+            "environment": 48
+          },
+          "category_count": 2,
+          "total": 1143,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "ZA",
+          "categories": {
+            "aviation": 912,
+            "environment": 11
+          },
+          "category_count": 2,
+          "total": 923,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "ID",
+          "categories": {
+            "aviation": 426,
+            "environment": 50
+          },
+          "category_count": 2,
+          "total": 476,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "MX",
+          "categories": {
+            "aviation": 429,
+            "environment": 23
+          },
+          "category_count": 2,
+          "total": 452,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "NO",
+          "categories": {
+            "aviation": 438,
+            "geopolitical": 4
+          },
+          "category_count": 2,
+          "total": 442,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "JP",
+          "categories": {
+            "aviation": 385,
+            "environment": 6
+          },
+          "category_count": 2,
+          "total": 391,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "CA",
+          "categories": {
+            "aviation": 307,
+            "environment": 72
+          },
+          "category_count": 2,
+          "total": 379,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "AE",
+          "categories": {
+            "aviation": 314,
+            "environment": 22
+          },
+          "category_count": 2,
+          "total": 336,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "ES",
+          "categories": {
+            "aviation": 322,
+            "environment": 13
+          },
+          "category_count": 2,
+          "total": 335,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "PK",
+          "categories": {
+            "aviation": 225,
+            "environment": 110
+          },
+          "category_count": 2,
+          "total": 335,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "FR",
+          "categories": {
+            "aviation": 303,
+            "geopolitical": 7
+          },
+          "category_count": 2,
+          "total": 310,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "FI",
+          "categories": {
+            "aviation": 248,
+            "environment": 3
+          },
+          "category_count": 2,
+          "total": 251,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "CL",
+          "categories": {
+            "aviation": 218,
+            "environment": 6
+          },
+          "category_count": 2,
+          "total": 224,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        },
+        {
+          "country": "DE",
+          "categories": {
+            "aviation": 149,
+            "geopolitical": 3
+          },
+          "category_count": 2,
+          "total": 152,
+          "basis": "2 categories each with 3+ records naming this country in the last 24h. Co-occurrence in the collection is not evidence of a shared cause, a coordinated event, or causal linkage between categories."
+        }
+      ],
+      "window_hours": 24
+    }
+  },
+  "anomalies/regional": {
+    "http": 200,
+    "result": {
+      "items": [],
+      "method": "Per-region cell volume against the region's own 72h baseline; no LLM inference"
+    }
+  },
+  "frontend_4173": {
+    "error": "ConnectError"
+  },
+  "frontend_5173": {
+    "health_http": 200
+  },
+  "opensky_followup": {
+    "checked_at": "2026-10-10T17:14:10+00:00",
+    "state": "ok",
+    "last_success": "2026-10-10T17:13:01+00:00",
+    "error": null,
+    "aircraft_total": 25529,
+    "track_populated": 388,
+    "category_populated": 0
+  }
+}

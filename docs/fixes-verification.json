@@ -1,0 +1,371 @@
+{
+  "checked_at": "2026-10-10T17:28:39+00:00",
+  "api_health": {
+    "status": "ok",
+    "version": "0.1.0",
+    "timestamp": "2026-10-10T17:28:39+00:00",
+    "database": "sqlite-wal"
+  },
+  "aircraft": {
+    "total": 151,
+    "rendered_expected": 151,
+    "classes": [4],
+    "track_min": 3.33,
+    "track_max": 356.42,
+    "countries": [
+      "AT",
+      "BA",
+      "BE",
+      "BR",
+      "CA",
+      "CO",
+      "DE",
+      "ES",
+      "FR",
+      "GB",
+      "GE",
+      "GR",
+      "IN",
+      "IT",
+      "MX",
+      "NL",
+      "NO",
+      "PT",
+      "RO",
+      "US"
+    ],
+    "unknown_track": 0
+  },
+  "opensky": {
+    "source_id": "opensky",
+    "name": "OpenSky aircraft observations",
+    "category": "aviation",
+    "homepage": "https://opensky-network.org/about/faq",
+    "interval_seconds": 1800,
+    "limitation": "Worldwide network or configured region; classes 4 (Large) and 5 (High Vortex Large) with reported position and ground track only, capped at 400 observations per collection and sampled across geographic cells. Class 6 and unknown classes/tracks are excluded. Public ADS-B has coverage gaps. Map symbols show the latest loaded observation per transponder and rotate by reported ground track, not nose heading. Historical storage subject to your provider agreement.",
+    "access_requirement": null,
+    "coverage_scope": "world",
+    "coverage_area": "world",
+    "record_selection": "classes_4_5_with_reported_track_geographic_sample",
+    "aircraft_categories": [4, 5],
+    "per_cycle_cap": 400,
+    "state": "ok",
+    "last_attempt": "2026-10-10T17:26:40+00:00",
+    "last_success": "2026-10-10T17:26:44+00:00",
+    "error": null,
+    "fetched": 11853,
+    "stored": 151,
+    "rejected": 0,
+    "truncated": 11702,
+    "next_run": "2026-10-10T17:56:44+00:00",
+    "duration_ms": 4640.0,
+    "stale": false
+  },
+  "layers": [
+    {
+      "id": "geopolitical",
+      "name": "Geopolitical events",
+      "sources": [
+        "gdelt",
+        "acled",
+        "bbc",
+        "bbc_africa",
+        "bbc_asia",
+        "bbc_europe",
+        "bbc_latin_america",
+        "bbc_middle_east",
+        "bbc_us_and_canada",
+        "aljazeera",
+        "dw",
+        "guardian",
+        "france24",
+        "youtube_UC16niRr50-MSBwiO3YDb3RA",
+        "youtube_UCknLrEdhRCp1aegoMqRaCZg",
+        "youtube_UCNye-wNBqNL5ZzHSJj3l8Bg"
+      ],
+      "health": {
+        "total": 16,
+        "current": 14,
+        "needs_access": 0,
+        "failing": 2,
+        "stale": 0,
+        "coverage": "degraded",
+        "detail": [
+          {
+            "source_id": "gdelt",
+            "name": "GDELT news discovery",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 429; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "acled",
+            "name": "ACLED conflict reporting",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 403",
+            "access_requirement": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "military",
+      "name": "Military OSINT",
+      "sources": ["nato", "uk_mod", "dvids"],
+      "health": {
+        "total": 3,
+        "current": 2,
+        "needs_access": 0,
+        "failing": 1,
+        "stale": 0,
+        "coverage": "degraded",
+        "detail": [
+          {
+            "source_id": "nato",
+            "name": "NATO public announcements",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 404",
+            "access_requirement": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "aviation",
+      "name": "Aviation",
+      "sources": ["opensky"],
+      "health": {
+        "total": 1,
+        "current": 1,
+        "needs_access": 0,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "current",
+        "detail": []
+      }
+    },
+    {
+      "id": "maritime",
+      "name": "Maritime",
+      "sources": ["maritime"],
+      "health": {
+        "total": 1,
+        "current": 0,
+        "needs_access": 1,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "none_current",
+        "detail": [
+          {
+            "source_id": "maritime",
+            "name": "Authorized maritime feed",
+            "state": "access_required",
+            "stale": true,
+            "error": "Licensed maritime JSON endpoint and explicitly allowed host required",
+            "access_requirement": "Licensed maritime JSON endpoint and explicitly allowed host required"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sentiment",
+      "name": "Global sentiment",
+      "sources": [
+        "reddit_browser",
+        "reddit_archive_worldnews_post",
+        "reddit_archive_worldnews_comment",
+        "reddit_worldnews_new",
+        "reddit_worldnews_comments",
+        "reddit_archive_geopolitics_post",
+        "reddit_archive_geopolitics_comment",
+        "reddit_geopolitics_new",
+        "reddit_geopolitics_comments",
+        "reddit_archive_climate_post",
+        "reddit_archive_climate_comment",
+        "reddit_climate_new",
+        "reddit_climate_comments"
+      ],
+      "health": {
+        "total": 13,
+        "current": 4,
+        "needs_access": 0,
+        "failing": 9,
+        "stale": 0,
+        "coverage": "degraded",
+        "detail": [
+          {
+            "source_id": "reddit_archive_worldnews_post",
+            "name": "Reddit archive r/worldnews posts",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_archive_worldnews_comment",
+            "name": "Reddit archive r/worldnews comments",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_worldnews_new",
+            "name": "Reddit r/worldnews new",
+            "state": "error",
+            "stale": false,
+            "error": "Provider HTTP 429; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_archive_geopolitics_post",
+            "name": "Reddit archive r/geopolitics posts",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_archive_geopolitics_comment",
+            "name": "Reddit archive r/geopolitics comments",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_geopolitics_comments",
+            "name": "Reddit r/geopolitics comments",
+            "state": "fetching",
+            "stale": false,
+            "error": null,
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_archive_climate_post",
+            "name": "Reddit archive r/climate posts",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_archive_climate_comment",
+            "name": "Reddit archive r/climate comments",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 522; retry budget exhausted",
+            "access_requirement": null
+          },
+          {
+            "source_id": "reddit_climate_new",
+            "name": "Reddit r/climate new",
+            "state": "error",
+            "stale": true,
+            "error": "Provider HTTP 429; retry budget exhausted",
+            "access_requirement": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "cyber",
+      "name": "Cyber intelligence",
+      "sources": ["cisa", "ncsc"],
+      "health": {
+        "total": 2,
+        "current": 2,
+        "needs_access": 0,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "current",
+        "detail": []
+      }
+    },
+    {
+      "id": "economic",
+      "name": "Economic and energy",
+      "sources": ["ofac", "ecb"],
+      "health": {
+        "total": 2,
+        "current": 2,
+        "needs_access": 0,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "current",
+        "detail": []
+      }
+    },
+    {
+      "id": "environment",
+      "name": "Environment and humanitarian",
+      "sources": ["usgs", "firms", "reliefweb"],
+      "health": {
+        "total": 3,
+        "current": 2,
+        "needs_access": 1,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "degraded",
+        "detail": [
+          {
+            "source_id": "reliefweb",
+            "name": "ReliefWeb humanitarian reporting",
+            "state": "access_required",
+            "stale": true,
+            "error": "Provider-approved ReliefWeb appname required",
+            "access_requirement": "Provider-approved ReliefWeb appname required"
+          }
+        ]
+      }
+    },
+    {
+      "id": "analysis",
+      "name": "Analysis and anomaly alerts",
+      "sources": [],
+      "health": {
+        "total": 0,
+        "current": 0,
+        "needs_access": 0,
+        "failing": 0,
+        "stale": 0,
+        "coverage": "no_sources",
+        "detail": []
+      }
+    }
+  ],
+  "verification": {
+    "backend_tests": 88,
+    "node_tests": 4,
+    "build": "passed (bundle size warning remains)",
+    "lint": "passed",
+    "formatting": "passed",
+    "pip_check": "passed",
+    "browser_suite": "not rerun; focused manual browser verification",
+    "layer_health_matches_status": true,
+    "live_filtered_regional_api": 200,
+    "manual_browser": {
+      "aircraft_rendered": 151,
+      "aviation_toggle_off": 0,
+      "aviation_toggle_on": 151,
+      "aircraft_detail": {
+        "class": 4,
+        "track_deg": 248.5
+      },
+      "density_visible": true,
+      "application_console_errors": 0,
+      "unrelated_extension_error": true,
+      "screenshot": "aviation-fixes-dashboard.png"
+    },
+    "runtime_cisa_country_centroid_label": true
+  },
+  "context_repair": {
+    "cisa": 173,
+    "ncsc": 20,
+    "skipped": 0
+  },
+  "final_checked_at": "2026-10-10T17:32:14+00:00"
+}

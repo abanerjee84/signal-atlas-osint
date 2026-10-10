@@ -1,0 +1,9 @@
+# Store source text consistently; Windows launcher scripts check out with CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text

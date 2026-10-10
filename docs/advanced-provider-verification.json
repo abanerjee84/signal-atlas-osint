@@ -1,0 +1,114 @@
+{
+  "verified_at": "2026-10-10T18:37:50+00:00",
+  "inputs": "Two public geopolitical records; RIPEstat routing for 8.8.8.8",
+  "private_case_content_sent": false,
+  "ripe": {
+    "enqueue_status": 200,
+    "job_id": "88f00baec61c4fc1946415d86c858492",
+    "state": "completed",
+    "elapsed_seconds_including_queue": 14.06,
+    "result": {
+      "cached": false,
+      "classification": "routing_observation",
+      "data": {
+        "asns": [
+          "15169"
+        ],
+        "prefix": "8.8.8.0/24"
+      },
+      "endpoint": "network-info",
+      "limitations": "RIS routing observations, not cyber reputation or precise geolocation",
+      "observed_at": null,
+      "original_url": "https://stat.ripe.net/data/network-info/data.json?resource=8.8.8.8&sourceapp=GlobalOSINT",
+      "resource": "8.8.8.8",
+      "retrieved_at": "2026-10-10T18:38:01+00:00",
+      "source_id": "ripe"
+    },
+    "error": null
+  },
+  "openrouter": {
+    "enqueue_status": 200,
+    "job_id": "ad998fa44f274417b33a3a45e240da94",
+    "state": "completed",
+    "elapsed_seconds_including_queue": 35.16,
+    "result": {
+      "analysis_id": "0e7158c317c007f3bc11be658d4ef3ae",
+      "analysis_version": "advanced-assessment-v1",
+      "assessment_type": "correlation",
+      "cached": false,
+      "contradictory_evidence_ids": [],
+      "event_ids": [
+        "e4a05e7796e44c2c9ad0b8c7d9be71b2",
+        "20d20b65707343b0b2a4dc5a1821f608"
+      ],
+      "generated_at": "2026-10-10T18:38:21+00:00",
+      "hypotheses": [
+        {
+          "evidence_ids": [
+            "830d336f5295bd9354cac97e8247978c"
+          ],
+          "status": "unverified",
+          "text": "The diesel deal could be used by Moscow to fund its war efforts."
+        },
+        {
+          "evidence_ids": [
+            "838777af9eac6293a90da1fab3f97d4b"
+          ],
+          "status": "unverified",
+          "text": "The voter purge allegations reflect a broader debate about voting rights and trust in India's democracy."
+        }
+      ],
+      "limitations": [
+        "Only two source records are available, limiting the breadth of analysis.",
+        "Sources differ in precision (regional vs unknown) and confidence (single-source).",
+        "No independent corroboration of the claims is provided.",
+        "The evidence may reflect the editorial stance of the respective news outlets.",
+        "Temporal scope is limited to the publication dates in October 2026."
+      ],
+      "model_id": "openrouter/free",
+      "observations": [
+        {
+          "evidence_ids": [
+            "830d336f5295bd9354cac97e8247978c"
+          ],
+          "text": "BBC article reports that Ukraine's leader said a deal with Russia to release diesel into the US would help Moscow fund the war."
+        },
+        {
+          "evidence_ids": [
+            "838777af9eac6293a90da1fab3f97d4b"
+          ],
+          "text": "DW News video reports that thousands were detained in Delhi as authorities moved to stop a major protest over alleged voter purges, with demonstrators claiming millions of voters were wrongly removed from electoral rolls."
+        }
+      ],
+      "references": [
+        {
+          "confidence": "Single-source",
+          "evidence_id": "830d336f5295bd9354cac97e8247978c",
+          "observed_at": null,
+          "original_url": "https://www.bbc.co.uk/news/articles/cqe8r5l7n92jo?at_campaign=rss&at_medium=RSS",
+          "precision": "regional",
+          "published_at": "2026-10-10T18:24:03+00:00",
+          "source_id": "bbc_us_and_canada",
+          "text": "Ukraine's leader had said the deal with Russia to release diesel into the US would help Moscow fund the war.",
+          "title": "'Time for Ukraine to get new president,' says Trump after Zelensky condemns diesel deal"
+        },
+        {
+          "confidence": "Single-source",
+          "evidence_id": "838777af9eac6293a90da1fab3f97d4b",
+          "observed_at": null,
+          "original_url": "https://www.youtube.com/watch?v=qxguEH1hc9k",
+          "precision": "unknown",
+          "published_at": "2026-10-10T18:17:42+00:00",
+          "source_id": "youtube_UCknLrEdhRCp1aegoMqRaCZg",
+          "text": "Voter purge fuels anger in the world's largest democracy | DW News Thousands were detained as authorities moved to stop a major protest in Delhi. Demonstrators say millions of voters are being wrongly removed from electoral rolls, while officials insist they're simply cleaning up the lists. The confrontation is fueling a bigger debate about voting rights and trust in India's democracy. #dwcurrentaffairs #india #cockroachjantaparty #narednramodi #democracy #election #delhi #protests For more news go to: http://www.dw.com/en/ Follow DW on social media: \u25baInstagram: https://www.instagram.com/dwnews \u25baTikTok: https://www.tiktok.com/@dwnews \u25baFacebook: https://www.facebook.com/deutschewellenews/ \u25baTwitter: https://twitter.com/dwnews \u25baReddit: https://www.reddit.com/user/DWNews/ F\u00fcr Videos in deutscher Sprache besuchen Sie: https://www.youtube.com/dwdeutsch Subscribe: https://www.youtube.com/user/deutschewelleenglish?sub_confirmation=1",
+          "title": "Voter purge fuels anger in the world's largest democracy | DW News"
+        }
+      ],
+      "supporting_evidence_ids": [
+        "830d336f5295bd9354cac97e8247978c",
+        "838777af9eac6293a90da1fab3f97d4b"
+      ]
+    },
+    "error": null
+  }
+}

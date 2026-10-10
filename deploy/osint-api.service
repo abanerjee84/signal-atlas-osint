@@ -1,0 +1,28 @@
+[Unit]
+Description=Global OSINT API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=osint
+Group=osint
+WorkingDirectory=/opt/osint
+EnvironmentFile=/etc/osint/osint.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/osint/.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/osint
+MemoryMax=512M
+TasksMax=64
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

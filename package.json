@@ -1,0 +1,26 @@
+{
+  "name": "signal-atlas-osint",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abanerjee84/signal-atlas-osint.git"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "prettier": "3.9.10",
+    "vite": "8.3.1"
+  },
+  "dependencies": {
+    "echarts": "6.1.0",
+    "maplibre-gl": "6.13.0"
+  }
+}

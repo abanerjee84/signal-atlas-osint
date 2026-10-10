@@ -1,0 +1,855 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "IODA HTTP API",
+    "description": "Data and metadata API for IODA project.",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/v2/datasources/": {
+      "get": {
+        "tags": [
+          "Data Sources"
+        ],
+        "summary": "Get all data sources.",
+        "description": "Return all data sources used in IODA.\n\n<h3>BGP (bgp)</h3>\n<ul>\n    <li>\n        Data is obtained by processing <em>all updates</em> from\n        <em>all Route Views and RIPE RIS collectors</em>.\n    </li>\n    <li>\n        Every 5 minutes, we calculate the number of full-feed peers that\n        observe each prefix. A peer is <em>full-feed</em> if it has more than 400k IPv4 prefixes, and/or more than 10k IPv6 prefixes (i.e., suggesting that it shares its entire routing table).\n    </li>\n    <li>\n        A prefix is <em>visible</em> if more than 50% of the full-feed peers observe it.\n        We aggregate prefix visibility statistics by country, region and ASN.\n    </li>\n</ul>\n\n<h3>Google Transparency Report (gtr, gtr-sarima and gtr-norm)</h3>\n<ul>\n    <li>\n        Data is obtained by processing data published by the <em>Google\n        Transparency Report</em> project. We periodically use their\n        public API to scrape this data and insert it into the IODA\n        data pipeline.\n    </li>\n    <li>\n        The transparency report project publishes measurements\n        for each major Google product (e.g. Docs, Mail,\n        Search, Youtube and so on), separated by country. Not all\n        combinations of country and product are represented, but most\n        are available. Measurements are produced on a half-hourly basis,\n        with a time lag of approximately 2-3 hours.\n    </li>\n</ul>\n\n<h3>Active Probing (ping-slash24, ping-slash24-latency, ping-slash24-loss)</h3>\n<ul>\n    <li>\n        We use a custom implementation of the <a href=\"https://www.isi.edu/~johnh/PAPERS/Quan13c.html\">Trinocular</a> technique.\n    </li>\n    <li>\n        We probe ~4.2M /24 blocks at least once every 10 minutes (as opposed to 11 minutes used in the Trinocular paper).\n    </li>\n    <li>\n        Currently the alerts IODA shows use data from a team of\n        20 probers located at Georgia Tech.\n    </li>\n    <li>\n        The trinocular measurement and inference technique labels a /24 block as <em>up</em>,\n        <em>down</em>, or <em>unknown</em>.\n        In addition, we then aggregate <em>up</em> /24s into country, region and ASN\n        statistics. The number of /24s that are designated as \"up\" form the basis of the ping-slash24 signal.\n    </li>\n    <li>\n        We also record the round trip time of successful probes and collate them to report the distribution of latencies to probe destinations in each country, region and ASN. This data is available as the \"ping-slash24-latency\" signal.\n    </li>\n    <li>\n        Similarly, we compare the number of probes sent to each ASN, country and region against the number of successful responses to determine the rate of packet loss for each entity. The loss rates can be queried using the \"ping-slash24-loss\" signal.\n    </li>\n</ul>\n\n<h3>Network Telescope (merit-nt)</h3>\n<ul>\n    <li>\n        We analyze traffic data from the <a href=https://www.merit.edu/a-data-repository-for-cyber-security-research-and-education/>Merit</a> Network Telescope.\n    </li>\n    <li>\n        We apply <a href=http://www.caida.org/publications/papers/2014/passive_ip_space_usage_estimation/>anti-spoofing heuristics and noise reduction filters</a> to the\n        raw traffic.\n    </li>\n    <li>\n           For each packet that passes the filters, we perform geolocation (using the IPInfo IP geolocation DB) and ASN lookups on the source IP address,\n           and then compute the <em>number of unique source IPs per minute</em>, aggregated by  country, region, and ASN.\n    </li>\n</ul>\n\n<h3>Mozilla Telemetry (mozilla)</h3>\n<ul>\n  <li> Data for these signals are provided by Mozilla and are derived from telemetry data that they collect from their software products (e.g. Firefox).\n  </li>\n  <li> The geolocation for these signals is performed by Mozilla themselves, and then we fetch the geo-located data points and map them into our own IODA regions. Most notably, Mozilla's data is broken down at the city and country level, so we need to map individual cities to their corresponding IODA region.\n  </li>\n</ul>\n\n<h3>Upstream Delay (upstream-delay-penult-asns and upstream-delay-penult-e2e-latency)</h3>\n<ul>\n    <li>\n          We run traceroutes once every 30 minutes to a single (probably responsive) IP address from every routable /24 IPv4 prefix, using the <a href=\"https://www.cmand.org/yarrp/\">Yarrp</a> methodology.\n    </li>\n    <li>\n          Using those traceroutes, we record both the number of different penultimate ASNs observed prior to each subnet, as well as the distribution of end-to-end latencies seen for the traceroute probes that traversed each penultimate ASN to reach the target address.\n    </li>\n    <li>\n         We then aggregate these statistics by ASN to gain visibility into how the connectivity of an ASN might change in conjunction with an outage event.\n    </li>\n</ul>",
+        "operationId": "get_datasources_getall",
+        "responses": {
+          "200": {
+            "description": "Return data source matched by the lookup term"
+          }
+        }
+      }
+    },
+    "/v2/datasources/{datasource}": {
+      "get": {
+        "tags": [
+          "Data Sources"
+        ],
+        "summary": "Get one data source by name",
+        "description": "Return a single data source used in IODA by data source name.",
+        "operationId": "get_datasources_findone",
+        "parameters": [
+          {
+            "name": "datasource",
+            "in": "path",
+            "description": "Shortname of the data source: bgp, ucsd-nt, merit-nt, gtr, gtr-norm, gtr-sarima, ping-slash24, mozilla",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return data source matched by the lookup term"
+          }
+        }
+      }
+    },
+    "/v2/entities/query": {
+      "get": {
+        "tags": [
+          "Metadata Entities"
+        ],
+        "summary": "Lookup metadata entities",
+        "description": "Returns a JSON object with metadata for the searched entities.\n\n<h2> Usage examples </h2>\n\nTo get information about United States, use the following query:\n<pre>/entities/query?entityType=country&entityCode=US</pre>\n\n</br>\n\nTo search for entities whose name contains the word \"united\", use the following query\n<pre>/entities/query?search=united</pre>\nTo narrow down the previous search for only the countries, use the following query\n<pre>/entities/query?entityType=country&search=united</pre>\n\n</br>\n\nFor more advanced search, you can also use the <b>relatedTo</b> parameter. It takes a entity type and code\nseparated by <b>/</b>.\nFor example, to search for all ASes operate in New Zealand, use the following query:\n<pre><code>/entities/query?entityType=asn&relatedTo=country/NZ</code></pre>",
+        "operationId": "get_entities_get",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "query",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": false
+          },
+          {
+            "name": "entityCode",
+            "in": "query",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": false
+          },
+          {
+            "name": "relatedTo",
+            "in": "query",
+            "description": "Find entities related to another entity. Format: entityType[/entityCode]",
+            "required": false
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search entities with name that matches the search term",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "maximum number of entities to return",
+            "required": false
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "specify the page number of the returned entities",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return an array of metadata entities"
+          }
+        }
+      }
+    },
+    "/v2/outages/alerts": {
+      "get": {
+        "tags": [
+          "Outages"
+        ],
+        "summary": "Retrieve IODA outage alerts.",
+        "description": "<p>\nThe Alert API allows querying IODA's outage <em>alerts</em>.\n</p>\n\n<br/>\n\n<p>\nOutage alerts are generated by IODA using three data sources -\u2014 UCSD\nNetwork Telescope (ucsd-nt), BGP (bgp), and active probing\n(ping-slash24). For more information about the data sources see the\ndatasources API documentation. Alerts are generated by IODA when there is\na significant drop (or subsequent increase) in the timeseries of an IODA\ndata source for a group of addresses (such as addresses belonging to the\nsame geographic region or Autonomous System).\n</p>\n\n<br/>\n\n<p>\nIODA\u2019s Outages Alert API has been designed to allow users to query for\nsubsets of outage alerts that users are interested in. Instead of\nretrieving all outage alerts that IODA has ever generated, users will\ntypically be interested in specific subsets of alerts. For instance,\nusers may seek only the alerts that affect a specific country or\nAutonomous System, or alerts that were generated during specific periods.\nIn fact, we highly recommend that users use the available filter\nparameters to limit the number of results that are returned by the API.\n</p>\n\n<br/>\n\n<p>\n<em>Most users' use-cases will be addressed by the event API since this\nAPI returns outage data that has been processed to remove some sources of\nnoise from the underlying alerts that IODA generates. However, the event\nAPI itself internally uses the alert API. </em>\n</p>\n\n<h2> Usage Examples </h2>\n\n<h3>Finding Alerts By Time</h3>\n\n<p>\nThe Alert API allows a user to specify the time range in which they are\ninterested, using the from and until parameters. The response will\ninclude alerts that were generated during the user-specified time range.\nThe from and until parameters should both be provided in Unix Epoch\nseconds.\n</p>\n\n<p>\nFor example, the following GET request will return all alerts generated\nby IODA between 10:00:00 to 11:00:00 on Jan 10, 2019:\n</p>\n<pre> /outages/alerts?from=1547114400&until=1547118000 </pre>\n\n<h3> Finding Alerts By Geographic Region or ASN </h3>\n\n<p>\nUsers can specify the geographic region or Autonomous System they seek\nusing the meta parameter and the API will return the relevant subset of\nalerts. Each alert generated by IODA includes a meta field that indicates\nthe group of addresses that the alert affects: the group may be addresses\ngeolocating to a country, addresses geolocating to a region within a\ncountry, or addresses belonging to a specific Autonomous System.\n</p>\n\n<p>\nFor example, the following GET request will return alerts generated in\nthe U.S. between 10:00:00 to 11:00:00 on Jan 10, 2019:\n</p>\n<pre>/outages/alerts/?entityType=country&entityCode=US&from=1547114400&until=1547118000</pre>\n\n</p>\nThe following GET request will return alerts generated in AS 3307 between\n10:00:00 to 11:00:00 on Jan 10, 2019::\n</p>\n<pre>/outages/alerts?entityType=asn&entityCode=3307&from=1547114400&until=1547118000</pre>",
+        "operationId": "get_outages_alerts",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "query",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "continent",
+                "country",
+                "region",
+                "geoasn",
+                "asn"
+              ]
+            }
+          },
+          {
+            "name": "entityCode",
+            "in": "query",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": false
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Unix timestamp from when the alerts should begin after",
+            "required": true
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Unix timestamp until when the alerts should end before",
+            "required": true
+          },
+          {
+            "name": "datasource",
+            "in": "query",
+            "description": "Filter alerts by datasource",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "bgp",
+                "ping-slash24",
+                "gtr",
+                "merit-nt"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of alerts this query returns",
+            "required": false
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number of the alerts",
+            "required": false
+          },
+          {
+            "name": "relatedTo",
+            "in": "query",
+            "description": "Find data related to another entity. Format: entityType[/entityCode]",
+            "required": false
+          },
+          {
+            "name": "ignoreMethods",
+            "in": "query",
+            "description": "Ignore alerts detected for particular datasources or detection methods. Format: <datasource>.<method> -- multiple ignore terms can be specified using commas for separation. * as a wildcard for is also supported for either datasource or method (examples: bgp.median,gtr.*,*.sarima).",
+            "required": false
+          },
+          {
+            "name": "extendWindow",
+            "in": "query",
+            "description": "Set the maximum range of time (in seconds) outside of 'from' and 'until' to search for alerts that started or ended outside of the specified time range but were active during that time period. Defaults to 0.",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return an array of all data sources used by IODA"
+          }
+        }
+      }
+    },
+    "/v2/outages/events": {
+      "get": {
+        "tags": [
+          "Outages"
+        ],
+        "summary": "Retrieve IODA outage events.",
+        "description": "<p>\nIODA's Event API allows users to query for outage events detected by IODA.\nAn outage event is an instance of a macroscopic Internet outage affecting\nthe edge of the network. Each event has well-defined fields, such as the\noutage's start-time, duration and other fields, as defined in the\n<a href=\"https://www.isi.edu/publications/trpublic/pdfs/isi-tr-729.pdf\"> Common Outage Data Format </a>.\n</p>\n\n<br/>\n\n<p>\nIODA\u2019s Event API has been designed to allow users to query for subsets of\noutage events that users are interested in. Instead of retrieving all\noutage events that IODA has ever detected, users will typically be\ninterested in specific subsets of events. For instance, users may seek\nonly the events that affect a specific country or Autonomous System, or\nevents that were detected during specific periods. In fact, we highly\nrecommend that users use the available filter parameters to limit the\nnumber of results that are returned by the API.\n</p>\n\n<h2> Usage Examples </h2>\n\n<h3>  Finding Events By Time  </h3>\n\n<p>\nThe Event API allows a user to specify the time range in which they are\ninterested, using the <b>from</b> and <b>until</b> parameters. The response will\ninclude events that were detected during the user-specified time range\n(we discuss the set of returned events in further detail, along with edge\ncases, below). The <b>from</b> and <b>until</b> parameters should both be provided in\nUnix Epoch seconds.\n</p>\n\n<p>\nFor example, the following GET request will return all events detected by\nIODA between 20:00:00 to 23:00:00 on June 26, 2019:\n<pre>/outages/events?from=1561579200&until=1561590000</pre>\n</p>\n\n<h3> Finding Events By Region </h3>\n\n<p>\nThe following GET request will return events detected in the U.S.\nbetween 10:00:00 to 11:00:00 on Jan 10, 2019:\n<pre>/outages/events?entityType=country&entityCode=US&from=1561579200&until=1561590000</pre>\n</p>\n\n<h3> Finding Events By ASN </h3>\n\n<p>\nThe following GET request will return events detected in AS 3307.\nbetween 10:00:00 to 11:00:00 on Jan 10, 2019:\n<pre>/outages/events?entityType=asn&entityCode=3307&from=1561579200&until=1561590000</pre>\n</p>",
+        "operationId": "get_outages_events",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "query",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "continent",
+                "country",
+                "region",
+                "geoasn",
+                "asn"
+              ]
+            }
+          },
+          {
+            "name": "entityCode",
+            "in": "query",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": false
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Unix timestamp from when the alerts should begin after",
+            "required": true
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Unix timestamp until when the alerts should end before",
+            "required": true
+          },
+          {
+            "name": "includeAlerts",
+            "in": "query",
+            "description": "Whether to include alerts in the returned events",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "description": "Returned event object format",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "codf",
+                "ioda"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of events this query returns",
+            "required": false
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number of the events",
+            "required": false
+          },
+          {
+            "name": "relatedTo",
+            "in": "query",
+            "description": "Find data related to another entity. Format: entityType[/entityCode]",
+            "required": false
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Ordering summary by field. Format: attr[/[asc|desc]]",
+            "required": false
+          },
+          {
+            "name": "overall",
+            "in": "query",
+            "description": "Merge events across different data sources",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "ignoreMethods",
+            "in": "query",
+            "description": "Ignore alerts detected for particular datasources or detection methods. Format: <datasource>.<method> -- multiple ignore terms can be specified using commas for separation. * as a wildcard for is also supported for either datasource or method (examples: bgp.median,gtr.*,*.sarima).",
+            "required": false
+          },
+          {
+            "name": "extendWindow",
+            "in": "query",
+            "description": "Set the maximum range of time (in seconds) outside of 'from' and 'until' to search for alerts that started or ended outside of the specified time range but were active during that time period. Defaults to 1209600 seconds (i.e. 14 days).",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return an array of outage events generated by IODA"
+          }
+        }
+      }
+    },
+    "/v2/outages/summary": {
+      "get": {
+        "tags": [
+          "Outages"
+        ],
+        "summary": "Retrieve IODA outage summaries.",
+        "description": "<p>\nIODA's summary API returns summarized outages report over a given time range.\n</p>\n\n<br/>\n\n<p>\nFor a given time range, the summary API aggregates all detected events by the entity (e.g. an asn or a country)\nand calculate the overall score and the sum of the individual scores from different data sources during the time.\n</p>\n\n<br/>\n\n<p>\nTo calculate the overall score, we first merge overlapping events from different sources. The score of an merged\nevent is the multiplication of all the socres of the overlapping events to be merged. The overall score reported\nin summary is the sum of the scores for all merged events.\n<p>",
+        "operationId": "get_outages_summary",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "query",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": false,
+            "schema": {
+              "schema": "OutagesController",
+              "type": "string",
+              "enum": [
+                "continent",
+                "country",
+                "region",
+                "geoasn",
+                "asn"
+              ]
+            }
+          },
+          {
+            "name": "entityCode",
+            "in": "query",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": false
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Unix timestamp from when the alerts should begin after",
+            "required": true
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Unix timestamp until when the alerts should end before",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of entity summaries this query returns",
+            "required": false
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number of the summaries",
+            "required": false
+          },
+          {
+            "name": "relatedTo",
+            "in": "query",
+            "description": "Find data related to another entity. Format: entityType[/entityCode]",
+            "required": false
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Ordering summary by field. Format: attr[/[asc|desc]]",
+            "required": false
+          },
+          {
+            "name": "ignoreMethods",
+            "in": "query",
+            "description": "Ignore alerts detected for particular datasources or detection methods. Format: <datasource>.<method> -- multiple ignore terms can be specified using commas for separation. * as a wildcard for is also supported for either datasource or method (examples: bgp.median,gtr.*,*.sarima).",
+            "required": false
+          },
+          {
+            "name": "extendWindow",
+            "in": "query",
+            "description": "Set the maximum range of time (in seconds) outside of 'from' and 'until' to search for alerts that started or ended outside of the specified time range but were active during that time period. Defaults to 1209600 seconds (i.e. 14 days).",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return an array of outage summaries for entities generated by IODA"
+          }
+        }
+      }
+    },
+    "/v2/signals/raw/{entityType}/{entityCode}": {
+      "get": {
+        "tags": [
+          "Time Series Signals"
+        ],
+        "summary": "Retrieve time-series signals.",
+        "description": "<p>\nThe signals API retreives time-series data for a given entity using\ndifferent data sources.  The data calculation is documented in the\ndatasources endpoint API.\n</p>\n\n<br/>\n\n<p>\nThe signals API is used for building time-series graphs on the IODA\ndashboard.\n</p>",
+        "operationId": "get_signals_raw",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "path",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": true,
+            "schema": {
+              "schema": "SignalsController",
+              "type": "string",
+              "enum": [
+                "continent",
+                "country",
+                "region",
+                "geoasn",
+                "asn"
+              ]
+            }
+          },
+          {
+            "name": "entityCode",
+            "in": "path",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Unix timestamp from when the alerts should begin after",
+            "required": true
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Unix timestamp until when the alerts should end before",
+            "required": true
+          },
+          {
+            "name": "datasource",
+            "in": "query",
+            "description": "Filter signals by datasource",
+            "required": false,
+            "schema": {
+              "schema": "SignalsController",
+              "type": "string",
+              "enum": [
+                "bgp",
+                "ping-slash24",
+                "merit-nt",
+                "gtr",
+                "gtr-norm",
+                "gtr-sarima",
+                "mozilla",
+                "upstream-delay-penult-asns",
+                "upstream-delay-penult-e2e-latency",
+                "ping-slash24-latency",
+                "ping-slash24-loss"
+              ]
+            }
+          },
+          {
+            "name": "sourceParams",
+            "in": "query",
+            "description": "Comma-separated list of additional datasource-specific parameters",
+            "required": false
+          },
+          {
+            "name": "maxPoints",
+            "in": "query",
+            "description": "Maximum number of points per time-series",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return time series signals"
+          }
+        }
+      }
+    },
+    "/v2/signals/events/{entityType}/{entityCode}": {
+      "get": {
+        "tags": [
+          "Time Series Signals"
+        ],
+        "summary": "Retrieve time-series signals.",
+        "operationId": "get_signals_events",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "path",
+            "description": "Type of the entity, e.g. country, region, asn",
+            "required": true,
+            "schema": {
+              "schema": "SignalsController",
+              "type": "string",
+              "enum": [
+                "continent",
+                "country",
+                "region",
+                "asn"
+              ]
+            }
+          },
+          {
+            "name": "entityCode",
+            "in": "path",
+            "description": "Code of the entity, e.g. for United States the code is 'US'; use comma ',' to separate multiple codes",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Unix timestamp from when the alerts should begin after",
+            "required": true
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "description": "Unix timestamp until when the alerts should end before",
+            "required": true
+          },
+          {
+            "name": "maxPoints",
+            "in": "query",
+            "description": "Maximum number of points per time-series",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return time series signals"
+          }
+        }
+      }
+    },
+    "/v2/sym/{short}/": {
+      "get": {
+        "tags": [
+          "URL Shortener"
+        ],
+        "summary": "Expand an existing short URL",
+        "description": "Returns a JSON object with metadata about the given short URL. Note that\nthis also updates last-used times and counters unless the \"no_stats\"\nparameter is provided.",
+        "operationId": "get_sym_get",
+        "parameters": [
+          {
+            "name": "noStats",
+            "in": "query",
+            "description": "Do not update usage stats (counter, last-used time, etc.)",
+            "required": false,
+            "schema": {
+              "schema": "SymUrlController",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "short",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns information for the given short URL tag"
+          }
+        }
+      }
+    },
+    "/v2/sym/": {
+      "post": {
+        "tags": [
+          "URL Shortener"
+        ],
+        "summary": "Create a new short URL",
+        "description": "Creates a new short URL that maps to the given long URL. If there is\nalready a short URL for the given long URL, the existing short URL is\nreturned, otherwise a new short URL is created. If the \"short_url\"\nparameter is provided, then it will be used instead of an automatically\ngenerated URL unless it already exists, in which case an error will be\nreturned.",
+        "operationId": "post_sym_new",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "longUrl": {
+                    "description": "Long URL to be shortened",
+                    "type": "string",
+                    "example": "https://hicube.caida.org"
+                  },
+                  "shortTag": {
+                    "description": "Short tag to use instead of auto-generated tag [optional]",
+                    "type": "string",
+                    "example": "myurl"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns information about the newly created short URL"
+          }
+        }
+      }
+    },
+    "/v2/topo/{entityType}": {
+      "get": {
+        "tags": [
+          "Topographic"
+        ],
+        "summary": "Get topographic database information",
+        "description": "Returns topographic data based on the specified entity type. The entity type must be one of the following:\ncontinent, country, region, county. The topographic data returned can be used for plotting geo-location maps\nfor the frontend application. For example, the outages world map in the dashboard uses the country-level\ntopographic data.",
+        "operationId": "get_topo_get",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "path",
+            "description": "Type of the entity: continent, country, region, county",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns information about the given topographic database"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Envelope": {
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/EnvelopeMetadata"
+          },
+          "requestParameters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "string"
+          },
+          "perf": {
+            "type": "object"
+          },
+          "data": {
+            "type": "object"
+          },
+          "copyright": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DatasourceEntity": {
+        "required": [
+          "datasource",
+          "name",
+          "units"
+        ],
+        "properties": {
+          "datasource": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MetadataEntity": {
+        "required": [
+          "code",
+          "name",
+          "attributes",
+          "subnames"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MetadataEntityType"
+              }
+            ]
+          },
+          "attributes": {
+            "title": "Get all attributes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataEntityAttribute"
+            }
+          },
+          "subnames": {
+            "type": "array",
+            "items": []
+          }
+        },
+        "type": "object"
+      },
+      "SymUrl": {
+        "required": [
+          "shortTag",
+          "longUrl",
+          "useCount",
+          "dateCreated"
+        ],
+        "properties": {
+          "shortTag": {
+            "type": "string"
+          },
+          "longUrl": {
+            "type": "string"
+          },
+          "useCount": {
+            "type": "integer"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateLastUsed": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "EnvelopeMetadata": {
+        "properties": {
+          "requestTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "responseTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "type": "object"
+      },
+      "MetadataEntityType": {
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MetadataEntityAttribute": {
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Time Series Signals",
+      "description": "Time series data and metadata access calls"
+    },
+    {
+      "name": "Topographic",
+      "description": "Topographic data access calls"
+    },
+    {
+      "name": "URL Shortener",
+      "description": "Create and visit shortened URLs"
+    },
+    {
+      "name": "Metadata Entities",
+      "description": "Retrieve metadata information used in IODA"
+    },
+    {
+      "name": "Data Sources",
+      "description": "Information about data sources used in IODA"
+    },
+    {
+      "name": "Outages",
+      "description": "IODA outages"
+    }
+  ]
+}

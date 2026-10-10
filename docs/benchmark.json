@@ -1,0 +1,22 @@
+{
+  "timestamp_utc": "2026-10-10T10:04:46.597382+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.22635-SP0",
+    "python": "3.12.14",
+    "cpu_logical": 16,
+    "ram_bytes": 68640628736
+  },
+  "dataset": "10,000 synthetic environment observations; isolated temporary database deleted afterward",
+  "transport": "In-process ASGI HTTP; no network or proxy. OS file cache warm. Not an Ubuntu deployment soak test.",
+  "ingestion_seconds": 2.78,
+  "event_query_samples": 60,
+  "event_query_p50_ms": 36.43,
+  "event_query_p95_ms": 41.64,
+  "twenty_concurrent_requests_ms": 225.41,
+  "memory_after_ingestion_bytes": 68771840,
+  "memory_peak_polling_bytes": 83156992,
+  "memory_after_polling_bytes": 89858048,
+  "database_bytes": 28094464,
+  "total_seconds": 5.56,
+  "limitation": "A short regression sample cannot establish long-running leak absence, 30 FPS map performance or target-hardware acceptance."
+}

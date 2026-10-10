@@ -1,0 +1,8 @@
+{
+  "synthetic_records_in_temporary_database_only": 20,
+  "expected_recent": 15,
+  "expected_previous_6h": 3,
+  "unfiltered_alerts": 1,
+  "unfiltered_previous_count": 2,
+  "same_records_with_period_and_category_filters": 0
+}

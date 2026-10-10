@@ -1,0 +1,123 @@
+{
+  "checked_at": "2026-10-10T19:09:49+00:00",
+  "catalogs": [
+    {
+      "source_id": "misp_galaxy",
+      "objects": 1060,
+      "relations": 0,
+      "version": "352",
+      "classification": "reference_knowledge",
+      "state": "ok"
+    },
+    {
+      "source_id": "malpedia_actors",
+      "objects": 1060,
+      "relations": 0,
+      "version": "unversioned",
+      "classification": "reference_knowledge",
+      "state": "ok"
+    },
+    {
+      "source_id": "etda_actors",
+      "objects": 502,
+      "relations": 0,
+      "version": "2025-08-16",
+      "rejected": 1,
+      "classification": "reference_knowledge",
+      "state": "ok"
+    },
+    {
+      "source_id": "mitre_attack",
+      "objects": 1933,
+      "relations": 18958,
+      "version": "19.2",
+      "rejected": 0,
+      "classification": "reference_knowledge",
+      "state": "ok"
+    }
+  ],
+  "feeds": [
+    {
+      "source_id": "sans_diary",
+      "state": "ok",
+      "last_success": "2026-10-10T19:10:34+00:00",
+      "error": null,
+      "fetched": 10,
+      "stored": 10,
+      "rejected": 0,
+      "truncated": 0,
+      "duration_ms": 2969.0
+    },
+    {
+      "source_id": "citizen_lab",
+      "state": "ok",
+      "last_success": "2026-10-10T19:10:36+00:00",
+      "error": null,
+      "fetched": 10,
+      "stored": 10,
+      "rejected": 0,
+      "truncated": 0,
+      "duration_ms": 1469.0
+    },
+    {
+      "source_id": "krebs",
+      "state": "ok",
+      "last_success": "2026-10-10T19:10:36+00:00",
+      "error": null,
+      "fetched": 10,
+      "stored": 10,
+      "rejected": 0,
+      "truncated": 0,
+      "duration_ms": 421.0
+    },
+    {
+      "source_id": "defend_network",
+      "state": "ok",
+      "last_success": "2026-10-10T19:10:40+00:00",
+      "error": null,
+      "fetched": 25,
+      "stored": 25,
+      "rejected": 0,
+      "truncated": 0,
+      "duration_ms": 1937.0
+    }
+  ],
+  "sans_ip_lookup": {
+    "state": "ok",
+    "classification": "reported_network_activity"
+  },
+  "active_entities": [
+    {
+      "type": "campaign",
+      "count": 56
+    },
+    {
+      "type": "malware",
+      "count": 730
+    },
+    {
+      "type": "technique",
+      "count": 697
+    },
+    {
+      "type": "threat_actor",
+      "count": 1667
+    },
+    {
+      "type": "tool",
+      "count": 95
+    }
+  ],
+  "report_matches": [
+    {
+      "status": "ambiguous_alias",
+      "count": 56
+    },
+    {
+      "status": "explicit_name_mention",
+      "count": 2
+    }
+  ],
+  "catalog_relations": 18958,
+  "finished_at": "2026-10-10T19:19:18+00:00"
+}
