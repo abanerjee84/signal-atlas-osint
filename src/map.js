@@ -30,7 +30,8 @@ import {
   conflictColor,
 } from "./layer-symbols.js";
 import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
-import { orbitalFacts } from "./orbits.js";
+import { orbitalFacts, orbitalLabel, orbitalCountry } from "./orbits.js";
+import { drawCountryFlag, countryFlagImage } from "./country-flags.js";
 export { colors, CATEGORY_NAMES } from "./layer-symbols.js";
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -96,13 +97,13 @@ function aircraftIcon() {
   return context.getImageData(0, 0, size, size);
 }
 export const THIN_SAMPLE = 5;
-function satelliteIcon(iss = false) {
+function satelliteIcon(iss = false, color = colors.space) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 48;
   const ctx = canvas.getContext("2d");
   ctx.scale(2, 2);
   ctx.translate(12, 12);
-  ctx.fillStyle = iss ? "#eef0ff" : colors.space;
+  ctx.fillStyle = iss ? "#eef0ff" : color;
   ctx.strokeStyle = "#202736";
   ctx.lineWidth = 1;
   ctx.fillRect(-3, -4, 6, 8);
@@ -120,6 +121,28 @@ function satelliteIcon(iss = false) {
     ctx.fillRect(-5, -1, 10, 2);
   }
   return ctx.getImageData(0, 0, 48, 48);
+}
+function satelliteNameImage(item) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const text = orbitalLabel(item.name).slice(0, 48);
+  ctx.font = "11px Arial, sans-serif";
+  const textWidth = Math.ceil(ctx.measureText(text).width);
+  const width = textWidth + 8 + 22;
+  canvas.width = width * 2;
+  canvas.height = 36;
+  ctx.scale(2, 2);
+  ctx.font = "11px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#101b22";
+  ctx.fillStyle = "#edf1f5";
+  ctx.strokeText(text, 4, 9);
+  ctx.fillText(text, 4, 9);
+  drawCountryFlag(ctx, item.operator_country, textWidth + 8, 3, 18, 12);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 function graticule() {
   const features = [];
@@ -323,6 +346,14 @@ export function createWorldMap(
     nextPulseAt = 0,
     pulseCursor = 0;
   map.on("styleimagemissing", ({ id }) => {
+    if (id.startsWith("orbit-label-")) {
+      const item = orbitalData.features.find(
+        (feature) => feature.properties.name_icon === id,
+      )?.properties;
+      if (item && !map.hasImage(id))
+        map.addImage(id, satelliteNameImage(item), { pixelRatio: 2 });
+      return;
+    }
     const briefing = /^military-brief-(\d+|99plus)$/.exec(id);
     if (briefing) {
       map.addImage(
@@ -385,6 +416,17 @@ export function createWorldMap(
   });
   let selectedThreatRoute = null;
   let orbitalData = empty();
+  let orbitalTracks = empty();
+  let orbitHoverId = null;
+  const orbitColor = [
+    "match",
+    ["get", "role"],
+    "military",
+    "#e5b06a",
+    "navigation",
+    "#8dc7da",
+    "#c6bcff",
+  ];
   let worldView = true;
   const resetWorld = () => {
     worldView = true;
@@ -616,6 +658,12 @@ export function createWorldMap(
   map.on("load", () => {
     map.addImage("satellite", satelliteIcon(), { pixelRatio: 2 });
     map.addImage("iss", satelliteIcon(true), { pixelRatio: 2 });
+    map.addImage("satellite-military", satelliteIcon(false, "#e5b06a"), {
+      pixelRatio: 2,
+    });
+    map.addImage("satellite-navigation", satelliteIcon(false, "#8dc7da"), {
+      pixelRatio: 2,
+    });
     const arrowIcon = (color) => {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 48;
@@ -1253,6 +1301,32 @@ export function createWorldMap(
       selectEvent(event.features[0].properties.event_id),
     );
     map.addSource("orbital-positions", { type: "geojson", data: orbitalData });
+    map.addSource("orbital-tracks", { type: "geojson", data: orbitalTracks });
+    for (const phase of ["past", "future"])
+      map.addLayer({
+        id: `orbital-tracks-${phase}`,
+        type: "line",
+        source: "orbital-tracks",
+        filter: ["==", ["get", "phase"], phase],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": orbitColor,
+          "line-width": 1,
+          "line-opacity": phase === "past" ? 0.12 : 0.17,
+          ...(phase === "future" ? { "line-dasharray": [3, 4] } : {}),
+        },
+      });
+    map.addLayer({
+      id: "orbital-track-highlight",
+      type: "line",
+      source: "orbital-tracks",
+      filter: ["==", ["get", "event_id"], ""],
+      paint: {
+        "line-color": orbitColor,
+        "line-width": 1.5,
+        "line-opacity": 0.5,
+      },
+    });
     map.addLayer({
       id: "orbital-positions",
       type: "symbol",
@@ -1262,15 +1336,22 @@ export function createWorldMap(
         "icon-size": 0.72,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
-        "text-field": ["case", ["==", ["get", "catalog_id"], 25544], "ISS", ""],
-        "text-size": 11,
-        "text-offset": [0, 1.5],
-        "text-allow-overlap": true,
       },
-      paint: {
-        "text-color": "#eef0ff",
-        "text-halo-color": "#101b22",
-        "text-halo-width": 1.5,
+    });
+    // Locally drawn name sprites avoid a remote glyph service or font download.
+    // Labels can yield to each other while spacecraft icons remain visible.
+    map.addLayer({
+      id: "orbital-labels",
+      type: "symbol",
+      source: "orbital-positions",
+      layout: {
+        "icon-image": ["get", "name_icon"],
+        "icon-size": 1,
+        "icon-anchor": "top",
+        "icon-offset": [0, 11],
+        "icon-padding": 2,
+        "icon-allow-overlap": false,
+        "symbol-sort-key": ["get", "label_priority"],
       },
     });
     map.on("click", "orbital-positions", (event) =>
@@ -1281,24 +1362,54 @@ export function createWorldMap(
     });
     map.on("mousemove", "orbital-positions", (event) => {
       const item = event.features[0].properties;
-      const card = element("div");
+      orbitHoverId = item.event_id;
+      map.setFilter("orbital-track-highlight", [
+        "==",
+        ["get", "event_id"],
+        orbitHoverId,
+      ]);
+      const card = element("div", "orbital-hover-card");
+      const title = element("strong", "orbital-name", item.name);
+      title.append(
+        countryFlagImage(item.operator_country, orbitalCountry(item)),
+      );
       card.append(
-        element("strong", "", item.name),
-        element("p", "", item.purpose),
+        title,
+        element("p", "hover-summary", item.purpose),
+        element("p", "hover-meta", item.operator || "Operator not specified"),
       );
       const facts = orbitalFacts(item);
+      const fields = element("dl");
       for (const label of [
+        "Type",
+        "Country of origin",
+        "NORAD catalogue",
         "Altitude",
         "Orbital speed",
-        "Ground position",
-        "Source",
+        "Orbital period",
+        "Inclination",
+        "Element age",
+        "Tracking basis",
       ])
-        card.append(element("p", "", `${label}: ${facts[label]}`));
-      card.append(element("p", "helper", "Calculated orbital position"));
+        fields.append(
+          element("dt", "", `${label}:`),
+          element("dd", "", facts[label]),
+        );
+      card.append(
+        fields,
+        element("p", "hover-meta", `Source: ${item.source}`),
+        element(
+          "p",
+          "helper",
+          "Calculated orbital position · ground track, not sensor coverage",
+        ),
+      );
       hoverPopup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
     });
     map.on("mouseleave", "orbital-positions", () => {
       map.getCanvas().style.cursor = "";
+      orbitHoverId = null;
+      map.setFilter("orbital-track-highlight", ["==", ["get", "event_id"], ""]);
       hoverPopup.remove();
     });
     map.on("click", "countries-fill", (event) => {
@@ -2146,7 +2257,12 @@ export function createWorldMap(
   return {
     map,
     focusThreatRoute,
-    setOrbits(items) {
+    setOrbits(items, tracks) {
+      for (const item of items) {
+        const id = `orbit-label-${item.catalog_id}`;
+        if (map.isStyleLoaded() && !map.hasImage(id))
+          map.addImage(id, satelliteNameImage(item), { pixelRatio: 2 });
+      }
       orbitalData = {
         type: "FeatureCollection",
         features: items.map((item) => ({
@@ -2155,14 +2271,47 @@ export function createWorldMap(
             type: "Point",
             coordinates: [item.longitude, item.latitude],
           },
-          properties: item,
+          properties: {
+            ...item,
+            name_icon: `orbit-label-${item.catalog_id}`,
+            label_priority:
+              item.icon === "iss"
+                ? 0
+                : item.role === "military"
+                  ? 1
+                  : item.role === "station"
+                    ? 2
+                    : 3,
+          },
         })),
       };
       map.getSource("orbital-positions")?.setData(orbitalData);
+      const nextTracks =
+        tracks || (orbitalTracks.features.length ? empty() : orbitalTracks);
+      if (nextTracks !== orbitalTracks) {
+        orbitalTracks = nextTracks;
+        map.getSource("orbital-tracks")?.setData(orbitalTracks);
+      }
+      if (
+        !items.some((item) => item.event_id === orbitHoverId) &&
+        orbitHoverId
+      ) {
+        orbitHoverId = null;
+        hoverPopup.remove();
+        map.setFilter("orbital-track-highlight", [
+          "==",
+          ["get", "event_id"],
+          "",
+        ]);
+      }
+      map.getCanvas().dataset.orbitalTracks = String(
+        orbitalTracks.features.length,
+      );
       map.getCanvas().dataset.orbitalPositions = JSON.stringify(
         items.map((item) => ({
           id: item.event_id,
           name: item.name,
+          role: item.role,
           longitude: item.longitude,
           latitude: item.latitude,
           ...(() => {

@@ -31,7 +31,11 @@ import {
   orbitalPositions,
   filterOrbitalPositions,
   orbitalFacts,
+  orbitalTrajectories,
+  orbitalRole,
+  orbitalCountry,
 } from "./orbits.js";
+import { countryFlagImage } from "./country-flags.js";
 
 const $ = (selector) => document.querySelector(selector);
 const threatProviders = [
@@ -123,6 +127,8 @@ const state = {
   orbits: [],
   orbitalItems: [],
   orbitalLoaded: false,
+  orbitalScope: readSession("osint.orbitalScope", "defence"),
+  orbitalTracks: readSession("osint.orbitalTracks", true),
   reportingSignals: 0,
 };
 if (state.analysisOverlays) state.layers.add("analysis");
@@ -374,19 +380,80 @@ $("#layer-search").addEventListener("keydown", (event) => {
   }
 });
 
+let orbitalTrackCache = { orbits: null, bucket: null, data: null };
+let orbitalVisibleTracks = { data: null, ids: "", result: null };
+$("#orbital-scope").value = [
+  "defence",
+  "military",
+  "all",
+  "navigation",
+].includes(state.orbitalScope)
+  ? state.orbitalScope
+  : "defence";
+state.orbitalScope = $("#orbital-scope").value;
+$("#orbital-tracks").checked = state.orbitalTracks;
+$("#orbital-scope").addEventListener("change", (event) => {
+  state.orbitalScope = event.target.value;
+  saveSession("osint.orbitalScope", state.orbitalScope);
+  renderEvents();
+});
+$("#orbital-tracks").addEventListener("change", (event) => {
+  state.orbitalTracks = event.target.checked;
+  saveSession("osint.orbitalTracks", state.orbitalTracks);
+  updateOrbitalPositions();
+});
+
 function updateOrbitalPositions() {
-  state.orbitalItems = filterOrbitalPositions(orbitalPositions(state.orbits), {
-    country: state.country,
-    world: state.world,
-    q: state.q,
-    bbox: $("#viewport-filter").checked ? worldMap?.bounds() : undefined,
-  });
+  $("#orbital-controls").hidden = !state.layers.has("space");
+  const time = new Date();
+  state.orbitalItems = filterOrbitalPositions(
+    orbitalPositions(state.orbits, time),
+    {
+      country: state.country,
+      world: state.world,
+      q: state.q,
+      scope: state.orbitalScope,
+      bbox: $("#viewport-filter").checked ? worldMap?.bounds() : undefined,
+    },
+  );
   const enabled =
     state.layers.has("space") && Number($("#playhead").value) === 100;
   $("#orbital-live-status").hidden = !enabled;
   $("#orbital-live-status").textContent =
     `${state.orbitalItems.length} satellites`;
-  worldMap?.setOrbits(enabled ? state.orbitalItems : []);
+  let tracks;
+  if (enabled && state.orbitalTracks) {
+    const bucket = Math.floor(time.getTime() / 60000);
+    if (
+      orbitalTrackCache.orbits !== state.orbits ||
+      orbitalTrackCache.bucket !== bucket
+    ) {
+      orbitalTrackCache = {
+        orbits: state.orbits,
+        bucket,
+        data: orbitalTrajectories(state.orbits, time),
+      };
+    }
+    const ids = new Set(state.orbitalItems.map((item) => item.event_id));
+    const key = [...ids].join(",");
+    if (
+      orbitalVisibleTracks.data !== orbitalTrackCache.data ||
+      orbitalVisibleTracks.ids !== key
+    ) {
+      orbitalVisibleTracks = {
+        data: orbitalTrackCache.data,
+        ids: key,
+        result: {
+          ...orbitalTrackCache.data,
+          features: orbitalTrackCache.data.features.filter((feature) =>
+            ids.has(feature.properties.event_id),
+          ),
+        },
+      };
+    }
+    tracks = orbitalVisibleTracks.result;
+  }
+  worldMap?.setOrbits(enabled ? state.orbitalItems : [], tracks);
   const count = $('[data-count="space"]');
   if (count) count.textContent = state.orbitalItems.length;
   const note = $('[data-layer-note="space"]');
@@ -444,7 +511,9 @@ function showOrbitDetail(item, locate) {
     $("#event-detail").hidden = true;
     state.selectedEvent = null;
   });
-  card.append(close, element("h3", "", item.name));
+  const title = element("h3", "orbital-name", item.name);
+  title.append(countryFlagImage(item.operator_country, orbitalCountry(item)));
+  card.append(close, title);
   const fields = element("dl");
   for (const [label, value] of Object.entries(orbitalFacts(item))) {
     const detail = element("dd", "", value);
@@ -460,6 +529,8 @@ function showOrbitDetail(item, locate) {
     ),
     sourceLink(item.source_url, "View orbital source"),
   );
+  if (item.mission_url)
+    card.append(sourceLink(item.mission_url, "Mission reference"));
   $("#event-detail").replaceChildren(card);
   $("#event-detail").hidden = false;
   if ($("#workspace").classList.contains("right-collapsed"))
@@ -767,15 +838,21 @@ function renderEvents() {
   for (const item of orbitVisible) {
     const li = element("li");
     const button = element("button", "event-button orbital-card");
+    button.dataset.orbitalRole = item.role;
     button.dataset.eventId = item.event_id;
     const meta = element("div", "event-meta");
-    meta.append(symbolCanvas("space"), element("span", "", names.space));
+    meta.append(
+      symbolCanvas("space"),
+      element("span", "", orbitalRole(item.role)),
+    );
     const position = element("p", "orbital-position");
     position.dataset.orbitCard = item.event_id;
     position.textContent = `${item.altitude_km.toFixed(0)} km altitude · ${item.speed_kms.toFixed(2)} km/s · ${item.latitude.toFixed(1)}°, ${item.longitude.toFixed(1)}°`;
+    const title = element("span", "event-title orbital-name", item.name);
+    title.append(countryFlagImage(item.operator_country, orbitalCountry(item)));
     button.append(
       meta,
-      element("span", "event-title", item.name),
+      title,
       element("span", "event-excerpt", item.purpose),
       position,
     );

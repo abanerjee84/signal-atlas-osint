@@ -83,7 +83,11 @@ def main():
         page.locator('[data-event-id="orbit-25544"]').click()
         expect(page.locator("#event-detail")).to_contain_text("Orbital speed")
         expect(page.locator("#event-detail")).to_contain_text("NORAD catalogue")
-        assert page.locator("#event-detail a").get_attribute("href").startswith("https://")
+        assert all(
+            link.get_attribute("href").startswith("https://")
+            for link in page.locator("#event-detail a").all()
+        )
+        expect(page.get_by_role("link", name="Mission reference", exact=True)).to_be_visible()
         assert not any("events/orbit-" in url or "categories=space" in url for url in queries)
         page.locator("#reset-view").click()
         page.screenshot(path=str(output / "desktop.png"))

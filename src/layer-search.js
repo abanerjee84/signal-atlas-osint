@@ -20,7 +20,7 @@ const concepts = {
   analysis:
     "analysis intelligence anomalies anomaly patterns assessment evidence investigation insights correlations unusual trends",
   space:
-    "space satellite satellites iss international space station orbit orbital tracking hubble telescope tiangong earth observation spacecraft astronomy",
+    "space satellite satellites iss international space station orbit orbital tracking hubble telescope tiangong earth observation spacecraft astronomy reconnaissance sarah sar lupe ceres skynet wgs aehf muos gps military satellites",
 };
 const stop = new Set(
   "a an the of in on for to and with show find me about where is are can i want see track tracking latest live current position positions data".split(

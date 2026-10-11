@@ -260,9 +260,67 @@ button.wide {
 .orbital-card {
   border-left: 2px solid #c6bcff;
 }
+.orbital-card[data-orbital-role="military"] {
+  border-left-color: #e5b06a;
+}
+.orbital-card[data-orbital-role="navigation"] {
+  border-left-color: #8dc7da;
+}
 .orbital-position {
   color: var(--muted);
   font-size: 11px;
+}
+.orbital-controls {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 12px;
+  min-width: 0;
+  font-size: 11px;
+}
+.orbital-controls[hidden] {
+  display: none;
+}
+.orbital-controls legend {
+  color: var(--text);
+  padding: 0 5px;
+}
+.orbital-controls select {
+  width: 100%;
+  margin: 6px 0 9px;
+}
+.orbital-track-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.orbital-controls .helper {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.orbital-hover-card {
+  max-width: 300px;
+}
+.orbital-hover-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-top: 9px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.orbital-hover-card dt {
+  color: var(--muted);
+}
+.orbital-hover-card dd {
+  margin: 0;
+  text-align: right;
+}
+.orbital-hover-card .hover-summary {
+  margin-top: 4px;
+}
+.orbital-hover-card .hover-meta {
+  margin-top: 8px;
 }
 .system-status::before {
   content: "";
@@ -872,6 +930,10 @@ summary span {
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: 0 4px 12px #0003;
+}
+.map-hover-details .maplibregl-popup-content:has(.orbital-hover-card) {
+  max-width: 320px;
+  max-height: none;
 }
 .map-hover-details .hover-summary {
   font-size: 13px;
@@ -2037,4 +2099,11 @@ dialog a {
 }
 .tab-buttons button {
   font-size: 11px;
+}
+.orbital-country-flag {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  border-radius: 1px;
 }

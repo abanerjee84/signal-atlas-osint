@@ -1,10 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fixture from "./fixtures/orbital-elements.json" with { type: "json" };
+import militaryFixture from "./fixtures/military-elements.json" with { type: "json" };
 import {
   prepareOrbits,
   orbitalPositions,
   filterOrbitalPositions,
+  orbitalTrajectories,
+  splitGroundTrack,
+  orbitalFacts,
+  orbitalCountry,
 } from "../src/orbits.js";
 import { searchLayers } from "../src/layer-search.js";
 
@@ -35,6 +40,108 @@ test("ISS propagation produces plausible, changing positions from public element
   );
   assert.equal(orbitalPositions(orbits, new Date(NaN)).length, 0);
   assert.equal(prepareOrbits({ items: [{ epoch: "invalid" }] }).length, 0);
+});
+
+test("military OMM and observer TLEs propagate with mission and tracking details", () => {
+  const orbits = prepareOrbits(militaryFixture);
+  const time = new Date(orbits[0].epoch);
+  const positions = orbitalPositions(orbits, time);
+  assert.equal(positions.length, 3);
+  assert.ok(positions.every((item) => item.icon === "satellite-military"));
+  const geo = positions.find((item) => item.name.startsWith("WGS"));
+  assert.ok(geo.altitude_km > 35000 && geo.altitude_km < 37000);
+  const later = orbitalPositions(orbits, new Date(time.getTime() + 60000)).find(
+    (item) => item.catalog_id === geo.catalog_id,
+  );
+  assert.ok(Math.abs(later.longitude - geo.longitude) < 0.1);
+  const facts = orbitalFacts(positions[0]);
+  assert.equal(facts.Type, "Military");
+  assert.ok(facts.Operator.includes("Germany"));
+  assert.equal(facts["Country of origin"], "Germany");
+  assert.equal(
+    orbitalCountry({ operator_country: "INT" }),
+    "International collaboration",
+  );
+  assert.equal(orbitalCountry({}), "Unknown");
+  assert.ok(facts.Inclination.endsWith("°"));
+});
+
+test("ground tracks cross the dateline without spurious chords or joining missing positions", () => {
+  const lines = splitGroundTrack([[179, 10], [-179, 12], null, [0, 0], [1, 1]]);
+  assert.deepEqual(lines, [
+    [
+      [179, 10],
+      [180, 11],
+    ],
+    [
+      [-180, 11],
+      [-179, 12],
+    ],
+    [
+      [0, 0],
+      [1, 1],
+    ],
+  ]);
+  assert.deepEqual(
+    splitGroundTrack([
+      [-179, 10],
+      [179, 12],
+    ]),
+    [
+      [
+        [-179, 10],
+        [-180, 11],
+      ],
+      [
+        [180, 11],
+        [179, 12],
+      ],
+    ],
+  );
+  const orbits = prepareOrbits(fixture);
+  const time = new Date(fixture.items[1].epoch);
+  const tracks = orbitalTrajectories(orbits, time);
+  assert.ok(tracks.features.length >= 2);
+  assert.deepEqual(
+    new Set(tracks.features.map((f) => f.properties.phase)),
+    new Set(["past", "future"]),
+  );
+  for (const feature of tracks.features)
+    for (const line of feature.geometry.coordinates) {
+      assert.ok(line.length > 1);
+      for (let i = 1; i < line.length; i++)
+        assert.ok(Math.abs(line[i][0] - line[i - 1][0]) <= 180);
+    }
+  assert.equal(
+    orbitalTrajectories(orbits, new Date(time.getTime() + 30 * 86400000))
+      .features.length,
+    0,
+  );
+});
+
+test("military scope includes stations while navigation remains explicitly dual use", () => {
+  const items = [
+    { name: "ISS", role: "station" },
+    { name: "WGS", role: "military", operator: "United States / Defence" },
+    { name: "GPS", role: "navigation" },
+    { name: "Hubble", role: "civil" },
+  ];
+  assert.deepEqual(
+    filterOrbitalPositions(items, { scope: "defence" }).map((i) => i.name),
+    ["ISS", "WGS"],
+  );
+  assert.deepEqual(
+    filterOrbitalPositions(items, { scope: "military" }).map((i) => i.name),
+    ["WGS"],
+  );
+  assert.deepEqual(
+    filterOrbitalPositions(items, { scope: "navigation" }).map((i) => i.name),
+    ["GPS"],
+  );
+  assert.deepEqual(
+    filterOrbitalPositions(items, { q: "united states" }).map((i) => i.name),
+    ["WGS"],
+  );
 });
 
 test("satellite geographic filters include polygon holes and wrapped viewports", () => {

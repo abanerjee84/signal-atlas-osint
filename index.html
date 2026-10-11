@@ -114,6 +114,24 @@
             class="layers"
             aria-label="Selectable intelligence layers"
           ></div>
+          <fieldset id="orbital-controls" class="orbital-controls" hidden>
+            <legend>Spacecraft</legend>
+            <label for="orbital-scope">Show</label>
+            <select id="orbital-scope">
+              <option value="defence">Military &amp; stations</option>
+              <option value="military">Military only</option>
+              <option value="all">All spacecraft</option>
+              <option value="navigation">Navigation · dual use</option>
+            </select>
+            <label class="orbital-track-toggle"
+              ><input id="orbital-tracks" type="checkbox" checked /> Faint
+              ground tracks</label
+            >
+            <p class="helper">
+              Amber: military · blue: navigation · violet: civil. Tracks show
+              the previous 15 and next 90 minutes.
+            </p>
+          </fieldset>
           <details id="conflict-legend" class="coverage-details">
             <summary>Conflict symbols</summary>
             <div id="conflict-symbol-key"></div>
