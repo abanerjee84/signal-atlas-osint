@@ -24,11 +24,11 @@ Fourteen pictograms identify sirens/evacuations, drones, airstrikes, missiles/ro
 
 Solid rims indicate approximate reported locations; dashed rims indicate country context. Colours identify layers rather than severity or truth. Homogeneous clusters use the topic symbol and count; mixed clusters remain bundles and expand on selection. Country-level military markers represent briefing context, not troop positions.
 
-Hover previews use stored source wording or an existing source-grounded summary. Individual markers show topic, summary, location basis, publication time, confidence and source domain. Cluster previews include up to three source summaries. Military country markers include up to two relevant headlines. Clicking opens evidence and available original-source links. No LLM is needed for hover summaries.
+Hover previews lead with a short excerpt of stored source wording in readable type. Individual markers show topic, summary, location context, UTC publication time and source domain; evidence classification remains available in the full report. Cluster previews include up to two source summaries. Military country markers use briefing reports and retained events, including single-country reporting with no network edge. Context markers without preview evidence are omitted; the full reporting remains available in the feed. Clicking opens evidence and available original-source links. No LLM is needed for hover summaries.
 
 ## Reporting signals & alerts
 
-This derived layer replaces **Analysis and anomaly alerts**. Its sidebar switch and map-menu **Reporting overlays** switch now control one persisted state. Enabling it opens report evidence rather than the AI form. Signal text survives refresh, and its badge counts derived signals rather than attacks or stored analysis events.
+The top **Signals** button opens **Reporting signals & alerts** and its map rings. This is separate from the nine Intelligence layers and has one persisted state. Enabling it opens report evidence rather than the AI form. Signal text survives refresh, and its badge counts derived signals rather than attacks or stored analysis events.
 
 - **Amber regional rings:** a 10-degree cell has at least 20 records across 72 hours, at least five in the final six hours, at least two in the preceding six hours, and at least three times the preceding count. The selected end/time basis anchors comparisons; the selected start does not truncate baseline history. Rings mark coarse reporting areas, not incidents.
 - **Teal country rings:** at least two enabled categories each have three or more records associated with a country in the past 24 hours. This is reporting overlap, not a causal or coordinated link. Country totals follow category, country, search and period filters; viewport clipping does not truncate these totals. Historical windows outside the current 24 hours do not provide this live overlap signal.
@@ -44,8 +44,16 @@ Regional HTML is checked every 15 minutes; publisher feeds and ISW every 30 minu
 
 A public aggregate health bridge exposes new sources to an API process already running. The frontend includes their health and mixed-feed military coverage without starting, stopping or restarting either server.
 
-`scripts/check_conflict_workspace.py` verifies real hover summaries, citations, symbols, unified switches, persistent alerts, military briefs and narrow layouts against the running dashboard. Synthetic fixtures remain in temporary test databases. `scripts/reclassify_conflict_reports.py` repairs these collectors' labels from stored public evidence while preserving original dates and raw records.
+`scripts/check_conflict_workspace.py` verifies real hover summaries, citations, symbols, the top Signals button, persistent alerts, military briefs and narrow layouts against the running dashboard. Synthetic fixtures remain in temporary test databases. `scripts/reclassify_conflict_reports.py` repairs these collectors' labels from stored public evidence while preserving original dates and raw records.
 
 See [UI checks](conflict-ui-verification.json) and [collection checks](conflict-ingestion-verification.json). CFR and UCDP were investigated as background/history references and are not displayed as a fabricated live incident stream. ACLED's existing authorized connector remains separate because its site terms prohibit HTML scraping.
 
 All 37 selectors have completed a successful collection at least once. Subsequent checks can fail: Premium Times later served a JavaScript access challenge, and one Myanmar politics snapshot contained no valid records within retention. Those failures remain visible in source health; previous evidence is retained. The verification file records current states separately from past successful collections.
+
+## Refresh feedback and military browsing
+
+A centered map progress indicator appears for user-triggered computation: applying filters or layers, finding reporting signals, country insights, sentiment coverage, loading more records, evidence review, imports and optional analysis. Filter computations track fourteen actual sections, including country rankings; no percentage estimates the time remaining. Routine dashboard refresh, automatic aircraft/satellite/cyber updates, startup and opening individual reports remain quiet. Operations without a measurable total show a waiting indicator and elapsed time. Aborted or finished tasks release their indicator; short work avoids flashing a progress panel. Reduced motion keeps the waiting bar static.
+
+Military topics lead with a headline and report count. Official statements and news reports are labelled separately; report excerpts and sources sit under expandable lists. **Show topic links** highlights straight country discussion links and marks the active topic. Defence links are straight on the map and split at the dateline; report pulses follow those links. **View report on map** opens the individual source evidence. Methodology, reporting trends and provider health are secondary details.
+
+See [UI verification](map-ux-verification.json) and [military view](military-ui-workspace.jpg). Browser checks use only the existing servers; delayed-response checks alter browser delivery timing, not stored evidence.

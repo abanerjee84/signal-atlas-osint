@@ -1,0 +1,18 @@
+{
+  "top_signals_button": true,
+  "no_signals_intelligence_layer": true,
+  "readable_military_topics": true,
+  "active_topic_feedback": true,
+  "straight_defence_links": true,
+  "report_navigation": true,
+  "centered_progress": true,
+  "routine_refresh_has_no_progress": true,
+  "opening_report_has_no_progress": true,
+  "real_section_progress": true,
+  "indeterminate_operation_feedback": true,
+  "progress_clears_after_completion": true,
+  "keyboard_signals": true,
+  "narrow_layout": true,
+  "server_lifecycle_actions": 0,
+  "errors": []
+}

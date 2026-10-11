@@ -1,12 +1,12 @@
 {
-  "military_count": "119",
-  "geopolitical_count": "480",
-  "visible_conflict_types": "drone,clashes",
+  "military_count": "102",
+  "geopolitical_count": "448",
+  "visible_conflict_types": "clashes,drone",
   "hover_summary": true,
   "liveuamap_original_sources": true,
-  "reporting_signals": "6",
+  "reporting_signals": "7",
   "alerts_survive_refresh": true,
-  "one_signal_switch": true,
+  "top_signal_button": true,
   "adjacent_filter_batches": 1,
   "server_lifecycle_actions": 0,
   "errors": []

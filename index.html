@@ -196,6 +196,19 @@
           id="map"
           aria-label="Interactive world map. Use the country selector or event list for keyboard access."
         ></div>
+        <div id="map-progress" class="map-progress" hidden>
+          <strong data-progress-title role="status" aria-live="polite"></strong>
+          <div
+            class="map-progress-track"
+            role="progressbar"
+            aria-label="Loading dashboard"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <span data-progress-fill></span>
+          </div>
+          <span data-progress-detail></span>
+        </div>
         <div class="map-toolbar">
           <div class="map-toolbar-row">
             <div class="map-heading"><h2 id="map-title">World view</h2></div>
@@ -206,6 +219,15 @@
               <span id="refresh-time">Waiting for API</span>
             </div>
             <div class="map-actions">
+              <button
+                id="reporting-signals-toggle"
+                aria-pressed="false"
+                aria-controls="reporting-signals"
+                title="Reporting signals & alerts: report surges and evidence shared across layers"
+              >
+                Signals
+                <span data-count="analysis" class="signal-count">0</span>
+              </button>
               <button id="reset-view" aria-label="Reset map to world view">
                 World view
               </button>
@@ -228,10 +250,6 @@
                   <label
                     ><input id="density-confidence" type="checkbox" checked />
                     Weight by evidence</label
-                  >
-                  <label
-                    ><input id="analysis-overlays" type="checkbox" /> Reporting
-                    overlays</label
                   >
                   <p id="network-summary" aria-live="polite"></p>
                   <p
@@ -404,15 +422,6 @@
           </div>
         </aside>
         <div id="load-error" class="map-error" role="alert" hidden></div>
-        <section
-          id="analysis-evidence"
-          class="analysis-evidence"
-          aria-label="Cross-category and regional analysis evidence"
-          hidden
-        >
-          <h3>Reporting signals</h3>
-          <div id="cross-category-body"></div>
-        </section>
       </section>
       <aside
         class="panel right-panel"
@@ -446,12 +455,17 @@
             >
               <h3>Reporting signals & alerts</h3>
               <p class="helper">
-                Amber: report surges. Teal: evidence across layers. These show
-                changes in collected reporting, not confirmed escalation or
-                causal links. Use enabled layers and your filters; when this
-                layer is selected alone, it examines conflict and geopolitical
-                reporting.
+                Find areas with a rise in reporting and countries covered by
+                several layers.
               </p>
+              <details class="signal-method">
+                <summary>How to read these signals</summary>
+                <p class="helper">
+                  Amber rings show report surges; teal rings show reporting
+                  across layers. These are changes in coverage, not confirmed
+                  escalation. Your layers and filters apply.
+                </p>
+              </details>
               <div id="anomaly-alerts" aria-live="polite"></div>
             </section>
             <details id="radware-vector-panel" open hidden>
@@ -552,12 +566,14 @@
             <button id="load-more" class="wide" hidden>Load more events</button>
           </section>
           <section id="military-view" hidden>
-            <h3>Military evidence briefing</h3>
+            <h3>Military reporting</h3>
             <p id="military-summary" class="helper"></p>
             <p id="military-map-label" class="helper"></p>
-            <button id="military-all" class="wide">
-              Show all defence links
-            </button>
+            <p class="military-intro">
+              Explore conflict, deployments and defence news. Select a report to
+              read its evidence on the map.
+            </p>
+            <button id="military-all" class="wide">Show all topics</button>
             <details>
               <summary>Sources and assessment limits</summary>
               <div id="military-source-status"></div>

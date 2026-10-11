@@ -86,7 +86,7 @@ def main():
         page.locator("#search-form button").click()
         settled()
         page.locator("#conflict-legend summary").click()
-        assert page.locator(".conflict-key-item").count() == 14
+        expect(page.locator(".conflict-key-item")).to_have_count(14)
         expect(page.locator("#conflict-symbol-key")).to_contain_text("Siren")
         page.locator("#conflict-legend summary").click()
         page.locator("#feed-tab").click()
@@ -100,11 +100,12 @@ def main():
         page.screenshot(path=str(output / "conflict-icons.png"))
         page.locator("#event-detail .detail-close").click()
         page.locator("#reset-view").click()
-        page.locator('[data-layer="analysis"]').check()
+        page.locator("#reporting-signals-toggle").click()
         settled()
         expect(page.locator("#reporting-signals")).to_be_visible()
         expect(page.locator("#analysis-view")).to_be_hidden()
-        expect(page.locator("#analysis-overlays")).to_be_checked()
+        expect(page.locator("#reporting-signals-toggle")).to_have_attribute("aria-pressed", "true")
+        assert page.locator('[data-layer="analysis"]').count() == 0
         expect(page.locator("#anomaly-alerts")).not_to_be_empty()
         before = page.locator("#anomaly-alerts").inner_text()
         page.locator("#refresh").click()
@@ -112,17 +113,14 @@ def main():
         expect(page.locator("#anomaly-alerts")).not_to_be_empty()
         page.screenshot(path="docs/conflict-workspace.jpg", type="jpeg", quality=88)
         signals = page.locator('[data-count="analysis"]').inner_text()
-        page.locator(".map-options-details summary").click()
-        page.locator("#analysis-overlays").uncheck()
+        page.locator("#reporting-signals-toggle").click()
         settled()
-        expect(page.locator('[data-layer="analysis"]')).not_to_be_checked()
-        expect(page.locator("#analysis-evidence")).to_be_hidden()
+        expect(page.locator("#reporting-signals-toggle")).to_have_attribute("aria-pressed", "false")
         expect(page.locator("#reporting-signals")).to_be_hidden()
-        page.keyboard.press("Escape")
         page.locator('[data-layer="military"]').check()
         page.locator("#military-tab").click()
         expect(page.locator("#military-groups .military-brief").first).to_be_visible()
-        expect(page.locator("#military-summary")).to_contain_text("media reports")
+        expect(page.locator("#military-summary")).to_contain_text("reports")
         page.locator("#feed-tab").click()
         page.set_viewport_size({"width": 800, "height": 900})
         page.screenshot(path=str(output / "mobile.png"), full_page=True)
@@ -150,7 +148,7 @@ def main():
             "liveuamap_original_sources": True,
             "reporting_signals": signals,
             "alerts_survive_refresh": bool(before),
-            "one_signal_switch": True,
+            "top_signal_button": True,
             "adjacent_filter_batches": len(batches),
             "server_lifecycle_actions": 0,
             "errors": errors,

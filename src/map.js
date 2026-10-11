@@ -1,8 +1,17 @@
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { element } from "./api.js";
+import {
+  appendReportPreview,
+  countryReportPreviews,
+  reportHoverCard,
+} from "./report-preview.js";
 import { attackVectorLabel } from "./threats.js";
-import { connectionGeometry, pointAlong } from "./geo-lines.js";
+import {
+  connectionGeometry,
+  straightConnectionGeometry,
+  pointAlong,
+} from "./geo-lines.js";
 import {
   CYBER_PALETTE,
   cyberRouteFeatures,
@@ -298,6 +307,8 @@ export function createWorldMap(
     newsVisible = false,
     socialVisible = false;
   let militaryPlaces = empty();
+  let militaryReports = [],
+    previewEvents = [];
   let sentimentResult = null;
   let militaryData = empty(),
     militaryNetwork = null,
@@ -354,7 +365,7 @@ export function createWorldMap(
   const hoverPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: false,
-    maxWidth: "300px",
+    maxWidth: "360px",
     className: "map-hover-details",
   });
   let selectedThreatRoute = null;
@@ -1323,24 +1334,40 @@ export function createWorldMap(
       });
     }
     map.on("mousemove", "military-context", (event) => {
+      if (
+        map.queryRenderedFeatures(event.point, {
+          layers: [
+            "event-points",
+            "clusters",
+            "aircraft-track",
+            "threat-endpoints",
+            "orbital-positions",
+          ],
+        }).length
+      )
+        return;
       const p = event.features?.[0]?.properties;
       if (!p) return;
-      const card = element("div", "connection-popup");
-      card.append(element("strong", "", `${p.name} · Military reporting`));
-      const stories = [
-        ...new Set(
-          (militaryNetwork?.edges || [])
-            .filter((edge) => edge.from === p.code || edge.to === p.code)
-            .flatMap((edge) => edge.titles || []),
-        ),
-      ];
-      for (const title of stories.slice(0, 2))
-        card.append(element("p", "hover-summary", title));
+      const card = element("div", "event-hover-card country-hover-card");
+      card.append(element("div", "hover-kind", `${p.name} · Military reports`));
+      const stories = countryReportPreviews(
+        p.code,
+        p.name,
+        militaryReports,
+        previewEvents,
+        militaryNetwork?.edges,
+      );
+      for (const report of stories) appendReportPreview(card, report);
       card.append(
         element(
           "p",
-          "helper",
-          `${p.count} defence reports · country context, not a unit position`,
+          "hover-location",
+          `${p.count} reports mention this country`,
+        ),
+        element(
+          "p",
+          "hover-hint",
+          "Country context · select to explore reports",
         ),
       );
       hoverPopup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
@@ -1380,6 +1407,19 @@ export function createWorldMap(
       "threat-connections",
     ]) {
       map.on("mousemove", layer, (event) => {
+        if (
+          layer !== "threat-endpoints" &&
+          map.queryRenderedFeatures(event.point, {
+            layers: [
+              "event-points",
+              "clusters",
+              "aircraft-track",
+              "military-context",
+              "orbital-positions",
+            ],
+          }).length
+        )
+          return;
         const p = event.features?.[0]?.properties;
         if (!p) return;
         const name = (code) =>
@@ -1623,71 +1663,52 @@ export function createWorldMap(
         const hoverKey = `${layer}-${feature.properties.cluster_id ?? feature.properties.event_id}`;
         if (eventHoverKey === hoverKey) return;
         eventHoverKey = hoverKey;
-        const text = feature.properties.point_count
-          ? `${feature.properties.point_count} loaded observations. ${Object.keys(
-              colors,
-            )
-              .filter((category) => feature.properties[category] > 0)
-              .map((category) => `${category}: ${feature.properties[category]}`)
-              .join(
-                ", ",
-              )}. ${feature.properties.regional_count} regional context records. Select to expand.`
-          : layer === "aircraft-track"
-            ? `${feature.properties.title} · ${feature.properties.aircraft_summary || ""} · Position observed ${feature.properties.time_key}. Departure / destination not provided.`
-            : feature.properties.title;
-        const card = element("div", "event-hover-card");
-        card.append(element("strong", "hover-summary", text));
-        if (feature.properties.point_count) {
+        let card;
+        if (layer === "aircraft-track") {
+          card = element("div", "event-hover-card");
+          card.append(
+            element("div", "hover-kind", feature.properties.title),
+            element(
+              "p",
+              "hover-summary",
+              feature.properties.aircraft_summary || "Aircraft position",
+            ),
+            element(
+              "p",
+              "hover-meta",
+              `Position observed ${feature.properties.time_key}`,
+            ),
+          );
+        } else if (!feature.properties.point_count) {
+          card = reportHoverCard(feature.properties);
+        } else {
+          card = element("div", "event-hover-card");
+          card.append(
+            element(
+              "div",
+              "hover-kind",
+              `${feature.properties.point_count} reports nearby`,
+            ),
+          );
           try {
             const leaves = await map
               .getSource("events")
-              .getClusterLeaves(feature.properties.cluster_id, 3, 0);
+              .getClusterLeaves(feature.properties.cluster_id, 2, 0);
             if (eventHoverKey !== hoverKey) return;
             for (const leaf of leaves)
-              card.append(
-                element(
-                  "p",
-                  "hover-summary",
-                  leaf.properties.hover_summary || leaf.properties.title,
-                ),
-              );
+              appendReportPreview(card, leaf.properties);
           } catch {
-            /* A new collection can replace a cluster while hovering. */
-          }
-        }
-        if (!feature.properties.point_count && layer !== "aircraft-track") {
-          if (feature.properties.conflict_label)
-            card.prepend(
-              element("p", "hover-kind", feature.properties.conflict_label),
-            );
-          const summary = feature.properties.hover_summary;
-          if (summary && summary !== text)
-            card.append(element("p", "hover-summary", summary));
-          else
+            if (eventHoverKey !== hoverKey) return;
             card.append(
-              element("p", "helper", "Summary from the source headline"),
+              element(
+                "p",
+                "hover-summary",
+                "These reports are updating. Select the cluster to explore.",
+              ),
             );
+          }
           card.append(
-            element(
-              "p",
-              "helper",
-              feature.properties.location_basis || "Location not supplied",
-            ),
-          );
-          const date = feature.properties.published_at;
-          card.append(
-            element(
-              "p",
-              "helper",
-              `${feature.properties.confidence || "Single-source"} · ${date ? new Date(date).toLocaleString() : "Date unavailable"}`,
-            ),
-          );
-          card.append(
-            element(
-              "p",
-              "helper",
-              feature.properties.hover_source || feature.properties.source_id,
-            ),
+            element("p", "hover-hint", "Select to expand these reports"),
           );
         }
         hoverPopup
@@ -1821,15 +1842,12 @@ export function createWorldMap(
     mapError(event.error?.message || "Map rendering failed"),
   );
 
-  function networkFeatures(network) {
+  function networkFeatures(network, geometry = connectionGeometry) {
     return {
       type: "FeatureCollection",
       features: (network?.edges || []).map((edge) => ({
         type: "Feature",
-        geometry: connectionGeometry(
-          edge.from_coordinates,
-          edge.to_coordinates,
-        ),
+        geometry: geometry(edge.from_coordinates, edge.to_coordinates),
         properties: {
           id: edge.id,
           kind: edge.kind,
@@ -2070,6 +2088,7 @@ export function createWorldMap(
       );
     },
     setEvents(events) {
+      previewEvents = events;
       const features = (records) => ({
         type: "FeatureCollection",
         features: records
@@ -2234,14 +2253,28 @@ export function createWorldMap(
       visibility();
       startPulses();
     },
-    setMilitaryNetwork(network, enabled) {
+    setMilitaryNetwork(network, enabled, reports = []) {
       militaryNetwork = network;
+      militaryReports = reports;
       militaryVisible = enabled;
-      militaryData = networkFeatures(network);
+      militaryData = networkFeatures(network, straightConnectionGeometry);
+      map.getCanvas().dataset.militaryLinkSample = JSON.stringify(
+        militaryData.features[0]?.geometry.coordinates || [],
+      );
       militaryPlaces = {
         type: "FeatureCollection",
         features: (network?.nodes || [])
-          .filter((n) => n.count > 0)
+          .filter(
+            (n) =>
+              n.count > 0 &&
+              countryReportPreviews(
+                n.id,
+                n.name,
+                reports,
+                previewEvents,
+                network?.edges,
+              ).length,
+          )
           .map((n) => ({
             type: "Feature",
             geometry: { type: "Point", coordinates: n.coordinates },

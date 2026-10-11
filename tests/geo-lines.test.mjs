@@ -1,6 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { connectionGeometry, pointAlong } from "../src/geo-lines.js";
+import {
+  connectionGeometry,
+  straightConnectionGeometry,
+  pointAlong,
+} from "../src/geo-lines.js";
+
+test("defence links stay straight in Mercator, including dateline crossings", () => {
+  const project = ([x, lat]) => [
+    x,
+    Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)),
+  ];
+  for (const [a, b] of [
+    [
+      [-100, 38],
+      [60, 60],
+    ],
+    [
+      [170, -30],
+      [-170, 70],
+    ],
+  ]) {
+    const route = straightConnectionGeometry(a, b);
+    const start = project(a);
+    const points = route.coordinates
+      .flat()
+      .map(([x, y]) => project([x + 360 * Math.round((a[0] - x) / 360), y]));
+    const end = points.at(-1);
+    for (const p of points)
+      assert.ok(
+        Math.abs(
+          (p[0] - start[0]) * (end[1] - start[1]) -
+            (p[1] - start[1]) * (end[0] - start[0]),
+        ) < 1e-7,
+      );
+    for (const line of route.coordinates)
+      for (let i = 1; i < line.length; i++)
+        assert.ok(Math.abs(line[i][0] - line[i - 1][0]) <= 180);
+    assert.notDeepEqual(pointAlong(route, 0.4), pointAlong(route, 0.6));
+  }
+});
 test("arrows keep advancing through the last segment instead of pausing", () => {
   const route = connectionGeometry([0, 0], [32, 0]);
   assert.notDeepEqual(pointAlong(route, 0.98), pointAlong(route, 0.99));

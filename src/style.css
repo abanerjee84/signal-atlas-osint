@@ -866,6 +866,109 @@ summary span {
 .map-hover-details {
   pointer-events: none;
 }
+.map-hover-details .maplibregl-popup-content {
+  padding: 15px 17px;
+  max-height: 340px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px #0003;
+}
+.map-hover-details .hover-summary {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.55;
+  margin: 8px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.map-hover-details .hover-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0 10px;
+  line-height: 1.5;
+}
+.map-hover-details .hover-location,
+.map-hover-details .hover-hint {
+  font-size: 11px;
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.map-hover-details .hover-kind {
+  font-size: 12px;
+  font-weight: 600;
+}
+.signal-count {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--map);
+  font-variant-numeric: tabular-nums;
+  margin-left: 5px;
+}
+.map-progress {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  width: min(360px, calc(100% - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 12px #0003;
+  pointer-events: none;
+  display: grid;
+  gap: 11px;
+  text-align: center;
+}
+.map-progress strong {
+  font-size: 14px;
+  text-wrap: balance;
+}
+.map-progress > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+.map-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--border);
+}
+.map-progress-track span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 150ms ease-out;
+}
+.map-progress.indeterminate .map-progress-track span {
+  width: 35%;
+  animation: progress-sweep 1.5s linear infinite;
+}
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(390%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-progress-track span {
+    transition: none;
+  }
+  .map-progress.indeterminate .map-progress-track span {
+    animation: none;
+    transform: translateX(90%);
+  }
+}
 .event-hover-card strong,
 .hover-summary {
   display: block;
@@ -1862,8 +1965,53 @@ dialog a {
 }
 
 .military-brief {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  margin-top: 12px;
+  background: var(--surface-raised);
+}
+.military-intro {
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 12px;
+}
+.military-topic-heading {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: start;
+}
+.military-topic-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  text-wrap: balance;
+}
+.report-count-chip {
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.military-topic-summary {
+  font-size: 13px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.military-topic-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.military-trend {
+  margin-top: 12px;
+  color: var(--muted);
+}
+.military-brief .primary-topic-action {
+  border-color: var(--accent);
+}
+.military-report-list > summary {
+  padding: 9px 0;
 }
 .brief-actions {
   display: flex;

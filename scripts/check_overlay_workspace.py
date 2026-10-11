@@ -39,7 +39,7 @@ def main():
         canvas = page.locator('canvas[data-ready="true"]')
         canvas.wait_for(timeout=30000)
         expect(page.locator('[data-count="space"]')).not_to_have_text("0")
-        assert page.locator("input[data-layer]").count() == 10
+        assert page.locator("input[data-layer]").count() == 9
         investigate = page.locator(".investigate-button")
         investigate.hover()
         expect(page.locator("#investigate-tooltip")).to_be_visible()
@@ -57,7 +57,7 @@ def main():
         expect(page.locator("#layer-search-result")).to_contain_text("No related layers")
         assert page.locator(".layer-row:visible").count() == 0
         search.press("Escape")
-        assert page.locator(".layer-row:visible").count() == 10
+        assert page.locator(".layer-row:visible").count() == 9
         assert page.locator('input[data-layer="space"]').is_checked()
         before = json.loads(canvas.get_attribute("data-orbital-positions"))
         page.wait_for_timeout(4500)

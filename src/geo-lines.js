@@ -39,6 +39,35 @@ export function connectionGeometry(from, to) {
       ]);
     }
   }
+  return splitAtDateline(points);
+}
+
+// Straight in the dashboard's Mercator map, with short steps so report pulses
+// follow the displayed link. Wrap at the dateline instead of spanning the world.
+export function straightConnectionGeometry(from, to) {
+  const mercator = (lat) =>
+    Math.log(
+      Math.tan(Math.PI / 4 + radians(Math.max(-85, Math.min(85, lat))) / 2),
+    );
+  const start = mercator(from[1]);
+  const end = mercator(to[1]);
+  const delta = normalize(to[0] - from[0]);
+  const points = Array.from({ length: 33 }, (_, step) => {
+    const t = step / 32;
+    return [
+      normalize(from[0] + delta * t),
+      degrees(2 * Math.atan(Math.exp(start + (end - start) * t)) - Math.PI / 2),
+    ];
+  });
+  return splitAtDateline(points, (a, b, t) =>
+    degrees(
+      2 * Math.atan(Math.exp(mercator(a) + (mercator(b) - mercator(a)) * t)) -
+        Math.PI / 2,
+    ),
+  );
+}
+
+function splitAtDateline(points, latitudeAt = (a, b, t) => a + t * (b - a)) {
   const segments = [[points[0]]];
   for (let i = 1; i < points.length; i++) {
     const previous = points[i - 1],
@@ -47,7 +76,7 @@ export function connectionGeometry(from, to) {
       const boundary = previous[0] > 0 ? 180 : -180;
       const unwrapped = current[0] + (previous[0] > 0 ? 360 : -360);
       const ratio = (boundary - previous[0]) / (unwrapped - previous[0]);
-      const lat = previous[1] + ratio * (current[1] - previous[1]);
+      const lat = latitudeAt(previous[1], current[1], ratio);
       segments.at(-1).push([boundary, lat]);
       segments.push([[-boundary, lat], current]);
     } else segments.at(-1).push(current);

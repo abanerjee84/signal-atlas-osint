@@ -1,6 +1,7 @@
 import "./style.css";
 import { api, dateText, element, relativeTime, sourceLink } from "./api.js";
 import { createWorldMap, THIN_SAMPLE } from "./map.js";
+import { createMapProgress } from "./map-progress.js";
 import { renderMilitary } from "./military.js";
 import { renderSocial, focusSocialPost } from "./social.js";
 import {
@@ -136,6 +137,7 @@ let worldMap,
   playbackTimer,
   viewportTimer,
   countryController;
+const mapProgress = createMapProgress($("#map-progress"));
 const countryRibbon = createCountryRibbon({
   selectCountry,
   readSession,
@@ -246,7 +248,7 @@ function badge(confidence) {
 function renderLayers() {
   $("#layers").replaceChildren();
   for (const [id, name] of Object.entries(names)) {
-    if (id === "threat") continue;
+    if (["threat", "analysis"].includes(id)) continue;
     const label = element("label", "layer-row");
     const input = element("input");
     input.type = "checkbox";
@@ -284,7 +286,7 @@ function renderLayers() {
         renderNetworkSummary();
         renderCountryActivity();
       }
-      refresh();
+      refresh({ progressLabel: "Applying intelligence layers" });
     });
     $("#layers").append(label);
   }
@@ -295,12 +297,14 @@ function syncReportingSignals() {
   state.analysisOverlays = state.layers.has("analysis");
   saveSession("osint.analysisOverlays", state.analysisOverlays);
   saveSession("osint.layers", [...state.layers]);
-  $("#analysis-overlays").checked = state.analysisOverlays;
+  $("#reporting-signals-toggle").setAttribute(
+    "aria-pressed",
+    String(state.analysisOverlays),
+  );
   $("#reporting-signals").hidden = !state.analysisOverlays;
   const layer = $('[data-layer="analysis"]');
   if (layer) layer.checked = state.analysisOverlays;
   worldMap?.setAnalysisVisible(state.analysisOverlays);
-  renderCrossCategoryPanel();
 }
 
 function renderConflictKey(events) {
@@ -327,7 +331,14 @@ function renderConflictKey(events) {
 
 function applyLayerSearch() {
   const query = $("#layer-search").value;
-  const matches = searchLayers(query, names);
+  const matches = searchLayers(
+    query,
+    Object.fromEntries(
+      Object.entries(names).filter(
+        ([id]) => !["analysis", "threat"].includes(id),
+      ),
+    ),
+  );
   for (const row of $("#layers").children) {
     const id = row.querySelector("input").dataset.layer;
     row.hidden = !matches.includes(id);
@@ -1124,6 +1135,9 @@ async function selectEvent(id, locate = false) {
         return;
       }
       submit.disabled = true;
+      const reviewProgress = mapProgress.begin("Saving evidence review", {
+        priority: 2,
+      });
       try {
         await api(`admin/events/${event.event_id}/evidence`, {
           token: state.token,
@@ -1140,6 +1154,7 @@ async function selectEvent(id, locate = false) {
       } catch (error) {
         feedback.textContent = error.message;
       } finally {
+        reviewProgress.end();
         submit.disabled = false;
       }
     });
@@ -1160,7 +1175,9 @@ async function selectCountry(code, fly = false) {
   )?.properties;
   $("#map-title").textContent = properties?.name || "World view";
   $("#country-insight").hidden = !code;
-  await refresh();
+  await refresh({
+    progressLabel: `Updating ${properties?.name || "world"} insights`,
+  });
   countryController?.abort();
   countryController = new AbortController();
   if (!code) return;
@@ -1412,10 +1429,17 @@ function renderTimeline(result) {
     `${range.start.toISOString().slice(0, 16).replace("T", " ")} to ${range.end.toISOString().slice(0, 16).replace("T", " ")} UTC · ${result.time_basis} time`;
 }
 
-async function refresh() {
+async function refresh(options = {}) {
   refreshController?.abort();
   refreshController = new AbortController();
   const signal = refreshController.signal;
+  const progress = options.progressLabel
+    ? mapProgress.begin(options.progressLabel, { total: 14, priority: 2 })
+    : null;
+  const track = (promise, label) =>
+    progress ? progress.track(promise, label) : promise;
+  let countryRequest;
+  signal.addEventListener("abort", () => progress?.end(), { once: true });
   $("#refresh").disabled = true;
   $("#event-list").setAttribute("aria-busy", "true");
   countryRibbon.setBusy(true);
@@ -1456,7 +1480,10 @@ async function refresh() {
       countryQuery.set(key, sentimentQuery.get(key));
     // The comparison refreshes independently, so a slow ranking query cannot
     // hold back fresh observations, layer counts or context links.
-    api(`country-activity?${countryQuery}`, { signal })
+    countryRequest = track(
+      api(`country-activity?${countryQuery}`, { signal }),
+      "Country rankings",
+    )
       .then((value) => {
         if (!signal.aborted) {
           state.countryActivity = value;
@@ -1472,23 +1499,38 @@ async function refresh() {
     const interval =
       Number(state.period) > 168 || state.period === "custom" ? "day" : "hour";
     const results = await Promise.allSettled([
-      api(`events?${query}&limit=500&order=balanced`, { signal }),
-      api("status", { signal }),
-      api(`timeline?${query}&interval=${interval}`, { signal }),
-      api(`sentiment?${sentimentQuery}`, { signal }),
+      track(
+        api(`events?${query}&limit=500&order=balanced`, { signal }),
+        "Source reports",
+      ),
+      track(api("status", { signal }), "Source availability"),
+      track(
+        api(`timeline?${query}&interval=${interval}`, { signal }),
+        "Timeline",
+      ),
+      track(api(`sentiment?${sentimentQuery}`, { signal }), "Sentiment"),
       Promise.resolve(null),
       Promise.resolve(null),
-      api(`relations?${query}`, { signal }),
-      api(`military?${query}`, { signal }),
-      api("layers", { signal }),
-      api(`anomalies/regional?${query}`, { signal }),
-      api(`cross-category?${query}`, { signal }),
-      api(`cyber/relations?${query}`, { signal }),
-      api(`events?${threatQuery}&limit=500`, { signal }),
-      loadThreatTelemetry(telemetryQuery, signal),
-      fetch("/threatmap-status.json", { signal, cache: "no-store" })
-        .then((response) => response.json())
-        .catch(() => null),
+      track(api(`relations?${query}`, { signal }), "News connections"),
+      track(api(`military?${query}`, { signal }), "Military briefing"),
+      track(api("layers", { signal }), "Layer coverage"),
+      track(api(`anomalies/regional?${query}`, { signal }), "Report surges"),
+      track(
+        api(`cross-category?${query}`, { signal }),
+        "Shared country evidence",
+      ),
+      track(api(`cyber/relations?${query}`, { signal }), "Cyber connections"),
+      track(
+        api(`events?${threatQuery}&limit=500`, { signal }),
+        "Cyber reports",
+      ),
+      track(loadThreatTelemetry(telemetryQuery, signal), "Cyber observations"),
+      track(
+        fetch("/threatmap-status.json", { signal, cache: "no-store" })
+          .then((response) => response.json())
+          .catch(() => null),
+        "Live source status",
+      ),
     ]);
     if (signal.aborted) return;
     if (results[0].status === "rejected") throw results[0].reason;
@@ -1672,60 +1714,15 @@ async function refresh() {
       $("#system-status").classList.add("offline");
     }
   } finally {
+    if (progress) {
+      if (signal.aborted || !countryRequest) progress.end();
+      else countryRequest.finally(() => progress.end());
+    }
     if (!signal.aborted) {
       $("#refresh").disabled = false;
       $("#event-list").setAttribute("aria-busy", "false");
     }
   }
-}
-
-function renderCrossCategoryPanel() {
-  const body = $("#cross-category-body");
-  if (!body) return;
-  const open = state.analysisOverlays;
-  $("#analysis-evidence").hidden = !open;
-  if (!open) {
-    body.replaceChildren();
-    return;
-  }
-  body.replaceChildren();
-  if (!state.crossCategory.length) {
-    body.append(
-      element(
-        "p",
-        "helper",
-        "No country currently carries records in two or more categories in the last 24 hours.",
-      ),
-    );
-    return;
-  }
-  body.append(
-    element(
-      "p",
-      "helper",
-      "Teal rings mark countries named across multiple categories in 24h. Ring size grows with the number of categories.",
-    ),
-  );
-  const list = element("ul", "cross-list");
-  for (const item of state.crossCategory.slice(0, 8)) {
-    const row = element("li");
-    const name =
-      state.world?.features.find((f) => f.properties.code === item.country)
-        ?.properties.name || item.country;
-    row.append(
-      element("span", "evidence-name", name),
-      element(
-        "span",
-        "helper",
-        Object.entries(item.categories)
-          .map(([key, count]) => `${names[key] || key} ${count}`)
-          .join(" · "),
-      ),
-    );
-    list.append(row);
-  }
-  body.append(list);
-  body.append(element("p", "helper", state.crossCategory[0].basis));
 }
 
 function renderAnomalyAlerts(results) {
@@ -1738,7 +1735,6 @@ function renderAnomalyAlerts(results) {
   );
   state.crossCategory =
     results[10].status === "fulfilled" ? results[10].value.regions : [];
-  renderCrossCategoryPanel();
   const regional =
     results[9].status === "fulfilled" ? results[9].value.items : [];
   const cross =
@@ -1954,9 +1950,17 @@ function showTopic(name = "") {
   worldMap?.setMilitaryNetwork(
     group?.network || state.military?.network,
     state.layers.has("military") && $("#military-connections").checked,
+    (group ? [group] : state.military?.groups || []).flatMap(
+      (item) => item.reports,
+    ),
   );
   $("#military-map-label").textContent =
-    `Map: ${group ? name : "all defence topics"}. Pink lines link cited reports to country context.`;
+    `Map context: ${group ? name : "all topics"}. Lines connect countries discussed in reports.`;
+  for (const button of document.querySelectorAll("[data-military-topic]")) {
+    const selected = button.dataset.militaryTopic === state.militaryTopic;
+    button.setAttribute("aria-pressed", String(selected));
+    button.textContent = selected ? "Showing on map" : "Show topic links";
+  }
   renderNetworkSummary();
 }
 function renderCountryActivity() {
@@ -2052,6 +2056,7 @@ $("#reddit-import-form").addEventListener("submit", async (event) => {
     return;
   }
   button.disabled = true;
+  const progress = mapProgress.begin("Importing public posts", { priority: 2 });
   try {
     const body = JSON.parse(pasted || (await file.text()));
     const result = await api("admin/social/reddit-browser", {
@@ -2065,6 +2070,7 @@ $("#reddit-import-form").addEventListener("submit", async (event) => {
   } catch (error) {
     status.textContent = error.message;
   } finally {
+    progress.end();
     button.disabled = false;
   }
 });
@@ -2089,6 +2095,9 @@ async function analyze(event) {
   button.disabled = true;
   button.textContent = "Analyzing sources…";
   $("#ai-result").setAttribute("aria-busy", "true");
+  const progress = mapProgress.begin("Analyzing source evidence", {
+    priority: 3,
+  });
   try {
     const result = await api("ai/analyze", {
       token: state.token,
@@ -2148,6 +2157,7 @@ async function analyze(event) {
   } catch (error) {
     $("#ai-error").textContent = error.message;
   } finally {
+    progress.end();
     button.disabled = false;
     button.textContent = "Analyze source records";
     $("#ai-result").setAttribute("aria-busy", "false");
@@ -2157,7 +2167,10 @@ async function analyze(event) {
 async function initialize() {
   renderLayers();
   $("#sentiment-evidence").checked = state.sentimentEvidence;
-  $("#analysis-overlays").checked = state.analysisOverlays;
+  $("#reporting-signals-toggle").setAttribute(
+    "aria-pressed",
+    String(state.analysisOverlays),
+  );
   $("#density-confidence").checked = state.densityConfidence;
   $("#utc-clock").textContent = new Date().toISOString().slice(11, 19) + " UTC";
   setInterval(() => {
@@ -2197,7 +2210,10 @@ async function initialize() {
       viewportChanged() {
         if ($("#viewport-filter").checked) {
           clearTimeout(viewportTimer);
-          viewportTimer = setTimeout(refresh, 300);
+          viewportTimer = setTimeout(
+            () => refresh({ progressLabel: "Filtering the map area" }),
+            300,
+          );
         }
       },
       mapError: (text) =>
@@ -2218,33 +2234,43 @@ async function initialize() {
 $("#search-form").addEventListener("submit", (event) => {
   event.preventDefault();
   state.q = $("#search").value.trim();
-  refresh();
+  refresh({ progressLabel: "Applying report filters" });
 });
 $("#search").addEventListener("search", () => {
   state.q = $("#search").value.trim();
-  refresh();
+  refresh({ progressLabel: "Applying report filters" });
 });
 $("#refresh").addEventListener("click", refresh);
 $("#country").addEventListener("change", (event) =>
   selectCountry(event.target.value, true),
 );
-$("#viewport-filter").addEventListener("change", refresh);
+$("#viewport-filter").addEventListener("change", () =>
+  refresh({ progressLabel: "Filtering the map area" }),
+);
 $("#period").addEventListener("change", (event) => {
   state.period = event.target.value;
   $("#custom-dates").hidden = state.period !== "custom";
   if (state.period !== "custom") {
     $("#playhead").value = "100";
-    refresh();
+    refresh({ progressLabel: "Applying report filters" });
   }
 });
 $("#apply-dates").addEventListener("click", () => {
   $("#playhead").value = "100";
-  refresh();
+  refresh({ progressLabel: "Applying report filters" });
 });
-$("#time-basis").addEventListener("change", refresh);
-$("#sentiment-kind").addEventListener("change", refresh);
-$("#sentiment-platform").addEventListener("change", refresh);
-$("#sentiment-geography").addEventListener("change", refresh);
+$("#time-basis").addEventListener("change", () =>
+  refresh({ progressLabel: "Applying the observation period" }),
+);
+$("#sentiment-kind").addEventListener("change", () =>
+  refresh({ progressLabel: "Analyzing sentiment coverage" }),
+);
+$("#sentiment-platform").addEventListener("change", () =>
+  refresh({ progressLabel: "Analyzing sentiment coverage" }),
+);
+$("#sentiment-geography").addEventListener("change", () =>
+  refresh({ progressLabel: "Analyzing sentiment coverage" }),
+);
 $("#social-edges").addEventListener("change", () =>
   worldMap.setSocialNetwork(
     state.sentimentResult?.map_network,
@@ -2283,13 +2309,17 @@ $("#density-confidence").addEventListener("change", (event) => {
   saveSession("osint.densityConfidence", state.densityConfidence);
   worldMap.setDensityWeighted(state.densityConfidence);
 });
-$("#analysis-overlays").addEventListener("change", (event) => {
-  event.target.checked
-    ? state.layers.add("analysis")
-    : state.layers.delete("analysis");
+$("#reporting-signals-toggle").addEventListener("click", () => {
+  state.layers.has("analysis")
+    ? state.layers.delete("analysis")
+    : state.layers.add("analysis");
   syncReportingSignals();
-  if (event.target.checked) showView("feed");
-  refresh();
+  if (state.analysisOverlays) {
+    showView("feed");
+    if ($("#workspace").classList.contains("right-collapsed"))
+      togglePanel("right");
+  }
+  refresh({ progressLabel: "Finding reporting signals" });
 });
 $("#sentiment-evidence").addEventListener("change", (event) => {
   state.sentimentEvidence = event.target.checked;
@@ -2323,6 +2353,7 @@ $("#load-more").addEventListener("click", async () => {
   if (busy) return;
   busy = true;
   $("#load-more").disabled = true;
+  const progress = mapProgress.begin("Loading more reports", { priority: 2 });
   try {
     const result = await api(
       `events?${params()}&limit=500&order=balanced&offset=${state.events.length}`,
@@ -2342,6 +2373,7 @@ $("#load-more").addEventListener("click", async () => {
   } catch (error) {
     message(error.message);
   } finally {
+    progress.end();
     busy = false;
     $("#load-more").disabled = false;
   }
