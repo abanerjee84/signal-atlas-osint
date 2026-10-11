@@ -14,8 +14,10 @@ export function renderSocial(result, sources) {
   document.querySelector("#social-network-section").hidden =
     !network?.edges.length;
   if (!social) return;
-  document.querySelector("#reddit-browser-import").hidden =
-    result.platform === "youtube" || result.platform === "x";
+  document.querySelector("#reddit-browser-import").hidden = ![
+    "all",
+    "reddit",
+  ].includes(result.platform);
   const coverage = document.querySelector("#social-coverage");
   coverage.replaceChildren(
     element(
@@ -30,7 +32,7 @@ export function renderSocial(result, sources) {
       "",
       result.platform === "youtube"
         ? "YouTube RSS supplies upload titles/descriptions, not viewer comments."
-        : "Reddit has independent free JSON archive sources and public RSS feeds. Archive data can be delayed or unavailable; RSS retirement announced for 13 November 2026. X has no public feed connected.",
+        : "Keyless public Reddit, Mastodon and Lemmy feeds, plus public Telegram channel previews. Shared links and channel publications are sampled discourse, not representative opinion. Reddit archives can lag; RSS retirement is announced for 13 November 2026. YouTube uploads are separate from comments. X has no permitted public collector connected.",
     ),
   );
   const health = element("details", "");
@@ -52,6 +54,17 @@ export function renderSocial(result, sources) {
     );
   }
   const list = document.querySelector("#social-posts");
+  const knownSources = new Set(sources.map((source) => source.source_id));
+  for (const [identifier, count] of Object.entries(result.sources || {})) {
+    if (!knownSources.has(identifier))
+      health.append(
+        element(
+          "p",
+          "social-source-status",
+          `${identifier.replaceAll("_", " ")}: ${count} collected records · current service has no collection status for this source`,
+        ),
+      );
+  }
   list.replaceChildren();
   document.querySelector("#social-post-count").textContent =
     `${result.posts.length} displayed of ${result.dataset_count} analyzed feed records. Latest ${result.post_limit} shown; comments and uploads have separate datasets.`;

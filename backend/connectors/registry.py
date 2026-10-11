@@ -10,12 +10,15 @@ from .maritime import Maritime
 from .ncsc import NCSC
 from .ofac import OFAC
 from .opensky import OpenSky
+from .public_discussion import discussion_feeds
 from .reddit_archive import RedditArchive
 from .reddit_browser import RedditBrowser
 from .reliefweb import ReliefWeb
 from .rss import RSS
 from .social import SocialFeed
+from .threat_reports import threat_feeds
 from .usgs import USGS
+from .world_feeds import world_feeds
 
 
 def connectors(settings):
@@ -66,6 +69,9 @@ def connectors(settings):
         ),
     ]
     providers.extend(cyber_feeds(settings))
+    providers.extend(threat_feeds(settings))
+    providers.extend(world_feeds(settings))
+    providers.extend(discussion_feeds(settings))
     for identifier, name, url, country, kind in [
         (
             "bbc_business",
@@ -260,7 +266,7 @@ def connectors(settings):
                     settings,
                     source_id=f"reddit_{community.lower()}_{path}",
                     name=f"Reddit r/{community} {path}",
-                    url=f"https://www.reddit.com/r/{community}/{path}/.rss",
+                    url=f"https://www.reddit.com/r/{community}/{path}/.rss?limit=100",
                     content_type=content_type,
                 )
             )

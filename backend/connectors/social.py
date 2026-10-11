@@ -1,4 +1,4 @@
-"""Public, keyless feeds. No login cookies, paid APIs or scraping fallback."""
+"""Public, keyless feeds with platform-specific text and provenance normalization."""
 
 import re
 from urllib.parse import urlsplit
@@ -27,7 +27,14 @@ class SocialFeed(Connector):
         publisher_country=None,
     ):
         super().__init__(settings)
-        if platform not in {"reddit", "youtube", "x"} or content_type not in {"post", "comment", "video"}:
+        if platform not in {
+            "reddit",
+            "youtube",
+            "x",
+            "mastodon",
+            "lemmy",
+            "telegram",
+        } or content_type not in {"post", "comment", "video"}:
             raise ValueError("Invalid social feed definition")
         self.source_id, self.name, self.url, self.platform = source_id, name, url, platform
         self.homepage, self.content_type, self.publisher_country = url, content_type, publisher_country
@@ -42,11 +49,13 @@ class SocialFeed(Connector):
         return records
 
     def normalize(self, record):
-        title = clean(record["title"], 500)
+        title = clean(record.get("title", ""), 500)
         content = clean(
             record.get("content") or record.get("summary") or record.get("description") or "", 5000
         )
         date = record.get("published") or record.get("pubDate") or record.get("updated")
+        if not title:
+            title = content[:150]
         relations, context = [], []
         if self.platform == "reddit" and self.content_type == "comment":
             # Reddit's comment title contains the thread title, not the comment's wording.
@@ -66,6 +75,8 @@ class SocialFeed(Connector):
             selftext = (record.get("content") or "").split("submitted by", 1)[0]
             selftext = clean(selftext, 5000)
             text = title + (" " + selftext if selftext and selftext != title else "")
+        elif self.platform in {"mastodon", "telegram"}:
+            text = content or title
         else:
             text = title + (" " + content if content else "")
         if not text.strip():
@@ -73,7 +84,7 @@ class SocialFeed(Connector):
         social = SocialMetadata(
             platform=self.platform,
             post_id=record.get("id") or record.get("guid") or record["link"],
-            author=clean(record.get("author", ""), 200),
+            author=clean(record.get("author") or record.get("creator", ""), 200),
             community=clean(record.get("community", ""), 200),
             content_type=self.content_type,
             mentioned_countries=mentioned_countries(text),
@@ -86,7 +97,9 @@ class SocialFeed(Connector):
         return Report(
             external_id=social.post_id,
             source_id=self.source_id,
-            source_url=record["link"],
+            source_url=record.get("comments") or record["link"]
+            if self.platform == "lemmy"
+            else record["link"],
             title=title,
             description=text,
             category=self.category,

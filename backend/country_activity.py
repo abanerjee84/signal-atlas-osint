@@ -8,7 +8,15 @@ from .relations import report_country_codes
 from .social_analytics import social_sentiment
 
 REPORT_LIMIT = 5000
-INTELLIGENCE_CATEGORIES = {"geopolitical", "military", "maritime", "cyber", "economic", "environment"}
+INTELLIGENCE_CATEGORIES = {
+    "geopolitical",
+    "military",
+    "maritime",
+    "cyber",
+    "threat",
+    "economic",
+    "environment",
+}
 
 
 def country_activity(database, filters, kind="news", platform="all", geography="mentions"):
@@ -18,7 +26,7 @@ def country_activity(database, filters, kind="news", platform="all", geography="
     where, values = database.where(comparison, "e")
     mention_where = (
         where
-        + " AND e.category!='aviation' AND (r.sentiment_kind IS NOT NULL OR e.category IN ('geopolitical','military','maritime','cyber','economic'))"
+        + " AND e.category!='aviation' AND (r.sentiment_kind IS NOT NULL OR e.category IN ('geopolitical','military','maritime','cyber','threat','economic'))"
     )
     places = {f["properties"]["code"]: f["properties"] for f in countries()["features"]}
     items = {}

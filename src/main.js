@@ -6,6 +6,12 @@ import { renderSocial, focusSocialPost } from "./social.js";
 import { symbolCanvas } from "./layer-symbols.js";
 import { createCountryRibbon } from "./country-ribbon.js";
 import { aircraftFacts } from "./aircraft.js";
+import {
+  buildThreatNetwork,
+  threatFacts,
+  threatCountryActivity,
+  threatTimeline,
+} from "./threats.js";
 
 const $ = (selector) => document.querySelector(selector);
 const names = {
@@ -15,6 +21,7 @@ const names = {
   maritime: "Maritime",
   sentiment: "Global sentiment",
   cyber: "Cyber intelligence",
+  threat: "Threat Actor",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
@@ -26,6 +33,7 @@ const defaults = [
   "maritime",
   "environment",
   "cyber",
+  "threat",
   "economic",
 ];
 function readSession(key, fallback) {
@@ -67,6 +75,10 @@ const state = {
   sentimentEvidence: readSession("osint.sentimentEvidence", true),
   newsNetwork: null,
   cyberNetwork: null,
+  threatEvents: [],
+  threatCount: 0,
+  threatNetwork: null,
+  countryActivity: null,
   military: null,
   militaryTopic: "",
   analysisEventIds: null,
@@ -107,7 +119,7 @@ function timeRange() {
 function filters({ sentiment = false } = {}) {
   const { start, end } = timeRange();
   const physical = [...state.layers].filter(
-    (id) => !["sentiment", "analysis"].includes(id),
+    (id) => !["sentiment", "analysis", "threat"].includes(id),
   );
   return {
     categories: sentiment ? [] : physical.length ? physical : ["sentiment"],
@@ -165,6 +177,11 @@ function renderLayers() {
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
       if (input.checked && id === "analysis") showView("analysis");
+      if (worldMap) {
+        renderEvents();
+        renderNetworkSummary();
+        renderCountryActivity();
+      }
       refresh();
     });
     $("#layers").append(label);
@@ -290,6 +307,7 @@ function renderSources(status) {
 }
 
 function renderEvents() {
+  $("#threat-map-references").hidden = !state.layers.has("threat");
   $("#event-list").replaceChildren();
   const playhead = Number($("#playhead").value);
   const { start, end } = timeRange();
@@ -299,9 +317,22 @@ function renderEvents() {
     published: "published_at",
     ingested: "ingested_at",
   }[$("#time-basis").value];
-  let visible = state.events.filter(
+  let visible = [
+    ...state.events.filter((event) => state.layers.has(event.category)),
+    ...(state.layers.has("threat") ? state.threatEvents : []),
+  ].filter(
     (event) => playhead === 100 || new Date(event[timeColumn]) <= cutoff,
   );
+  if (state.threatNetwork) {
+    const network =
+      playhead === 100
+        ? state.threatNetwork
+        : buildThreatNetwork(
+            visible.filter((event) => event.category === "threat"),
+            state.world.features.map((feature) => feature.properties),
+          );
+    worldMap?.setThreatNetwork(network, state.layers.has("threat"));
+  }
   const live =
     playhead === 100 &&
     state.period !== "custom" &&
@@ -379,6 +410,15 @@ function renderEvents() {
           element("dd", "", facts[label]),
         );
       button.append(flight);
+    } else if (event.category === "threat") {
+      const facts = threatFacts(event);
+      button.append(
+        element(
+          "p",
+          "event-excerpt",
+          `${facts.actor} · ${facts.attack_kind}. Reported attribution: ${facts.attacker_country || "unknown"} → ${facts.victim_countries.join(", ") || "unknown targets"}.`,
+        ),
+      );
     } else if (event.description)
       button.append(
         element("span", "event-excerpt", event.description.slice(0, 220)),
@@ -420,6 +460,9 @@ function renderEvents() {
       $(`[data-count="${id}"]`).title = live
         ? `${state.aircraft.items.length} current positions; ${(state.categoryCounts[id] || 0).toLocaleString()} retained observations in the selected period`
         : "Retained observations in the selected period";
+    if (id === "threat")
+      $(`[data-count="${id}"]`).title =
+        "Matching reports from the latest 500 threat reports in the selected period";
     const health = state.layerHealth[id];
     const sources = state.sources.filter((source) => source.category === id);
     const note = $(`[data-layer-note="${id}"]`);
@@ -443,11 +486,17 @@ function renderEvents() {
           ? `Classes 4 & 5 · ${live ? "current positions" : "stored observations"}`
           : id === "economic"
             ? "Business, energy, sanctions and official releases"
-            : id === "military"
-              ? "Public announcements"
-              : healthNote
-      : healthNote ||
-        (sources.length ? "No records in this period" : "No configured source");
+            : id === "threat"
+              ? "Published reports · reported origin → target"
+              : id === "military"
+                ? "Public announcements"
+                : healthNote
+      : id === "threat"
+        ? "No matching published threat reports"
+        : healthNote ||
+          (sources.length
+            ? "No records in this period"
+            : "No configured source");
     if (health)
       note.classList.toggle(
         "layer-note-warning",
@@ -456,7 +505,7 @@ function renderEvents() {
   }
   $("#map-sample-note").textContent =
     state.events.length < state.total
-      ? `Showing ${state.events.length.toLocaleString()} records across layers and regions; load more in Events. Layer counts include all matches.`
+      ? `Showing ${state.events.length.toLocaleString()} records across layers and regions; load more in Events. Threat layer uses up to 500 recent reports; other layer counts include all matches.`
       : "Showing all matching records. Layer counts include records without map coordinates.";
   $("#load-more").hidden =
     state.events.length >= state.total || state.events.length >= 5000;
@@ -484,6 +533,29 @@ async function selectEvent(id, locate = false) {
       element("p", "", event.description),
     );
     const fields = element("dl");
+    if (event.category === "threat") {
+      event.threat ||= event.reports?.[0]?.metadata?.threat;
+      const facts = threatFacts(event);
+      for (const [label, value] of [
+        ["Named actor", facts.actor],
+        ["Attack reporting", facts.attack_kind],
+        ["Reported attacker country", facts.attacker_country || "Unknown"],
+        [
+          "Reported victim countries",
+          facts.victim_countries.join(", ") || "Unknown",
+        ],
+        [
+          "Attribution evidence",
+          event.threat?.attribution_basis || event.evidence_basis,
+        ],
+        [
+          "Target evidence",
+          event.threat?.victim_basis ||
+            "Open the original report to inspect the targeting wording",
+        ],
+      ])
+        fields.append(element("dt", "", label), element("dd", "", value));
+    }
     if (event.category === "aviation") {
       for (const [label, value] of Object.entries(aircraftFacts(event)))
         fields.append(element("dt", "", label), element("dd", "", value));
@@ -971,6 +1043,13 @@ async function refresh() {
   countryRibbon.setBusy(true);
   try {
     const query = params();
+    const threatQuery = new URLSearchParams(query);
+    threatQuery.delete("categories");
+    threatQuery.delete("aircraft_categories");
+    threatQuery.delete("country");
+    threatQuery.delete("bbox");
+    threatQuery.set("q", "threat-report");
+    const requestedPlatform = $("#sentiment-platform").value;
     const sentimentQuery = params({ sentiment: true });
     const kind = $("#sentiment-kind").value;
     sentimentQuery.set("kind", kind === "youtube" ? "news" : kind);
@@ -979,7 +1058,11 @@ async function refresh() {
       kind === "youtube"
         ? "youtube"
         : kind === "public"
-          ? $("#sentiment-platform").value
+          ? state.layerHealth.threat
+            ? requestedPlatform
+            : ["all", "reddit", "x"].includes(requestedPlatform)
+              ? requestedPlatform
+              : "all"
           : "all",
     );
     sentimentQuery.set("geography", $("#sentiment-geography").value);
@@ -991,8 +1074,10 @@ async function refresh() {
     // hold back fresh observations, layer counts or context links.
     api(`country-activity?${countryQuery}`, { signal })
       .then((value) => {
-        if (!signal.aborted)
-          countryRibbon.setData({ ...value, selected_country: state.country });
+        if (!signal.aborted) {
+          state.countryActivity = value;
+          renderCountryActivity();
+        }
       })
       .catch(() => {
         if (!signal.aborted) countryRibbon.setError();
@@ -1015,19 +1100,53 @@ async function refresh() {
       api(`anomalies/regional?${query}`, { signal }),
       api(`cross-category?${query}`, { signal }),
       api(`cyber/relations?${query}`, { signal }),
+      api(`events?${threatQuery}&limit=500`, { signal }),
     ]);
     if (signal.aborted) return;
     if (results[0].status === "rejected") throw results[0].reason;
     const data = results[0].value;
     state.events = data.items;
-    state.total = data.total;
+    state.total = [...state.layers].some(
+      (id) => !["threat", "analysis"].includes(id),
+    )
+      ? data.total
+      : 0;
     state.categoryCounts = data.category_counts || {};
+    if (results[12].status === "fulfilled") {
+      const world = state.world;
+      state.threatNetwork = buildThreatNetwork(
+        results[12].value.items.filter((event) => event.category === "threat"),
+        world.features.map((feature) => feature.properties),
+        {
+          country: state.country,
+          bbox: $("#viewport-filter").checked ? worldMap.bounds() : null,
+          q: state.q,
+        },
+      );
+      state.threatEvents = state.threatNetwork.events;
+      state.threatCount = state.threatEvents.length;
+      state.categoryCounts.threat = state.threatCount;
+      worldMap.setThreatNetwork(
+        state.threatNetwork,
+        state.layers.has("threat"),
+      );
+      if (state.layers.has("threat")) state.total += state.threatCount;
+      renderCountryActivity();
+    }
     refreshAircraft();
     if (results[1].status === "fulfilled")
       state.sources = results[1].value.connectors;
     renderEvents();
     if (results[1].status === "fulfilled") renderSources(results[1].value);
-    if (results[2].status === "fulfilled") renderTimeline(results[2].value);
+    if (results[2].status === "fulfilled")
+      renderTimeline(
+        threatTimeline(
+          results[2].value,
+          state.threatNetwork,
+          state.layers,
+          interval,
+        ),
+      );
     if (results[3].status === "fulfilled") renderSentiment(results[3].value);
     if (results[6].status === "fulfilled") {
       state.newsNetwork = results[6].value;
@@ -1058,6 +1177,10 @@ async function refresh() {
       state.layerHealth = Object.fromEntries(
         results[8].value.map((layer) => [layer.id, layer.health]),
       );
+      for (const option of $("#sentiment-platform").options) {
+        if (["mastodon", "lemmy", "telegram"].includes(option.value))
+          option.disabled = !state.layerHealth.threat;
+      }
       renderEvidenceGaps();
       renderEvents();
     }
@@ -1310,8 +1433,29 @@ function showTopic(name = "") {
     `Map: ${group ? name : "all defence topics"}. Pink lines link cited reports to country context.`;
   renderNetworkSummary();
 }
+function renderCountryActivity() {
+  if (!state.countryActivity) return;
+  countryRibbon.setData({
+    ...threatCountryActivity(
+      state.countryActivity,
+      state.threatNetwork,
+      state.world.features.map((feature) => feature.properties),
+      state.layers,
+    ),
+    selected_country: state.country,
+  });
+}
 function renderNetworkSummary() {
   const parts = [];
+  if (state.layers.has("threat") && state.threatNetwork) {
+    parts.push(
+      `Threat actors: ${state.threatNetwork.report_count} published reports · ${state.threatNetwork.edges.length} reported attribution links · ${state.threatNetwork.unknown_origin_count} unknown origins`,
+    );
+    const note = $('[data-layer-note="threat"]');
+    if (note)
+      note.textContent =
+        "Published attack reports · attributed origin → reported target";
+  }
   if (
     state.layers.has("cyber") &&
     $("#cyber-connections").checked &&

@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     extra_rss: list[dict] = []
     reddit_subreddits: list[str] = ["worldnews", "geopolitics", "climate"]
     social_feeds: list[dict] = []
+    telegram_channels: list[str] = ["geopoliticsandempire"]
     youtube_channels: list[dict] = [
         {"id": "UC16niRr50-MSBwiO3YDb3RA", "name": "BBC News", "country": "GB"},
         {"id": "UCknLrEdhRCp1aegoMqRaCZg", "name": "DW News", "country": "DE"},

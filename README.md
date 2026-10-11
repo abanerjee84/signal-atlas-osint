@@ -20,10 +20,12 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Track eligible aircraft:** OpenSky classes 4 and 5, normally refreshed every two minutes, with short transitions between reported positions. Cards show registration country, altitude, speed, ground track and observation age.
 - **Study public narratives:** English lexical sentiment, topic groups, regional comparisons and separate news, public-discussion and official-statement datasets.
 - **Investigate cyber intelligence:** advisories, vulnerabilities, routing and outage observations, plus threat-actor, malware and technique relationships from reference catalogs.
+- **Follow threat actors:** a separate TA map layer with recent published attack reports, source-reported attacker-country → target-country connections and explicit unknown attribution. Eight public research/news feeds include Cisco Talos from awesome-osint's live-map resources.
+- **Collect public discussion without social API keys:** Reddit, Mastodon and Lemmy feeds plus timestamped public Telegram previews flow into the sentiment heatmap. Author origins remain unknown unless explicitly declared; country mentions describe discussion context.
 - **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
 - **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
 
-The nine selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber intelligence**, **Economic and energy**, **Environment and humanitarian**, and **Analysis and anomaly alerts**. Layer availability depends on source access and the selected period.
+The ten selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber intelligence**, **Threat Actor**, **Economic and energy**, **Environment and humanitarian**, and **Analysis and anomaly alerts**. Layer availability depends on source access and the selected period.
 
 <details>
 <summary>Preview the threat-actor workspace</summary>
@@ -92,18 +94,21 @@ For a single collection pass, use `python -m backend.worker --once` with the vir
 
 The public-feed dashboard works without social-media API keys. Copy `.env.example` to `.env` once during setup, then edit the local file. Provider credentials stay on the backend. `.env`, databases, evidence, logs and backups are excluded from Git.
 
-| Coverage                     | Example sources                                                                                                       | Access                                                                                                                             |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Geopolitical news            | BBC regional feeds, Al Jazeera, DW, France 24, UN News, Africanews, MercoPress, CNA, RFI, ABC, Euronews, The Guardian | Public feeds; availability and publisher terms apply                                                                               |
-| Military reporting           | UK Ministry of Defence, DVIDS, selected news reports                                                                  | Public announcements and reporting                                                                                                 |
-| Economic and energy          | BBC Business, Guardian Business/Energy, CNA Business, US EIA, ECB, OFAC                                               | Public feeds and releases                                                                                                          |
-| Cyber and threat references  | CISA, NCSC, SANS, MITRE ATT&CK, MISP galaxies, Malpedia, ETDA                                                         | Public feeds/catalogs; source-specific reuse terms                                                                                 |
-| Public narratives            | Reddit feed/archive adapters and authorized browser imports; YouTube channel feeds                                    | No social API keys; incomplete coverage. YouTube feeds contain uploads, not viewer comments. X needs an available permitted source |
-| Environment and humanitarian | USGS, NASA FIRMS, ReliefWeb                                                                                           | USGS is keyless; FIRMS needs a map key; ReliefWeb needs an approved app name                                                       |
-| Aviation                     | OpenSky state vectors                                                                                                 | Account client credentials and provider credits                                                                                    |
-| Conflict events              | ACLED                                                                                                                 | Account credentials **and** API entitlement                                                                                        |
-| Maritime                     | Administrator-configured normalized AIS feed                                                                          | Authorized feed URL and any required credentials                                                                                   |
-| AI assessment                | OpenRouter                                                                                                            | Optional API key; free-only mode enabled by default                                                                                |
+The default registry contains [66 RSS/Atom feeds](docs/RSS_FEEDS.md), plus other public collectors. Source availability is shown separately from event counts. See the [threat and social collection notes](docs/THREAT_ACTIVITY.md) for attribution rules, vendor live-map references and limits.
+
+| Coverage                     | Example sources                                                                                                       | Access                                                                                                                   |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Geopolitical news            | BBC regional feeds, Al Jazeera, DW, France 24, UN News, Africanews, MercoPress, CNA, RFI, ABC, Euronews, The Guardian | Public feeds; availability and publisher terms apply                                                                     |
+| Military reporting           | UK Ministry of Defence, DVIDS, selected news reports                                                                  | Public announcements and reporting                                                                                       |
+| Economic and energy          | BBC Business, Guardian Business/Energy, CNA Business, US EIA, ECB, OFAC                                               | Public feeds and releases                                                                                                |
+| Cyber and threat references  | CISA, NCSC, SANS, MITRE ATT&CK, MISP galaxies, Malpedia, ETDA                                                         | Public feeds/catalogs; source-specific reuse terms                                                                       |
+| Published attack reports     | BleepingComputer, SecurityWeek, The Hacker News, The Record, Cybersecurity Dive, ESET, Microsoft, Cisco Talos         | Public RSS; unverified excerpt attribution, not live packet telemetry                                                    |
+| Public narratives            | Reddit feeds/archive deliveries and browser imports, Mastodon, Lemmy, public Telegram previews; YouTube channel feeds | No social API keys; selected samples. YouTube uploads are separate from comments. X has no automatic collector connected |
+| Environment and humanitarian | USGS, NASA FIRMS, ReliefWeb                                                                                           | USGS is keyless; FIRMS needs a map key; ReliefWeb needs an approved app name                                             |
+| Aviation                     | OpenSky state vectors                                                                                                 | Account client credentials and provider credits                                                                          |
+| Conflict events              | ACLED                                                                                                                 | Account credentials **and** API entitlement                                                                              |
+| Maritime                     | Administrator-configured normalized AIS feed                                                                          | Authorized feed URL and any required credentials                                                                         |
+| AI assessment                | OpenRouter                                                                                                            | Optional API key; free-only mode enabled by default                                                                      |
 
 See [source configuration](docs/SOURCES.md) and the in-app source status for schedules, coverage, failures and permission requirements. Historical verification documents describe past checks; they do not guarantee that a provider is available today.
 
@@ -164,6 +169,8 @@ On Linux/macOS, substitute `.venv/bin/python`. Browser tests start or reuse the 
 - [Operations, backups and recovery](docs/OPERATIONS.md)
 - [Ubuntu deployment](docs/DEPLOYMENT.md)
 - [Testing and recorded measurements](docs/TESTING.md)
+- [Configured RSS and Atom directory](docs/RSS_FEEDS.md)
+- [Threat attribution, live-map review and public social collection](docs/THREAT_ACTIVITY.md)
 - [Implementation status and remaining acceptance work](docs/STATUS.md)
 
 The Windows launcher is for local development. Ubuntu deployment includes systemd services, backup/monitoring timers and an Nginx HTTPS configuration. Acceptance testing on the intended production host remains necessary. Private investigations currently use a single administrator principal; multi-user accounts and roles are not implemented.

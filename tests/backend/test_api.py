@@ -39,7 +39,7 @@ def test_api_contract(client, report):
     detail = client.get("/api/events/" + event).json()
     source = client.get("/api/reports/" + detail["reports"][0]["report_id"]).json()
     assert source["raw"] == {"test": True}
-    assert len(client.get("/api/layers").json()) == 9
+    assert len(client.get("/api/layers").json()) == 10
     assert client.get("/api/events?format=geojson").json()["features"][0]["geometry"]["type"] == "Point"
 
 

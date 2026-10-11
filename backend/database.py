@@ -112,7 +112,8 @@ class Database:
                 # Cross-collector copies of the same source URL join the same event.
                 same_url = (
                     None
-                    if report.category in {"environment", "aviation", "maritime", "cyber", "sentiment"}
+                    if report.category
+                    in {"environment", "aviation", "maritime", "cyber", "sentiment", "threat"}
                     else db.execute(
                         "SELECT r.event_id FROM reports r JOIN events e ON e.event_id=r.event_id WHERE r.source_url=? AND e.category=? LIMIT 1",
                         (source_url, report.category),
@@ -239,7 +240,7 @@ class Database:
 
     def _cluster(self, db, report: Report, country: str | None) -> str | None:
         # Position observations and measured hazards remain separate observations.
-        if report.category in {"aviation", "maritime", "environment", "cyber", "sentiment"}:
+        if report.category in {"aviation", "maritime", "environment", "cyber", "sentiment", "threat"}:
             return None
         instant = report.occurred_at or report.published_at
         candidates = db.execute(
@@ -390,11 +391,13 @@ class Database:
         result["evidence_reviews"] = reviews
         if result["category"] == "aviation" and result["reports"]:
             result["aircraft"] = result["reports"][0]["metadata"].get("aircraft")
+        if result["category"] == "threat" and result["reports"]:
+            result["threat"] = result["reports"][0]["metadata"].get("threat")
         return result
 
     def with_aircraft_metadata(self, rows):
         items = [self.event_dict(row) for row in rows]
-        ids = [item["event_id"] for item in items if item["category"] == "aviation"]
+        ids = [item["event_id"] for item in items if item["category"] in {"aviation", "threat"}]
         metadata = {}
         if ids:
             with self.connect() as db:
@@ -402,12 +405,14 @@ class Database:
                     f"SELECT event_id,metadata FROM reports WHERE event_id IN ({','.join('?' for _ in ids)})",
                     ids,
                 ):
-                    data = json.loads(row["metadata"]).get("aircraft")
+                    data = json.loads(row["metadata"])
                     if data:
                         metadata[row["event_id"]] = data
         for item in items:
             if item["category"] == "aviation":
-                item["aircraft"] = metadata.get(item["event_id"])
+                item["aircraft"] = metadata.get(item["event_id"], {}).get("aircraft")
+            if item["category"] == "threat":
+                item["threat"] = metadata.get(item["event_id"], {}).get("threat")
         return items
 
     def statuses(self) -> list[dict]:

@@ -1,5 +1,26 @@
 # Test results and reproducibility
 
+## Public-source and Threat Actor update — 11 October 2026
+
+The full backend suite passed **181 tests** after the new layer and social collectors were added. A final focused run passed **21 threat/social tests**, including two additional regressions for researcher-country separation and a phishing campaign's explicit target. All **nine Node tests**, Python lint/format checks and the production build passed. The existing Starlette test-client deprecation warning remains.
+
+The requested [webapp-testing workflow](https://github.com/anthropics/skills/tree/main/skills/webapp-testing) was applied with native Python Playwright against the already-running application. No development server, production preview, server helper or resident worker was launched, stopped or restarted. Listening process identities stayed unchanged: API port 8000/PID 36744 and Vite port 5173/PID 26148.
+
+Browser checks used real retained reports. They verified ten layer controls, removal of Threat Actor cards/edges when disabled, a persisted single-layer selection, seven-day filtering, independent threat counts, source-linked attribution details and the combined public-discussion dataset. The default 24-hour view displayed three threat reports and one edge. The seven-day view displayed **45 reports and two rendered edges**. The social panel displayed **100 source posts**. No page errors were captured. Screenshots of the world view, sentiment, public posts, isolated threats and threat detail were visually inspected. Counts describe this collection time, not guaranteed coverage.
+
+One bounded public collection pass successfully stored eight research/threat feeds, eight additional geopolitical feeds, five Mastodon/Lemmy feeds and a public Telegram preview. The Reddit world-news feed returned 100 entries; other Reddit requests returned HTTP 429 and were left on backoff. Provider errors are not converted into neutral sentiment or invented observations. A missing Telegram robots file returned 404; correcting that handling allowed 13 timestamped public posts to be collected without bypassing denials or throttling.
+
+The existing Python processes still hold the older registry. New data can be read by their existing generic endpoints, while full scheduled collection, platform-specific filtering and new source-health entries require the next user-controlled backend/worker reload. This reload was not performed.
+
+For repeatable browser verification without server lifecycle actions, install the optional Python Playwright package and use an already available Chromium binary:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install playwright==1.63.0
+.\.venv\Scripts\python.exe scripts\check_running_app.py --url http://127.0.0.1:5173 --chromium "C:\path\to\chrome.exe"
+```
+
+The script waits for completed refreshes, preserves request limits by loading a saved single-layer selection in one step, and writes local screenshots/results under ignored `data/run/public-update-browser`. It does not install a browser or invoke a server helper. The historical generic Playwright suite below may start servers and must not be used when server lifecycle changes are prohibited.
+
 Verification date: 10 October 2026. Development host: Windows 11 build 22635, Python 3.12.14, Node 24.18.0, 16 logical CPUs, 68,640,628,736 bytes physical RAM. The deployment target remains an 8 GB Ubuntu server; this host is not that target.
 
 ## Automated verification

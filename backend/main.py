@@ -224,6 +224,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "maritime": "Maritime",
                         "sentiment": "Global sentiment",
                         "cyber": "Cyber intelligence",
+                        "threat": "Threat Actor",
                         "economic": "Economic and energy",
                         "environment": "Environment and humanitarian",
                         "analysis": "Analysis and anomaly alerts",
@@ -338,7 +339,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def country_comparison(
         filters: FilterDependency,
         kind: str = Query("news", pattern="^(news|public|official)$"),
-        platform: str = Query("all", pattern="^(all|reddit|youtube|x)$"),
+        platform: str = Query("all", pattern="^(all|reddit|youtube|x|mastodon|lemmy|telegram)$"),
         geography: str = Query("mentions", pattern="^(mentions|origin)$"),
     ):
         return country_activity(database, filters, kind, platform, geography)
@@ -368,7 +369,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def sentiment_aggregates(
         filters: FilterDependency,
         kind: str = Query("news", pattern="^(news|public|official)$"),
-        platform: str = Query("all", pattern="^(all|reddit|youtube|x)$"),
+        platform: str = Query("all", pattern="^(all|reddit|youtube|x|mastodon|lemmy|telegram)$"),
         geography: str = Query("mentions", pattern="^(mentions|origin)$"),
     ):
         if kind == "public" or platform != "all":

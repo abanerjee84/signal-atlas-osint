@@ -351,6 +351,59 @@
             ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
           </div>
           <section id="feed-view">
+            <details id="threat-map-references" hidden>
+              <summary>Threat reports and live map references</summary>
+              <p class="helper">
+                TA markers and moving edges show recent published reports.
+                Country attribution is extracted from source wording and remains
+                unverified. Unknown origins stay unknown.
+              </p>
+              <p class="helper">
+                These external maps measure their providers' detections or
+                traffic. Infrastructure location does not identify an attacker’s
+                nationality.
+              </p>
+              <p>
+                <a
+                  href="https://talosintelligence.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Cisco Talos</a
+                >
+                · research feed connected
+              </p>
+              <p>
+                <a
+                  href="https://www.netscout.com/ddos-attack-map"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >NETSCOUT Horizon</a
+                >
+                · DDoS observations
+              </p>
+              <p>
+                <a
+                  href="https://cybermap.kaspersky.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Kaspersky Cybermap</a
+                >
+                · malware and security detections
+              </p>
+              <p>
+                <a
+                  href="https://www.bunkerweb.io/threatmap/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >BunkerWeb</a
+                >
+                · blocked web requests
+              </p>
+              <p class="helper">
+                External maps open on their providers’ sites; their telemetry is
+                not copied into incident counts.
+              </p>
+            </details>
             <div id="country-insight" class="country-insight" hidden></div>
             <div id="event-detail" hidden></div>
             <div class="feed-label">
@@ -408,9 +461,7 @@
             <h3>Global sentiment</h3>
             <label for="sentiment-kind" class="field-label">Dataset</label
             ><select id="sentiment-kind">
-              <option value="public" selected>
-                Social discussions · Reddit
-              </option>
+              <option value="public" selected>Public social discussions</option>
               <option value="youtube">
                 YouTube uploads · publisher wording
               </option>
@@ -424,6 +475,9 @@
               <select id="sentiment-platform">
                 <option value="all">All connected public feeds</option>
                 <option value="reddit">Reddit</option>
+                <option value="mastodon">Mastodon</option>
+                <option value="lemmy">Lemmy</option>
+                <option value="telegram">Telegram public channels</option>
                 <option value="x">X · no public feed connected</option>
               </select>
               <label for="sentiment-geography" class="field-label"

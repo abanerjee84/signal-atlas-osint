@@ -240,6 +240,9 @@ export function createWorldMap(
     aircraftFrame = requestAnimationFrame(animate);
   }
   let newsData = empty(),
+    threatData = empty(),
+    threatNetwork = null,
+    threatVisible = false,
     cyberData = empty(),
     cyberNetwork = null,
     cyberVisible = false,
@@ -353,9 +356,19 @@ export function createWorldMap(
       map.setLayoutProperty(
         "new-report-pulses",
         "visibility",
-        newsVisible || militaryVisible || socialVisible || cyberVisible
+        newsVisible ||
+          militaryVisible ||
+          socialVisible ||
+          cyberVisible ||
+          threatVisible
           ? "visible"
           : "none",
+      );
+    if (map.getLayer("threat-connections"))
+      map.setLayoutProperty(
+        "threat-connections",
+        "visibility",
+        threatVisible ? "visible" : "none",
       );
     if (map.getLayer("cyber-connections"))
       map.setLayoutProperty(
@@ -510,6 +523,7 @@ export function createWorldMap(
     map.addSource("military-network", { type: "geojson", data: militaryData });
     map.addSource("news-network", { type: "geojson", data: newsData });
     map.addSource("cyber-network", { type: "geojson", data: cyberData });
+    map.addSource("threat-network", { type: "geojson", data: threatData });
     map.addSource("social-network", { type: "geojson", data: socialData });
     map.addSource("publishers", { type: "geojson", data: publisherData });
     map.addSource("new-reports", { type: "geojson", data: empty() });
@@ -573,6 +587,7 @@ export function createWorldMap(
     for (const [id, source, dotted, color] of [
       ["military-connections", "military-network", false, "#df9592"],
       ["cyber-connections", "cyber-network", true, "#b2a3db"],
+      ["threat-connections", "threat-network", true, "#ef8ca2"],
       ["news-connections-solid", "news-network", false, "#dda96d"],
       ["news-connections-dotted", "news-network", true, "#91a7bd"],
       ["social-connections", "social-network", true, "#89c6b8"],
@@ -841,6 +856,7 @@ export function createWorldMap(
             "social-connections",
             "military-connections",
             "cyber-connections",
+            "threat-connections",
             "military-context",
           ],
         }).length
@@ -854,16 +870,19 @@ export function createWorldMap(
       "social-connections",
       "military-connections",
       "cyber-connections",
+      "threat-connections",
     ]) {
       const showConnection = (event) => {
         const network =
-          layer === "cyber-connections"
-            ? cyberNetwork
-            : layer === "military-connections"
-              ? militaryNetwork
-              : layer === "social-connections"
-                ? socialNetwork
-                : newsNetwork;
+          layer === "threat-connections"
+            ? threatNetwork
+            : layer === "cyber-connections"
+              ? cyberNetwork
+              : layer === "military-connections"
+                ? militaryNetwork
+                : layer === "social-connections"
+                  ? socialNetwork
+                  : newsNetwork;
         const edge = network?.edges.find(
           (item) => item.id === event.features[0].properties.id,
         );
@@ -873,17 +892,19 @@ export function createWorldMap(
           world.features.find((f) => f.properties.code === code)?.properties
             .name || code;
         const kind =
-          edge.kind === "publisher_to_country"
-            ? `${edge.source_id}: publisher base → country discussed`
-            : edge.kind === "declared_origin_to_mention"
-              ? "Declared country origin → country discussed"
-              : "Countries mentioned together";
+          edge.kind === "reported_attacker_to_victim"
+            ? `${edge.actor}: reported attacker country → reported victim country`
+            : edge.kind === "publisher_to_country"
+              ? `${edge.source_id}: publisher base → country discussed`
+              : edge.kind === "declared_origin_to_mention"
+                ? "Declared country origin → country discussed"
+                : "Countries mentioned together";
         card.append(
           element("strong", "", `${name(edge.from)} → ${name(edge.to)}`),
           element(
             "p",
             "",
-            `${kind}. ${edge.count} supporting feed reports. This is context, not movement or verified interaction.`,
+            `${kind}. ${edge.count} supporting feed reports. ${edge.basis || "This is context, not movement or verified interaction."}`,
           ),
         );
         for (let i = 0; i < Math.min(3, edge.titles.length); i++) {
@@ -1098,6 +1119,9 @@ export function createWorldMap(
     map.getCanvas().dataset.socialConnections = String(
       map.queryRenderedFeatures({ layers: ["social-connections"] }).length,
     );
+    map.getCanvas().dataset.threatConnections = String(
+      map.queryRenderedFeatures({ layers: ["threat-connections"] }).length,
+    );
   };
   map.on("render", sampleCanvas);
   map.on("idle", sampleCanvas);
@@ -1130,6 +1154,7 @@ export function createWorldMap(
     for (const [visible, data] of [
       [newsVisible, newsData],
       [cyberVisible, cyberData],
+      [threatVisible, threatData],
       [militaryVisible, militaryData],
       [socialVisible, socialData],
     ])
@@ -1319,6 +1344,14 @@ export function createWorldMap(
       cyberVisible = enabled;
       cyberData = networkFeatures(network);
       map.getSource("cyber-network")?.setData(cyberData);
+      visibility();
+      startPulses();
+    },
+    setThreatNetwork(network, enabled) {
+      threatNetwork = network;
+      threatVisible = enabled;
+      threatData = networkFeatures(network);
+      map.getSource("threat-network")?.setData(threatData);
       visibility();
       startPulses();
     },

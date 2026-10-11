@@ -70,8 +70,8 @@ def country_matchers():
     aliases = {
         "US": ["United States", "USA", "U.S.A.", "U.S."],
         "GB": ["United Kingdom", "UK", "U.K.", "Britain", "British"],
-        "KR": ["South Korea"],
-        "KP": ["North Korea"],
+        "KR": ["South Korea", "South Korean"],
+        "KP": ["North Korea", "North Korean"],
         "RU": ["Russian"],
         "UA": ["Ukrainian"],
         "CN": ["Chinese"],

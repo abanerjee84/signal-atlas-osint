@@ -16,6 +16,21 @@ from ..config import Settings
 from ..models import Report
 
 APPROVED_HOSTS = {
+    "blog.talosintelligence.com",
+    "www.bleepingcomputer.com",
+    "www.securityweek.com",
+    "feeds.feedburner.com",
+    "therecord.media",
+    "www.cybersecuritydive.com",
+    "www.welivesecurity.com",
+    "www.microsoft.com",
+    "mastodon.social",
+    "lemmy.world",
+    "t.me",
+    "www.crisisgroup.org",
+    "www.al-monitor.com",
+    "www.scmp.com",
+    "feeds.npr.org",
     "arctic-shift.photon-reddit.com",
     "www.dvidshub.net",
     "earthquake.usgs.gov",
@@ -67,9 +82,10 @@ class AccessRequired(Exception):
 class ProviderError(Exception):
     """Safe message for status records. Never embeds request URLs or tokens."""
 
-    def __init__(self, message, retry_after=0):
+    def __init__(self, message, retry_after=0, status_code=None):
         super().__init__(message)
         self.retry_after = retry_after
+        self.status_code = status_code
 
 
 def clean(value: str, bound: int = 10000) -> str:
@@ -186,7 +202,9 @@ class SafeHTTP:
                         await asyncio.sleep(delay)
                         continue
                     if not 200 <= response.status_code < 300:
-                        raise ProviderError(f"Provider HTTP {response.status_code}")
+                        raise ProviderError(
+                            f"Provider HTTP {response.status_code}", status_code=response.status_code
+                        )
                     chunks, size = [], 0
                     async for chunk in response.aiter_bytes():
                         size += len(chunk)

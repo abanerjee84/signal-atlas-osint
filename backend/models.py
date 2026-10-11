@@ -21,6 +21,7 @@ class Category(StrEnum):
     maritime = "maritime"
     sentiment = "sentiment"
     cyber = "cyber"
+    threat = "threat"
     economic = "economic"
     environment = "environment"
     analysis = "analysis"
@@ -43,7 +44,7 @@ class SocialRelation(BaseModel):
 
 class SocialMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    platform: Literal["x", "reddit", "youtube"]
+    platform: Literal["x", "reddit", "youtube", "mastodon", "lemmy", "telegram"]
     post_id: str = Field(min_length=1, max_length=512)
     author: str = Field(default="", max_length=200)
     community: str = Field(default="", max_length=200)
@@ -86,6 +87,22 @@ class AircraftMetadata(BaseModel):
     last_contact: datetime | None = None
 
 
+class ThreatMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    actor: str = Field(default="Unknown actor", max_length=200)
+    attacker_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
+    victim_countries: list[str] = Field(default_factory=list, max_length=20)
+    attack_kind: str = Field(max_length=80)
+    attribution_basis: str = Field(max_length=1000)
+    victim_basis: str = Field(max_length=1000)
+    classification: Literal["reported_attack"] = "reported_attack"
+
+    @field_validator("victim_countries")
+    @classmethod
+    def country_codes(cls, values):
+        return SocialMetadata.country_codes(values)
+
+
 class Report(BaseModel):
     model_config = ConfigDict(extra="forbid")
     external_id: str = Field(min_length=1, max_length=512)
@@ -114,6 +131,7 @@ class Report(BaseModel):
     aircraft_callsign: str = Field(default="", max_length=20)
     aircraft_category: int | None = Field(default=None, ge=0, le=17)
     aircraft: AircraftMetadata | None = None
+    threat: ThreatMetadata | None = None
     raw: dict = Field(default_factory=dict)
 
     @field_validator("source_url")

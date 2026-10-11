@@ -1,0 +1,75 @@
+from ..geo import countries
+from ..threat_activity import INCIDENT, extract_threat
+from .base import clean
+from .rss import RSS
+
+THREAT_FEEDS = [
+    ("cisco_talos", "Cisco Talos research", "https://blog.talosintelligence.com/rss/", "US"),
+    ("bleepingcomputer", "BleepingComputer", "https://www.bleepingcomputer.com/feed/", "US"),
+    ("securityweek", "SecurityWeek", "https://www.securityweek.com/feed/", "US"),
+    ("hacker_news", "The Hacker News", "https://feeds.feedburner.com/TheHackersNews", None),
+    ("record_media", "The Record", "https://therecord.media/feed", "US"),
+    ("cybersecurity_dive", "Cybersecurity Dive", "https://www.cybersecuritydive.com/feeds/news/", "US"),
+    ("eset_research", "ESET WeLiveSecurity", "https://www.welivesecurity.com/en/rss/feed/", "SK"),
+    (
+        "microsoft_security",
+        "Microsoft Security research",
+        "https://www.microsoft.com/en-us/security/blog/feed/",
+        "US",
+    ),
+]
+
+
+class ThreatFeed(RSS):
+    interval = 900
+    limitation = "Recent published attack and campaign reports, not live packet telemetry. Country attribution and targets are deterministic role extraction from the feed excerpt, unverified and incomplete. No origin is inferred from actor aliases, IPs or publisher countries."
+
+    def __init__(self, settings, identifier, name, url, country):
+        super().__init__(
+            settings,
+            source_id="threat_" + identifier,
+            name=name + " attack reports",
+            url=url,
+            category="threat",
+            publisher_country=country,
+            usage_notes="Linked headline and bounded feed excerpt only; publisher terms apply",
+        )
+
+    def select_records(self, records):
+        return super().select_records(
+            [
+                r
+                for r in records
+                if INCIDENT.search(clean(r.get("title", "") + " " + r.get("description", "")))
+            ]
+        )
+
+    def normalize(self, record):
+        report = super().normalize(record)
+        threat = extract_threat(report.title + ". " + report.description)
+        if not threat:
+            raise ValueError("No attack/campaign wording")
+        report.threat = threat
+        places = {f["properties"]["code"]: f["properties"] for f in countries()["features"]}
+        victim = places.get(threat.victim_countries[0]) if len(threat.victim_countries) == 1 else None
+        report.country_code = victim["code"] if victim else None
+        report.longitude, report.latitude = victim["center"] if victim else (None, None)
+        report.location_precision = "regional" if victim else "unknown"
+        report.location_basis = (
+            "Country explicitly named as a target in source excerpt; country center, not an incident coordinate"
+            if victim
+            else "No unique reported victim country; no incident point inferred"
+        )
+        # Tags also support older running APIs without requiring a service restart.
+        report.tags += ["threat-report", "actor:" + threat.actor, "attack-kind:" + threat.attack_kind]
+        if threat.attacker_country:
+            report.tags.append("attributed-country:" + threat.attacker_country)
+        report.tags += ["victim-country:" + code for code in threat.victim_countries]
+        report.evidence_basis = (
+            "Published cyber reporting; automated role extraction is unverified. " + threat.attribution_basis
+        )
+        return report
+
+
+def threat_feeds(settings):
+    return [ThreatFeed(settings, *definition) for definition in THREAT_FEEDS]

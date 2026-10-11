@@ -6,6 +6,7 @@ export const colors = {
   maritime: "#8dc7da",
   sentiment: "#79c69f",
   cyber: "#b2a3db",
+  threat: "#ef8ca2",
   economic: "#e4cc8a",
   environment: "#79c9b1",
   analysis: "#a2b1bc",
@@ -17,6 +18,7 @@ export const CATEGORY_NAMES = {
   maritime: "Maritime",
   sentiment: "Global sentiment",
   cyber: "Cyber intelligence",
+  threat: "Threat Actor",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
@@ -28,6 +30,7 @@ const marks = {
   maritime: "MT",
   sentiment: "S",
   cyber: "CY",
+  threat: "TA",
   economic: "EC",
   environment: "EN",
   analysis: "AN",
@@ -56,6 +59,7 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ])
         ctx.lineTo(x, y);
       break;
+    case "threat":
     case "military":
       ctx.moveTo(-9, -9);
       ctx.lineTo(9, -9);
