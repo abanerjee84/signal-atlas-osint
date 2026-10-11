@@ -18,6 +18,8 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Follow geopolitical and military reporting:** worldwide publisher feeds, official announcements, defence topics and connections between places mentioned in reports.
 - **Compare countries:** a map-side leaderboard for report mentions, sampled sentiment and intelligence activity, with source and sample counts.
 - **Track eligible aircraft:** OpenSky classes 4 and 5, normally refreshed every two minutes, with short transitions between reported positions. Cards show registration country, altitude, speed, ground track and observation age.
+- **Follow satellites and ISS:** 15 named spacecraft from public CelesTrak and AMSAT orbital files. Distinct satellite and ISS icons show calculated ground positions, with hover details, altitude, speed, mission, period and source elements. Positions update locally every two seconds; no account or key is needed.
+- **Find layers by topic:** search above Display Overlays expands related concepts such as planes, hacking, oil prices and space station. It searches layer meanings locally and preserves your selected overlays.
 - **Study public narratives:** English lexical sentiment, topic groups, regional comparisons and separate news, public-discussion and official-statement datasets.
 - **Investigate cyber intelligence:** advisories, vulnerabilities, routing and outage observations, plus threat-actor, malware and technique relationships from reference catalogs.
 - **Follow cyber threats:** the merged Cyber: Threat Actors layer combines attack reporting with Bitdefender ATTACK rows, BunkerWeb traffic, Imperva daily request aggregates and Radware's public map. Filter specific attack vectors separately from reputation blocks. Public Unit 42, Securelist and Mandiant article scrapers add technique evidence and CVEs. Radware's global method breakdown is displayed separately from country routes. Infrastructure geography remains separate from human attribution.
@@ -25,7 +27,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
 - **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
 
-The nine selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber: Threat Actors**, **Economic and energy**, **Environment and humanitarian**, and **Analysis and anomaly alerts**. The cyber switch combines advisories, investigations, attack reporting and sampled provider traffic. Layer availability depends on source access and the selected period.
+The ten selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber: Threat Actors**, **Economic and energy**, **Environment and humanitarian**, **Analysis and anomaly alerts**, and **Satellites & ISS**. The cyber switch combines advisories, investigations, attack reporting and sampled provider traffic. Layer availability depends on source access and the selected period.
 
 <details>
 <summary>Preview the threat-actor workspace</summary>
@@ -33,6 +35,15 @@ The nine selectable map layers are **Geopolitical events**, **Military OSINT**, 
 ![Cyber workspace with compact controls, origin-to-target routes, provider attack types and reporting periods](docs/threat-actor-workspace.jpg)
 
 Catalog relationships describe published reference knowledge. A name match or shared mention does not establish responsibility for an incident.
+
+</details>
+
+<details>
+<summary>Preview the satellite workspace</summary>
+
+![Satellite and ISS positions with altitude, mission, source elements and topic search](docs/satellite-workspace.jpg)
+
+Positions are SGP4 estimates from public orbital elements, rather than live spacecraft telemetry. Polar ground positions can fall outside the world overview. Satellite history is not retained. See [orbital collection and accuracy](docs/SATELLITES.md).
 
 </details>
 

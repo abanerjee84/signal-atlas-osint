@@ -1,5 +1,5 @@
 import rules from "./attack-vectors.json" with { type: "json" };
-import { element, relativeTime } from "./api.js";
+import { element } from "./api.js";
 
 export const VECTOR_LABELS = rules.map((rule) => rule.label);
 export function knownVectors(labels) {
@@ -20,13 +20,7 @@ export function renderVectorBreakdown(summary) {
   const body = document.querySelector("#radware-vector-body");
   body.replaceChildren();
   if (!summary) {
-    body.append(
-      element(
-        "p",
-        "helper",
-        "Waiting for Radware's public-page scraper. Provider health shows collection errors.",
-      ),
-    );
+    body.append(element("p", "helper", "Attack breakdown unavailable."));
     return;
   }
   const sampled = Date.parse(summary.observed_at);
@@ -35,7 +29,7 @@ export function renderVectorBreakdown(summary) {
     element(
       "p",
       "helper",
-      `Radware · site interval ${summary.interval || "unspecified"} · scraped ${relativeTime(summary.observed_at)}${stale ? " · stale" : ""}`,
+      `Radware · ${summary.interval || "Latest breakdown"}${stale ? " · Update delayed" : ""}`,
     ),
   );
   for (const [key, title] of [
@@ -60,7 +54,7 @@ export function renderVectorBreakdown(summary) {
     element(
       "p",
       "helper",
-      "Global provider percentages, with a separate denominator for each breakdown. These methods are not linked to individual country pairs. Publication and map filters do not change this source-wide snapshot.",
+      "Global breakdowns; methods are not linked to individual country pairs.",
     ),
   );
   const link = element("a", "", "Inspect Radware source");

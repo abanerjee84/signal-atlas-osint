@@ -215,6 +215,55 @@ button.wide {
   margin-left: auto;
   white-space: nowrap;
 }
+.investigate-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #10261f;
+  font-weight: 700;
+  text-decoration: none;
+}
+.investigate-button:hover {
+  background: #9ee3ce;
+  color: #10261f;
+}
+.investigate-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  width: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  visibility: hidden;
+  pointer-events: auto;
+}
+.investigate-button:hover .investigate-tooltip,
+.investigate-button:focus-visible .investigate-tooltip {
+  visibility: visible;
+}
+#layer-search {
+  margin-bottom: 8px;
+}
+.orbital-card {
+  border-left: 2px solid #c6bcff;
+}
+.orbital-position {
+  color: var(--muted);
+  font-size: 11px;
+}
 .system-status::before {
   content: "";
   display: inline-block;
@@ -285,6 +334,8 @@ button.wide {
 }
 .layers {
   margin-top: 12px;
+  display: flex;
+  flex-direction: column;
 }
 .layer-row {
   display: flex;

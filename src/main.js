@@ -16,6 +16,13 @@ import {
   matchesThreatVector,
 } from "./threats.js";
 import { VECTOR_LABELS, renderVectorBreakdown } from "./threat-vectors.js";
+import { searchLayers } from "./layer-search.js";
+import {
+  prepareOrbits,
+  orbitalPositions,
+  filterOrbitalPositions,
+  orbitalFacts,
+} from "./orbits.js";
 
 const $ = (selector) => document.querySelector(selector);
 const threatProviders = [
@@ -37,6 +44,7 @@ const names = {
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
+  space: "Satellites & ISS",
 };
 const defaults = [
   "geopolitical",
@@ -47,6 +55,7 @@ const defaults = [
   "cyber",
   "threat",
   "economic",
+  "space",
 ];
 function readSession(key, fallback) {
   try {
@@ -100,6 +109,9 @@ const state = {
   analysisEventIds: null,
   aircraft: null,
   aircraftFilter: "",
+  orbits: [],
+  orbitalItems: [],
+  orbitalLoaded: false,
 };
 // Preserve old saved selections while exposing a single cyber layer control.
 if (state.layers.has("cyber") || state.layers.has("threat")) {
@@ -182,7 +194,7 @@ function timeRange() {
 function filters({ sentiment = false } = {}) {
   const { start, end } = timeRange();
   const physical = [...state.layers].filter(
-    (id) => !["sentiment", "analysis", "threat"].includes(id),
+    (id) => !["sentiment", "analysis", "threat", "space"].includes(id),
   );
   return {
     categories: sentiment ? [] : physical.length ? physical : ["sentiment"],
@@ -254,6 +266,122 @@ function renderLayers() {
     });
     $("#layers").append(label);
   }
+  applyLayerSearch();
+}
+
+function applyLayerSearch() {
+  const query = $("#layer-search").value;
+  const matches = searchLayers(query, names);
+  for (const row of $("#layers").children) {
+    const id = row.querySelector("input").dataset.layer;
+    row.hidden = !matches.includes(id);
+    row.style.order = String(matches.indexOf(id));
+  }
+  const result = $("#layer-search-result");
+  result.hidden = !query.trim();
+  result.textContent = matches.length
+    ? `${matches.length} related ${matches.length === 1 ? "layer" : "layers"}`
+    : "No related layers. Try a topic such as flights, oil or space.";
+}
+$("#layer-search").addEventListener("input", applyLayerSearch);
+$("#layer-search").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.currentTarget.value = "";
+    applyLayerSearch();
+  }
+});
+
+function updateOrbitalPositions() {
+  state.orbitalItems = filterOrbitalPositions(orbitalPositions(state.orbits), {
+    country: state.country,
+    world: state.world,
+    q: state.q,
+    bbox: $("#viewport-filter").checked ? worldMap?.bounds() : undefined,
+  });
+  const enabled =
+    state.layers.has("space") && Number($("#playhead").value) === 100;
+  $("#orbital-live-status").hidden = !enabled;
+  $("#orbital-live-status").textContent =
+    `${state.orbitalItems.length} satellites`;
+  worldMap?.setOrbits(enabled ? state.orbitalItems : []);
+  const count = $('[data-count="space"]');
+  if (count) count.textContent = state.orbitalItems.length;
+  const note = $('[data-layer-note="space"]');
+  if (note)
+    note.textContent =
+      Number($("#playhead").value) < 100
+        ? "Current positions only"
+        : state.orbitalItems.length
+          ? "Calculated orbital positions"
+          : state.orbitalLoaded
+            ? "No current positions in this view"
+            : "Orbital data unavailable";
+  for (const node of document.querySelectorAll("[data-orbit-card]")) {
+    const item = state.orbitalItems.find(
+      (entry) => entry.event_id === node.dataset.orbitCard,
+    );
+    if (item)
+      node.textContent = `${item.altitude_km.toFixed(0)} km altitude · ${item.speed_kms.toFixed(2)} km/s · ${item.latitude.toFixed(1)}°, ${item.longitude.toFixed(1)}°`;
+  }
+  if (state.selectedEvent?.category === "space" && !$("#event-detail").hidden) {
+    const item = state.orbitalItems.find(
+      (entry) => entry.event_id === state.selectedEvent.event_id,
+    );
+    if (item)
+      for (const [label, value] of Object.entries(orbitalFacts(item))) {
+        const node = [...document.querySelectorAll("[data-orbit-fact]")].find(
+          (entry) => entry.dataset.orbitFact === label,
+        );
+        if (node) node.textContent = value;
+      }
+  }
+}
+async function refreshOrbits() {
+  try {
+    const response = await fetch("/orbital-elements.json", {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Orbital data unavailable");
+    const snapshot = await response.json();
+    state.orbits = prepareOrbits(snapshot);
+    state.orbitalLoaded = true;
+  } catch {
+    /* Previously loaded elements expire by epoch even when downloads fail. */
+  }
+  updateOrbitalPositions();
+  if (worldMap) renderEvents();
+}
+
+function showOrbitDetail(item, locate) {
+  state.selectedEvent = item;
+  showView("feed");
+  const card = element("article", "detail-card");
+  const close = element("button", "detail-close", "Close");
+  close.addEventListener("click", () => {
+    $("#event-detail").hidden = true;
+    state.selectedEvent = null;
+  });
+  card.append(close, element("h3", "", item.name));
+  const fields = element("dl");
+  for (const [label, value] of Object.entries(orbitalFacts(item))) {
+    const detail = element("dd", "", value);
+    detail.dataset.orbitFact = label;
+    fields.append(element("dt", "", label), detail);
+  }
+  card.append(
+    fields,
+    element(
+      "p",
+      "helper",
+      "Position calculated from published orbital elements.",
+    ),
+    sourceLink(item.source_url, "View orbital source"),
+  );
+  $("#event-detail").replaceChildren(card);
+  $("#event-detail").hidden = false;
+  if ($("#workspace").classList.contains("right-collapsed"))
+    togglePanel("right");
+  if (locate) worldMap?.locate(item);
 }
 
 function renderSources(status) {
@@ -266,7 +394,7 @@ function renderSources(status) {
   $("#system-status").textContent = status.worker_alive
     ? `${active} sources current`
     : status.public_gatherer_alive
-      ? "Cyber gatherer active"
+      ? "Live cyber updates"
       : "Collector inactive";
   $("#system-status").title =
     !status.worker_alive && status.public_gatherer_alive
@@ -456,6 +584,7 @@ function renderEvents() {
     visible.push(...flights);
   }
   worldMap?.setEvents(visible);
+  updateOrbitalPositions();
   $("#matched-count").textContent = Math.max(
     0,
     state.total -
@@ -480,7 +609,7 @@ function renderEvents() {
       : cutoff.toISOString().slice(5, 16).replace("T", " ") + "Z";
   $("#aircraft-live-status").hidden = !state.layers.has("aviation");
   $("#aircraft-live-status").textContent = live
-    ? `${state.aircraft.stale ? "Aircraft update delayed" : "Current aircraft"} · ${state.aircraft.items.length} positions · Collected ${relativeTime(state.aircraft.collected_at)} · Refresh ~${Math.round(state.aircraft.poll_seconds / 60)} min · Smoothed between reports`
+    ? `${state.aircraft.stale ? "Aircraft update delayed" : "Current aircraft"} · ${state.aircraft.items.length} positions`
     : "Aircraft: stored observations · position age shown on cards";
   for (const event of visible) {
     const li = element("li");
@@ -529,7 +658,34 @@ function renderEvents() {
     li.append(button);
     $("#event-list").append(li);
   }
-  if (!visible.length) {
+  const orbitVisible =
+    state.layers.has("space") && playhead === 100 ? state.orbitalItems : [];
+  for (const item of orbitVisible) {
+    const li = element("li");
+    const button = element("button", "event-button orbital-card");
+    button.dataset.eventId = item.event_id;
+    const meta = element("div", "event-meta");
+    meta.append(symbolCanvas("space"), element("span", "", names.space));
+    const position = element("p", "orbital-position");
+    position.dataset.orbitCard = item.event_id;
+    position.textContent = `${item.altitude_km.toFixed(0)} km altitude · ${item.speed_kms.toFixed(2)} km/s · ${item.latitude.toFixed(1)}°, ${item.longitude.toFixed(1)}°`;
+    button.append(
+      meta,
+      element("span", "event-title", item.name),
+      element("span", "event-excerpt", item.purpose),
+      position,
+    );
+    button.addEventListener("click", () =>
+      showOrbitDetail(
+        state.orbitalItems.find((entry) => entry.event_id === item.event_id) ||
+          item,
+        true,
+      ),
+    );
+    li.append(button);
+    $("#event-list").append(li);
+  }
+  if (!visible.length && !orbitVisible.length) {
     const empty = element("li", "empty-state");
     empty.append(
       element("strong", "", "No matching observations"),
@@ -551,7 +707,7 @@ function renderEvents() {
     $("#event-list").append(empty);
   }
   for (const id of Object.keys(names)) {
-    if (["sentiment", "analysis", "threat"].includes(id)) continue;
+    if (["sentiment", "analysis", "threat", "space"].includes(id)) continue;
     const count =
       id === "aviation" && live
         ? state.aircraft.items.length
@@ -615,6 +771,11 @@ function renderEvents() {
 
 async function selectEvent(id, locate = false) {
   state.analysisEventIds = null;
+  if (id.startsWith("orbit-")) {
+    const item = state.orbitalItems.find((entry) => entry.event_id === id);
+    if (item) showOrbitDetail(item, locate);
+    return;
+  }
   try {
     const event =
       state.aircraft?.items.find((item) => item.event_id === id) ||
@@ -1175,11 +1336,6 @@ function renderTimeline(result) {
     `${range.start.toISOString().slice(0, 16).replace("T", " ")} to ${range.end.toISOString().slice(0, 16).replace("T", " ")} UTC · ${result.time_basis} time`;
 }
 
-function renderAIUsage(usage) {
-  $("#ai-usage").textContent =
-    `${usage.remaining}/${usage.daily_budget} requests remain in the local UTC daily budget. Model: ${usage.model}.${!usage.configured ? " OpenRouter key required on the server." : ""}${!usage.protected_access_configured ? " Protected analysis is disabled until a server access token is set." : ""}`;
-}
-
 async function refresh() {
   refreshController?.abort();
   refreshController = new AbortController();
@@ -1240,7 +1396,7 @@ async function refresh() {
       api("status", { signal }),
       api(`timeline?${query}&interval=${interval}`, { signal }),
       api(`sentiment?${sentimentQuery}`, { signal }),
-      api("ai/usage", { signal }),
+      Promise.resolve(null),
       api("anomalies", { signal }),
       api(`relations?${query}`, { signal }),
       api(`military?${query}`, { signal }),
@@ -1259,7 +1415,7 @@ async function refresh() {
     const data = results[0].value;
     state.events = data.items.filter((event) => event.category !== "threat");
     state.total = [...state.layers].some(
-      (id) => !["threat", "analysis"].includes(id),
+      (id) => !["threat", "analysis", "space"].includes(id),
     )
       ? data.total
       : 0;
@@ -1338,7 +1494,7 @@ async function refresh() {
           element(
             "p",
             "helper",
-            `${source.name}: ${source.state === "ok" ? `${source.stored} sampled observations · received ${relativeTime(source.last_success)}${source.stale ? " · sample stale" : ""}` : source.error || source.state}.${source.compatibility_only ? (source.background_collection ? " Background collection every 10 seconds." : " Scheduled updates pending your next collector reload.") : ""}`,
+            `${source.name}: ${source.state === "ok" ? (source.stale ? "Update delayed" : "Available") : "Update unavailable"}`,
           ),
         );
       }
@@ -1381,7 +1537,6 @@ async function refresh() {
       );
     }
     renderNetworkSummary();
-    if (results[4].status === "fulfilled") renderAIUsage(results[4].value);
     if (results[8].status === "fulfilled") {
       state.extendedSources = results[8].value.some(
         (layer) =>
@@ -1653,6 +1808,14 @@ function renderCountryActivity() {
     state.world?.features.map((feature) => feature.properties) || [],
   );
   if (!state.countryActivity) return;
+  if ([...state.layers].every((id) => ["space", "analysis"].includes(id))) {
+    countryRibbon.setData({
+      ...state.countryActivity,
+      items: [],
+      selected_country: state.country,
+    });
+    return;
+  }
   countryRibbon.setData({
     ...threatCountryActivity(
       state.countryActivity,
@@ -1780,11 +1943,7 @@ async function analyze(event) {
       },
     });
     $("#ai-result").replaceChildren(
-      element(
-        "p",
-        "helper",
-        `${result.model} · ${dateText(result.analyzed_at)}${result.cached ? " · Cached" : ""}`,
-      ),
+      element("p", "helper", dateText(result.analyzed_at)),
     );
     if (result.output_mode === "draft") {
       $("#ai-result").append(
@@ -1828,7 +1987,6 @@ async function analyze(event) {
     for (const limitation of result.limitations)
       limitations.append(element("li", "", limitation));
     $("#ai-result").append(limitations);
-    renderAIUsage(await api("ai/usage"));
   } catch (error) {
     $("#ai-error").textContent = error.message;
   } finally {
@@ -1887,6 +2045,7 @@ async function initialize() {
         message(`Map: ${text}. Use the event list to inspect observations.`),
     });
     worldMap.setDensityWeighted(state.densityConfidence);
+    await refreshOrbits();
     worldMap.setAnalysisVisible(state.analysisOverlays);
     const { charts } = await import("./charts.js");
     chart = charts({ selectReport: focusSocialPost });
@@ -2184,7 +2343,7 @@ async function refreshThreatFeeds() {
           element(
             "p",
             "helper",
-            `${source.name}: ${source.state === "ok" ? `${source.stored} rows in latest sample · ${relativeTime(source.last_success)}` : source.error || source.state}. ${source.source_id.startsWith("threat_research_") ? "Public research articles; checked every 15 minutes. Publication dates stay intact." : source.source_id === "imperva_threatmap" ? "Daily reporting period; choose Last 7 days to see older rows. Checked every 15 minutes." : "Gatherer checks every 10 seconds; empty samples are possible."}`,
+            `${source.name}: ${source.state === "ok" ? "Available" : source.state === "deferred" ? "Awaiting next update" : "Update unavailable"}`,
           ),
         );
       }
@@ -2200,3 +2359,12 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refreshAircraft();
 });
 initialize();
+setInterval(() => {
+  if (!document.hidden && state.layers.has("space")) updateOrbitalPositions();
+}, 2000);
+setInterval(() => {
+  if (!document.hidden) refreshOrbits();
+}, 3600000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) updateOrbitalPositions();
+});

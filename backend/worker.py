@@ -190,8 +190,25 @@ async def run(once: bool = False, source: str | None = None):
                 except TimeoutError:
                     pass
 
+        # Public orbital files have an independent slow lane. Positions are
+        # computed in the browser; no per-position upstream requests are made.
+        async def orbital_updates():
+            from scripts.collect_orbits import collect_orbits_locked
+
+            while not stopped.is_set():
+                try:
+                    await asyncio.to_thread(collect_orbits_locked, database)
+                except OSError:
+                    log.warning("Orbital snapshot temporarily unavailable")
+                try:
+                    await asyncio.wait_for(stopped.wait(), timeout=3600)
+                except TimeoutError:
+                    pass
+
         aircraft_tasks = []
         if not once:
+            if not source:
+                aircraft_tasks.append(asyncio.create_task(orbital_updates()))
             for provider in providers:
                 if getattr(provider, "live_aircraft", False):
                     current = next(

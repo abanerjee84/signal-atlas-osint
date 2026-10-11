@@ -9,6 +9,8 @@ data/
 public/threatmap-status.json
 public/threatmap-status.json.tmp
 public/threatmap-status.*.tmp
+public/orbital-elements.json
+public/orbital-elements.*.tmp
 .env
 .env.*
 !.env.example

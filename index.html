@@ -48,9 +48,16 @@
       >
       <a
         href="/advanced.html"
-        class="button"
-        title="Search evidence and manage investigation cases"
-        >Investigate ↗</a
+        class="investigate-button"
+        aria-label="Investigate"
+        aria-describedby="investigate-tooltip"
+        ><span aria-hidden="true">⌕</span> Investigate ↗<span
+          id="investigate-tooltip"
+          class="investigate-tooltip"
+          role="tooltip"
+          >Search evidence, explore connections and build investigation
+          cases.</span
+        ></a
       >
       <time id="utc-clock" class="clock" aria-label="Current UTC time"></time>
       <button
@@ -90,15 +97,26 @@
         </div>
         <div id="left-content" class="panel-content">
           <p class="eyebrow">DISPLAY OVERLAYS</p>
+          <label class="sr-only" for="layer-search"
+            >Find intelligence layers by meaning or topic</label
+          >
+          <input
+            id="layer-search"
+            type="search"
+            placeholder="Find layers by topic…"
+            maxlength="150"
+            aria-controls="layers"
+            aria-describedby="layer-search-result"
+          />
+          <p id="layer-search-result" class="helper" role="status" hidden></p>
           <div
             id="layers"
             class="layers"
             aria-label="Selectable intelligence layers"
           ></div>
           <p class="helper">
-            Counts match the period and geographic filters. Aviation shows
-            current positions when available; history playback uses retained
-            observations.
+            Counts follow your filters. Aircraft and satellites show current
+            positions; event history uses retained observations.
           </p>
           <details class="coverage-details" open>
             <summary>Data coverage</summary>
@@ -176,6 +194,7 @@
             <div class="map-summary">
               <span><strong id="matched-count">0</strong> matching</span>
               <span><strong id="mapped-count">0</strong> mapped</span>
+              <span id="orbital-live-status" hidden></span>
               <span id="refresh-time">Waiting for API</span>
             </div>
             <div class="map-actions">
@@ -524,11 +543,6 @@
           </section>
           <section id="analysis-view" hidden>
             <h3>Evidence-grounded analysis</h3>
-            <p class="helper">
-              Analysis uses the selected event, military topic evidence or
-              current filters. Each claim must cite stored source records.
-            </p>
-            <p id="ai-usage" class="helper"></p>
             <form id="ai-form">
               <label for="ai-question" class="field-label"
                 >Analyst question</label

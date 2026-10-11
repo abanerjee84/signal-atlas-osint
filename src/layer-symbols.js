@@ -10,6 +10,7 @@ export const colors = {
   economic: "#e4cc8a",
   environment: "#79c9b1",
   analysis: "#a2b1bc",
+  space: "#c6bcff",
 };
 export const CATEGORY_NAMES = {
   geopolitical: "Geopolitical events",
@@ -22,6 +23,7 @@ export const CATEGORY_NAMES = {
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
+  space: "Satellites & ISS",
 };
 const marks = {
   geopolitical: "GP",
@@ -38,6 +40,7 @@ const marks = {
   publisher: "P",
   attacker: "A",
   victim: "V",
+  space: "ST",
 };
 
 export function symbolCanvas(category, { context = false, count, color } = {}) {

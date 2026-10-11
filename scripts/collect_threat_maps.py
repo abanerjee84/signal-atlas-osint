@@ -10,6 +10,7 @@ from pathlib import Path
 from backend.config import ROOT, Settings
 from backend.database import Database
 from backend.models import stamp
+from scripts.collect_orbits import orbital_loop
 from scripts.collect_public_updates import collect_once
 from scripts.collection_status import write_status
 from scripts.threat_table_reader import ThreatTableReader
@@ -70,6 +71,7 @@ def run_thread(database, chromium=None, rendered_table=True):
                 await asyncio.to_thread(stopped.wait, 60)
 
         research = asyncio.create_task(research_loop())
+        orbits = asyncio.create_task(orbital_loop(stopped, database))
         try:
             while not stopped.is_set():
                 began = loop.time()
@@ -98,7 +100,8 @@ def run_thread(database, chromium=None, rendered_table=True):
                 await asyncio.to_thread(stopped.wait, max(0, INTERVAL - (loop.time() - began)))
         finally:
             research.cancel()
-            await asyncio.gather(research, return_exceptions=True)
+            orbits.cancel()
+            await asyncio.gather(research, orbits, return_exceptions=True)
             if reader:
                 await reader.close()
 

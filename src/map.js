@@ -14,6 +14,7 @@ import {
   aircraftSummary,
 } from "./aircraft.js";
 import { colors, CATEGORY_NAMES, symbolImage } from "./layer-symbols.js";
+import { orbitalFacts } from "./orbits.js";
 export { colors, CATEGORY_NAMES } from "./layer-symbols.js";
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -79,6 +80,31 @@ function aircraftIcon() {
   return context.getImageData(0, 0, size, size);
 }
 export const THIN_SAMPLE = 5;
+function satelliteIcon(iss = false) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 48;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(2, 2);
+  ctx.translate(12, 12);
+  ctx.fillStyle = iss ? "#eef0ff" : colors.space;
+  ctx.strokeStyle = "#202736";
+  ctx.lineWidth = 1;
+  ctx.fillRect(-3, -4, 6, 8);
+  ctx.strokeRect(-3, -4, 6, 8);
+  for (const side of [-1, 1]) {
+    ctx.fillRect(side < 0 ? -10 : 4, -5, 6, 10);
+    ctx.strokeRect(side < 0 ? -10 : 4, -5, 6, 10);
+    ctx.beginPath();
+    ctx.moveTo(side * 4, 0);
+    ctx.lineTo(side * 10, 0);
+    ctx.stroke();
+  }
+  if (iss) {
+    ctx.fillRect(-1, -9, 2, 18);
+    ctx.fillRect(-5, -1, 10, 2);
+  }
+  return ctx.getImageData(0, 0, 48, 48);
+}
 function graticule() {
   const features = [];
   for (let longitude = -180; longitude <= 180; longitude += 30)
@@ -308,6 +334,7 @@ export function createWorldMap(
     className: "map-hover-details",
   });
   let selectedThreatRoute = null;
+  let orbitalData = empty();
   let worldView = true;
   const resetWorld = () => {
     worldView = true;
@@ -320,6 +347,11 @@ export function createWorldMap(
       ],
       { padding: { top: 12, bottom: 24, left: 12, right: 44 }, duration: 0 },
     );
+    // Preserve the horizontal world extent and anchor Cape Horn above the
+    // lower canvas edge, instead of leaving a large southern letterbox.
+    const bottomGap =
+      map.getCanvas().clientHeight - 18 - map.project([-67.3, -55.98]).y;
+    if (bottomGap > 0) map.panBy([0, -bottomGap], { duration: 0 });
   };
   for (const type of ["dragstart", "zoomstart", "rotatestart", "pitchstart"])
     map.on(type, (event) => {
@@ -532,6 +564,8 @@ export function createWorldMap(
     );
   }
   map.on("load", () => {
+    map.addImage("satellite", satelliteIcon(), { pixelRatio: 2 });
+    map.addImage("iss", satelliteIcon(true), { pixelRatio: 2 });
     const arrowIcon = (color) => {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 48;
@@ -1098,6 +1132,55 @@ export function createWorldMap(
     map.on("click", "aircraft-track", (event) =>
       selectEvent(event.features[0].properties.event_id),
     );
+    map.addSource("orbital-positions", { type: "geojson", data: orbitalData });
+    map.addLayer({
+      id: "orbital-positions",
+      type: "symbol",
+      source: "orbital-positions",
+      layout: {
+        "icon-image": ["get", "icon"],
+        "icon-size": 0.72,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "text-field": ["case", ["==", ["get", "catalog_id"], 25544], "ISS", ""],
+        "text-size": 11,
+        "text-offset": [0, 1.5],
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#eef0ff",
+        "text-halo-color": "#101b22",
+        "text-halo-width": 1.5,
+      },
+    });
+    map.on("click", "orbital-positions", (event) =>
+      selectEvent(event.features[0].properties.event_id),
+    );
+    map.on("mouseenter", "orbital-positions", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mousemove", "orbital-positions", (event) => {
+      const item = event.features[0].properties;
+      const card = element("div");
+      card.append(
+        element("strong", "", item.name),
+        element("p", "", item.purpose),
+      );
+      const facts = orbitalFacts(item);
+      for (const label of [
+        "Altitude",
+        "Orbital speed",
+        "Ground position",
+        "Source",
+      ])
+        card.append(element("p", "", `${label}: ${facts[label]}`));
+      card.append(element("p", "helper", "Calculated orbital position"));
+      hoverPopup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
+    });
+    map.on("mouseleave", "orbital-positions", () => {
+      map.getCanvas().style.cursor = "";
+      hoverPopup.remove();
+    });
     map.on("click", "countries-fill", (event) => {
       if (event.lngLat.lat < -57 || event.lngLat.lat > 74) return;
       if (
@@ -1105,6 +1188,7 @@ export function createWorldMap(
           layers: [
             "event-points",
             "aircraft-track",
+            "orbital-positions",
             "clusters",
             "publisher-points",
             "news-connections-solid",
@@ -1470,6 +1554,7 @@ export function createWorldMap(
     if (now - lastSample < 250 || !map.getLayer("event-points")) return;
     lastSample = now;
     map.getCanvas().dataset.worldView = String(worldView);
+    map.getCanvas().dataset.southTip = String(map.project([-67.3, -55.98]).y);
     map.getCanvas().dataset.worldFrame = JSON.stringify(
       [
         [-179.9, -57],
@@ -1763,6 +1848,32 @@ export function createWorldMap(
   return {
     map,
     focusThreatRoute,
+    setOrbits(items) {
+      orbitalData = {
+        type: "FeatureCollection",
+        features: items.map((item) => ({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [item.longitude, item.latitude],
+          },
+          properties: item,
+        })),
+      };
+      map.getSource("orbital-positions")?.setData(orbitalData);
+      map.getCanvas().dataset.orbitalPositions = JSON.stringify(
+        items.map((item) => ({
+          id: item.event_id,
+          name: item.name,
+          longitude: item.longitude,
+          latitude: item.latitude,
+          ...(() => {
+            const point = map.project([item.longitude, item.latitude]);
+            return { x: point.x, y: point.y };
+          })(),
+        })),
+      );
+    },
     setEvents(events) {
       const features = (records) => ({
         type: "FeatureCollection",

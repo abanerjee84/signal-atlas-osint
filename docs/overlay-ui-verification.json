@@ -1,0 +1,21 @@
+{
+  "satellites": 15,
+  "iss_movement_verified": true,
+  "hover_details": true,
+  "topic_search": true,
+  "world_bottom_gap_px": 18.000000000001933,
+  "internal_chatter_removed": true,
+  "server_lifecycle_actions": 0,
+  "errors": [],
+  "url": "http://127.0.0.1:5173",
+  "existing_servers_preserved": true,
+  "desktop_mobile_checked": true,
+  "map_layout_regression_passed": true,
+  "cyber_social_regression_passed": true,
+  "build_passed": true,
+  "orbital_download_checks_passed": true,
+  "snapshot_sources": [
+    "CelesTrak",
+    "AMSAT"
+  ]
+}
