@@ -56,3 +56,28 @@ test("typed evidence wins over keyword guesses and summaries preserve source wor
     "Only the headline is available",
   );
 });
+
+test("ordinary strikes and unspecified military reporting do not get combat symbols", () => {
+  for (const title of [
+    "Prisoners begin hunger strike",
+    "Writers strike continues",
+    "Officials strike a deal",
+  ])
+    assert.equal(conflictType({ category: "geopolitical", title }), null);
+  assert.equal(
+    conflictType({ category: "military", title: "Military reporting update" })
+      ?.id,
+    "conflict",
+  );
+  assert.equal(
+    conflictType({ category: "military", title: "Armed strike reported" })?.id,
+    "clashes",
+  );
+  assert.equal(
+    conflictType({
+      category: "military",
+      title: "Defence equipment procurement",
+    })?.id,
+    "weapons",
+  );
+});

@@ -43,6 +43,29 @@ const marks = {
   space: "ST",
 };
 
+// Activity colors belong to the military glyphs, never the map or defence links.
+// General reporting stays neutral; a country mention is not combat evidence.
+const militaryIconColors = {
+  alert: "#ffd166",
+  drone: "#ffae62",
+  airstrike: "#ff857b",
+  missile: "#ffae62",
+  shelling: "#ffae62",
+  explosion: "#ff857b",
+  clashes: "#ff857b",
+  naval: "#70c6f2",
+  deployment: "#dcbf7e",
+  weapons: "#dcbf7e",
+  diplomacy: "#76d6b0",
+  protest: "#ffd166",
+  conflict: "#ff7474",
+};
+export function conflictColor(type, category) {
+  return category === "military"
+    ? militaryIconColors[type] || "#b6c3cc"
+    : colors[category];
+}
+
 export function symbolCanvas(category, { context = false, count, color } = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = count ? 64 : 48;
@@ -64,8 +87,14 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ])
         ctx.lineTo(x, y);
       break;
-    case "threat":
     case "military":
+      ctx.moveTo(-3, -2);
+      ctx.lineTo(3, -2);
+      ctx.lineTo(2, 5);
+      ctx.lineTo(0, 10);
+      ctx.lineTo(-2, 5);
+      break;
+    case "threat":
       ctx.moveTo(-9, -9);
       ctx.lineTo(9, -9);
       ctx.lineTo(8, 3);
@@ -106,11 +135,16 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ctx.roundRect(-9, -9, 18, 18, 2);
   }
   ctx.closePath();
-  const tint = color || colors[category] || "#bccbd3";
-  ctx.fillStyle = context ? "#14212a" : tint;
+  const tint =
+    color ||
+    (category === "military"
+      ? conflictColor("conflict", category)
+      : colors[category]) ||
+    "#bccbd3";
+  ctx.fillStyle = category === "military" ? tint : context ? "#14212a" : tint;
   ctx.fill();
-  ctx.strokeStyle = context ? tint : "#101b22";
-  ctx.lineWidth = context ? 1.4 : 1.1;
+  ctx.strokeStyle = context || category === "military" ? tint : "#101b22";
+  ctx.lineWidth = category === "military" ? 1.8 : context ? 1.4 : 1.1;
   if (context) ctx.setLineDash([2, 1.5]);
   ctx.stroke();
   ctx.setLineDash([]);
@@ -134,18 +168,34 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
   ctx.font = `700 ${category === "analysis" ? 6.5 : 7.5}px Segoe UI, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(marks[category] || "?", 0, category === "analysis" ? 3 : -0.2);
+  if (category === "military") {
+    ctx.strokeStyle = tint;
+    ctx.fillStyle = tint;
+    ctx.fillRect(-7, -4, 14, 2);
+    ctx.fillRect(-1.5, -10, 3, 6);
+  } else
+    ctx.fillText(marks[category] || "?", 0, category === "analysis" ? 3 : -0.2);
   if (count) {
     ctx.fillStyle = "#14212a";
     ctx.strokeStyle = tint;
     ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.roundRect(2, -15, 16, 11, 3);
+    ctx.roundRect(
+      2,
+      -15,
+      category === "military" ? 17 : 16,
+      category === "military" ? 12 : 11,
+      3,
+    );
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#eef4f6";
-    ctx.font = "700 6.5px Segoe UI, Arial, sans-serif";
-    ctx.fillText(String(count), 10, -9.4);
+    ctx.font = `700 ${category === "military" ? 8 : 6.5}px Segoe UI, Arial, sans-serif`;
+    ctx.fillText(
+      String(count),
+      category === "military" ? 10.5 : 10,
+      category === "military" ? -9 : -9.4,
+    );
   }
   return canvas;
 }
@@ -158,13 +208,19 @@ export function symbolImage(category, options) {
 }
 
 // Small, drawn pictograms remain legible without platform-specific emoji fonts.
-export function conflictIcon(type, color, context = false, count = null) {
+export function conflictIcon(
+  type,
+  color,
+  context = false,
+  count = null,
+  emphasis = false,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = count ? 64 : 48;
   const c = canvas.getContext("2d");
   c.scale(2, 2);
   c.translate(12, 12);
-  c.lineWidth = 1.6;
+  c.lineWidth = emphasis ? 1 : 1.6;
   c.lineCap = "round";
   c.lineJoin = "round";
   c.fillStyle = context ? "#14212a" : color;
@@ -176,6 +232,8 @@ export function conflictIcon(type, color, context = false, count = null) {
   if (context) c.setLineDash([2, 2]);
   c.stroke();
   c.setLineDash([]);
+  c.lineWidth = emphasis ? 2 : 1.6;
+  c.fillStyle = color;
   const line = (points) => {
     c.beginPath();
     points.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
@@ -328,23 +386,52 @@ export function conflictIcon(type, color, context = false, count = null) {
       ]);
       break;
     case "deployment":
-      c.strokeRect(-7, 1, 14, 5);
-      c.strokeRect(-3, -3, 7, 4);
+      // Troop movement, rather than a tank inferred from a deployment report.
+      circle(-3, -4, 2);
       line([
-        [3, -2],
-        [8, -5],
+        [-7, 4],
+        [-6, 0],
+        [0, 0],
+        [1, 4],
       ]);
-      for (const x of [-4, 0, 4]) circle(x, 4, 0.6);
+      line([
+        [2, -2],
+        [7, -2],
+        [5, -5],
+      ]);
+      line([
+        [7, -2],
+        [5, 1],
+      ]);
+      line([
+        [-5, 5],
+        [-5, 7],
+      ]);
+      line([
+        [-1, 5],
+        [-1, 7],
+      ]);
       break;
     case "weapons":
-      c.strokeRect(-6, -5, 12, 12);
+      // Equipment crate: procurement and supplies do not imply a strike.
+      c.strokeRect(-7, -4, 14, 11);
       line([
-        [-6, -5],
-        [6, 7],
+        [-7, -1],
+        [7, -1],
       ]);
       line([
-        [6, -5],
-        [-6, 7],
+        [-3, -4],
+        [-3, 7],
+      ]);
+      line([
+        [3, -4],
+        [3, 7],
+      ]);
+      line([
+        [-3, -4],
+        [-3, -7],
+        [3, -7],
+        [3, -4],
       ]);
       break;
     case "diplomacy":
@@ -372,25 +459,6 @@ export function conflictIcon(type, color, context = false, count = null) {
       ]);
       break;
     case "security":
-      circle(0, 0, 5);
-      line([
-        [-8, 0],
-        [-3, 0],
-      ]);
-      line([
-        [3, 0],
-        [8, 0],
-      ]);
-      line([
-        [0, -8],
-        [0, -3],
-      ]);
-      line([
-        [0, 3],
-        [0, 8],
-      ]);
-      break;
-    default:
       line([
         [-6, -6],
         [6, -6],
@@ -401,9 +469,47 @@ export function conflictIcon(type, color, context = false, count = null) {
       ]);
       line([
         [0, -3],
-        [0, 2],
+        [0, 1],
       ]);
       circle(0, 4, 0.5);
+      break;
+    default:
+      if (emphasis) {
+        // The layer's dagger identifies military reporting; it is not an incident claim.
+        c.beginPath();
+        c.moveTo(-2.5, -1);
+        c.lineTo(2.5, -1);
+        c.lineTo(1.5, 4);
+        c.lineTo(0, 8);
+        c.lineTo(-1.5, 4);
+        c.closePath();
+        c.fill();
+        c.fillRect(-6, -3, 12, 2);
+        c.fillRect(-1.2, -8, 2.4, 5);
+      } else {
+        // Other unspecified reporting retains a neutral document.
+        line([
+          [-5, -7],
+          [2, -7],
+          [6, -3],
+          [6, 7],
+          [-5, 7],
+          [-5, -7],
+        ]);
+        line([
+          [2, -7],
+          [2, -3],
+          [6, -3],
+        ]);
+        line([
+          [-2, 0],
+          [3, 0],
+        ]);
+        line([
+          [-2, 4],
+          [3, 4],
+        ]);
+      }
   }
   if (count) {
     c.fillStyle = "#14212a";
@@ -427,6 +533,16 @@ export function conflictCanvas(type, category, context = false) {
   canvas.setAttribute("aria-hidden", "true");
   canvas
     .getContext("2d")
-    .putImageData(conflictIcon(type, colors[category], context), 0, 0);
+    .putImageData(
+      conflictIcon(
+        type,
+        conflictColor(type, category),
+        context,
+        null,
+        category === "military",
+      ),
+      0,
+      0,
+    );
   return canvas;
 }

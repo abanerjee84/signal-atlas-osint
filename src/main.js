@@ -8,6 +8,7 @@ import { renderSocial, focusSocialPost } from "./social.js";
 import {
   symbolCanvas,
   conflictIcon,
+  conflictColor,
   conflictCanvas,
   colors,
 } from "./layer-symbols.js";
@@ -313,6 +314,7 @@ function renderConflictKey(events) {
   key.replaceChildren();
   $("#conflict-legend").hidden =
     !state.layers.has("military") && !state.layers.has("geopolitical");
+  $("#military-symbol-colors").hidden = !state.layers.has("military");
   const used = new Set(
     events.map((event) => conflictType(event)?.id).filter(Boolean),
   );
@@ -324,7 +326,20 @@ function renderConflictKey(events) {
     canvas.setAttribute("aria-hidden", "true");
     canvas
       .getContext("2d")
-      .putImageData(conflictIcon(type.id, colors.military), 0, 0);
+      .putImageData(
+        conflictIcon(
+          type.id,
+          conflictColor(
+            type.id,
+            state.layers.has("military") ? "military" : "geopolitical",
+          ),
+          false,
+          null,
+          state.layers.has("military"),
+        ),
+        0,
+        0,
+      );
     row.append(canvas, element("span", "", type.label));
     key.append(row);
   }

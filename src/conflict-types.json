@@ -38,7 +38,7 @@
   {
     "id": "clashes",
     "label": "Fighting / armed attack",
-    "pattern": "\\b(?:clashes?|fighting|combat|armed attacks?|offensives?|ambush\\w*|insurgents?|terroris\\w*|strikes?)\\b",
+    "pattern": "\\b(?:clashes?|fighting|combat|armed attacks?|offensives?|ambush\\w*|insurgents?|terroris\\w*|(?:military|armed|combat) strikes?)\\b",
     "military": true
   },
   {

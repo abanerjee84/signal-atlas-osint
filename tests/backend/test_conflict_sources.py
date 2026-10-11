@@ -162,3 +162,9 @@ def test_civilian_crime_does_not_become_military_and_primary_rerouting_updates_c
     event_id = database.ingest(correct.model_copy(update={"category": Category.military}))
     assert database.ingest(correct) == event_id
     assert database.detail(event_id)["category"] == "geopolitical"
+
+
+def test_strike_without_combat_wording_is_not_an_armed_attack():
+    for title in ("Prisoners begin hunger strike", "Writers strike continues", "Officials strike a deal"):
+        assert conflict_type(title) is None
+    assert conflict_type("Armed strike reported")["id"] == "clashes"

@@ -27,6 +27,7 @@ import {
   CATEGORY_NAMES,
   symbolImage,
   conflictIcon,
+  conflictColor,
 } from "./layer-symbols.js";
 import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
 import { orbitalFacts } from "./orbits.js";
@@ -322,6 +323,18 @@ export function createWorldMap(
     nextPulseAt = 0,
     pulseCursor = 0;
   map.on("styleimagemissing", ({ id }) => {
+    const briefing = /^military-brief-(\d+|99plus)$/.exec(id);
+    if (briefing) {
+      map.addImage(
+        id,
+        symbolImage("military", {
+          context: true,
+          count: briefing[1] === "99plus" ? "99+" : briefing[1],
+        }),
+        { pixelRatio: 2 },
+      );
+      return;
+    }
     const match = /^cluster-(\w+)-(reported|context)-(\d+|99plus)$/.exec(id);
     const [category, type] = match?.[1]?.split("_") || [];
     if (
@@ -333,9 +346,10 @@ export function createWorldMap(
         id,
         conflictIcon(
           type,
-          colors[category],
+          conflictColor(type, category),
           match[2] === "context",
           match[3] === "99plus" ? "99+" : match[3],
+          category === "military",
         ),
         { pixelRatio: 2 },
       );
@@ -650,7 +664,13 @@ export function createWorldMap(
         for (const context of [false, true])
           map.addImage(
             `conflict-${category}-${type.id}-${context ? "context" : "reported"}`,
-            conflictIcon(type.id, colors[category], context),
+            conflictIcon(
+              type.id,
+              conflictColor(type.id, category),
+              context,
+              null,
+              category === "military",
+            ),
             { pixelRatio: 2 },
           );
     for (const [tone, color] of [
@@ -882,7 +902,24 @@ export function createWorldMap(
             20,
             2.4,
           ],
-          "line-opacity": id === "threat-connections" ? 0.72 : 0.38,
+          "line-opacity":
+            id === "military-connections"
+              ? [
+                  "interpolate",
+                  ["linear"],
+                  ["coalesce", ["get", "count"], 1],
+                  1,
+                  0.08,
+                  3,
+                  0.18,
+                  10,
+                  0.38,
+                  30,
+                  0.6,
+                ]
+              : id === "threat-connections"
+                ? 0.72
+                : 0.38,
           ...(dotted ? { "line-dasharray": [2, 3] } : {}),
         },
       });
@@ -937,8 +974,23 @@ export function createWorldMap(
       type: "symbol",
       source: "military-places",
       layout: {
-        "icon-image": "military-context",
-        "icon-size": 0.5,
+        "icon-image": [
+          "case",
+          [">", ["get", "count"], 1],
+          [
+            "concat",
+            "military-brief-",
+            [
+              "case",
+              [">", ["get", "count"], 99],
+              "99plus",
+              ["to-string", ["get", "count"]],
+            ],
+          ],
+          "military-context",
+        ],
+        "icon-size": ["step", ["get", "count"], 0.72, 2, 0.85, 20, 1],
+        "symbol-sort-key": ["get", "count"],
         "icon-allow-overlap": true,
       },
     });
@@ -1139,7 +1191,15 @@ export function createWorldMap(
             "reported",
           ],
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 0.65],
+        "icon-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          ["case", ["==", ["get", "category"], "military"], 0.68, 0.45],
+          5,
+          ["case", ["==", ["get", "category"], "military"], 0.85, 0.65],
+        ],
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
