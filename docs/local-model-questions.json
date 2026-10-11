@@ -1,0 +1,15 @@
+{
+  "military_activity": {
+    "type": "choice",
+    "instructions": "What military activity does this report describe?",
+    "criteria": {
+      "strike": "Airstrikes, missile launches, shelling or armed attacks",
+      "deployment": "Troop movements or operational deployment of forces",
+      "exercise": "Military training, drills or exercises",
+      "procurement": "Weapons purchases, equipment deliveries or defence contracts",
+      "diplomacy": "Defence negotiations, agreements or ceasefire talks",
+      "commentary": "Opinion, analysis or predictions rather than a reported occurrence",
+      "unclear": "Insufficient evidence or no matching military activity"
+    }
+  }
+}
