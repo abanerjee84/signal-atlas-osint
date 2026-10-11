@@ -37,6 +37,13 @@ THREAT_FEEDS = [
     ("krebs", "Krebs on Security", "https://krebsonsecurity.com/feed/", "US"),
     ("cyberscoop", "CyberScoop", "https://cyberscoop.com/feed/", "US"),
     ("sans_isc", "SANS Internet Storm Center", "https://isc.sans.edu/rssfeed_full.xml", "US"),
+    # These three put the full article in <description> rather than
+    # content:encoded, so the existing excerpt path already carries the whole
+    # body. Measured mean description: CISA 29k, Rapid7 14k, CSO 7k. CISA
+    # returns 403 to a browser user agent and only answers the collector's own.
+    ("cisa_advisories", "CISA advisories", "https://www.cisa.gov/cybersecurity-advisories/all.xml", "US"),
+    ("rapid7_research", "Rapid7 research", "https://www.rapid7.com/rss.xml", "US"),
+    ("cso_online", "CSO Online", "https://www.csoonline.com/feed/", "US"),
 ]
 
 
