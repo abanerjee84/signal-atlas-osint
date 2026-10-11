@@ -33,6 +33,35 @@ export const AIRCRAFT_FILTERS = [
     `Class ${value} · ${label}`,
   ]),
 ];
+// ICAO type designators do not form a clean rotorcraft namespace, so this is a
+// deliberately conservative prefix list rather than a complete one; a
+// helicopter without a resolved type code keeps the fixed-wing glyph.
+const ROTORCRAFT_TYPE_PREFIXES = [
+  "A1",
+  "AS",
+  "AW1",
+  "B4",
+  "BK",
+  "CH",
+  "EC",
+  "EH",
+  "MD5",
+  "MD9",
+  "MI",
+  "R4",
+  "S7",
+  "S8",
+  "S9",
+  "SA",
+  "UH",
+];
+export function isRotorcraft(event, details) {
+  // Class 8 is the provider's own Rotorcraft value; it is reported rarely, so
+  // the registry type code carries most of the identification.
+  if (event.aircraft_category === 8) return true;
+  const type = String(details?.type_code || "").toUpperCase();
+  return ROTORCRAFT_TYPE_PREFIXES.some((prefix) => type.startsWith(prefix));
+}
 export function matchesAircraftFilter(event, selection = "all", registry = {}) {
   if (event.category !== "aviation") return true;
   if (selection === "all") return true;
@@ -94,19 +123,73 @@ export function eligibleAircraft(event, selection = "all") {
   );
 }
 
+// One aircraft is one transponder, not one observation; repeated positions for
+// the same airframe must not become several aircraft.
+export function aircraftTransponderId(event) {
+  return event.tags?.includes("ads-b")
+    ? event.tags[event.tags.indexOf("ads-b") + 1] || event.event_id
+    : event.event_id;
+}
 export function latestAircraft(events) {
   const latest = new Map();
   for (const event of events.filter((event) =>
     eligibleAircraft(event, "all"),
   )) {
-    const identifier = event.tags?.includes("ads-b")
-      ? event.tags[event.tags.indexOf("ads-b") + 1] || event.event_id
-      : event.event_id;
+    const identifier = aircraftTransponderId(event);
     const previous = latest.get(identifier);
     if (!previous || event.time_key > previous.time_key)
       latest.set(identifier, event);
   }
   return [...latest.values()];
+}
+
+// Retained history is coarse by design, so a trail is a coarse breadcrumb of
+// real observations rather than a smoothed path. Samples carry their time so a
+// live position can be merged with them without inventing a duplicate.
+export function trailSamples(events, limit = 240) {
+  return events
+    .filter(
+      (event) =>
+        eligibleAircraft(event, "all") &&
+        Number.isFinite(event.longitude) &&
+        Number.isFinite(event.latitude),
+    )
+    .sort((a, b) => (a.time_key < b.time_key ? -1 : 1))
+    .slice(-limit)
+    .map((event) => [event.time_key, event.longitude, event.latitude]);
+}
+
+// Live positions arrive every cycle, so the path of a watched airframe is
+// built by appending each observation rather than re-reading history. Points
+// carry their time so a live position can merge with history without a
+// duplicate at the instant they share.
+export function recordTrailPoints(store, records, limit = 240) {
+  for (const record of records) {
+    if (!eligibleAircraft(record, "all")) continue;
+    const id = aircraftTransponderId(record);
+    const points = store.get(id) || [];
+    if (points.length && record.time_key <= points[points.length - 1][0])
+      continue;
+    points.push([record.time_key, record.longitude, record.latitude]);
+    if (points.length > limit) points.splice(0, points.length - limit);
+    store.set(id, points);
+  }
+  return store;
+}
+
+// One ordered path from history and live positions, with the same instant kept
+// once. Two samples are the shortest line worth drawing.
+export function trailLine(...groups) {
+  const seen = new Set();
+  return groups
+    .flat()
+    .filter((sample) => {
+      if (seen.has(sample[0])) return false;
+      seen.add(sample[0]);
+      return true;
+    })
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map((sample) => [sample[1], sample[2]]);
 }
 
 export function aircraftFacts(event) {

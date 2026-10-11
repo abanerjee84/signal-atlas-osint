@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import {
   AIRCRAFT_FILTERS,
   eligibleAircraft,
+  isRotorcraft,
   latestAircraft,
   aircraftTransition,
   aircraftFacts,
+  aircraftTransponderId,
+  recordTrailPoints,
+  trailLine,
+  trailSamples,
   matchesAircraftFilter,
   filterLiveAircraft,
 } from "../src/aircraft.js";
@@ -103,6 +108,116 @@ test("history draws the latest loaded position per transponder without changing 
     observation,
     other,
   ]);
+});
+
+test("rotorcraft are identified by the provider class or a known type code", () => {
+  // Class 8 is the provider's own Rotorcraft value.
+  assert.equal(isRotorcraft({ aircraft_category: 8 }), true);
+  assert.equal(
+    isRotorcraft({ aircraft_category: 4 }, { type_code: "EC45" }),
+    true,
+  );
+  for (const type_code of [
+    "AS350",
+    "EC135",
+    "AW139",
+    "R44",
+    "BK117",
+    "UH60",
+    "S76",
+  ])
+    assert.equal(
+      isRotorcraft({ aircraft_category: 0 }, { type_code }),
+      true,
+      type_code,
+    );
+  // Fixed-wing designs that merely share a leading character must not match.
+  for (const type_code of [
+    "B738",
+    "A320",
+    "A20N",
+    "C172",
+    "MD82",
+    "SR22",
+    "SB50",
+    "EC45",
+  ])
+    assert.equal(
+      isRotorcraft({ aircraft_category: 0 }, { type_code }),
+      type_code === "EC45",
+      type_code,
+    );
+  assert.equal(isRotorcraft({ aircraft_category: 0 }), false);
+  assert.equal(isRotorcraft({ aircraft_category: 0 }, {}), false);
+  assert.equal(
+    isRotorcraft({ aircraft_category: 0 }, { type_code: null }),
+    false,
+  );
+});
+
+test("a trail merges ordered history with live positions and drops repeats", () => {
+  const at = (hex, time_key, longitude, latitude, extra = {}) => ({
+    ...observation,
+    event_id: `${hex}-${time_key}`,
+    tags: ["ads-b", hex],
+    time_key,
+    longitude,
+    latitude,
+    ...extra,
+  });
+  const history = [
+    at("abcdef", "2026-10-10T12:00:00+00:00", 10, 50),
+    at("abcdef", "2026-10-10T12:30:00+00:00", 11, 51),
+    at("abcdef", "2026-10-10T11:00:00+00:00", 9, 49),
+    at("fedcba", "2026-10-10T12:15:00+00:00", 40, -20),
+  ];
+  const samples = trailSamples(
+    history.filter((event) => aircraftTransponderId(event) === "abcdef"),
+  );
+  assert.equal(aircraftTransponderId(history[3]), "fedcba");
+  assert.deepEqual(samples, [
+    ["2026-10-10T11:00:00+00:00", 9, 49],
+    ["2026-10-10T12:00:00+00:00", 10, 50],
+    ["2026-10-10T12:30:00+00:00", 11, 51],
+  ]);
+  // An unlocated or trackless observation is not a point on a path.
+  assert.deepEqual(
+    trailSamples([history[1], { ...history[1], latitude: null }]),
+    [["2026-10-10T12:30:00+00:00", 11, 51]],
+  );
+
+  const store = new Map();
+  recordTrailPoints(store, [history[2], history[0], history[1]]);
+  // A repeat of the same observation must not double a point.
+  recordTrailPoints(store, [history[1]]);
+  // An out-of-order arrival is dropped rather than bending the path.
+  recordTrailPoints(store, [history[0], history[3]]);
+  assert.equal(store.get("abcdef").length, 3);
+  assert.equal(store.get("fedcba").length, 1);
+  const live = [
+    ["2026-10-10T12:30:00+00:00", 11, 51],
+    ["2026-10-10T12:31:00+00:00", 12, 52],
+  ];
+  // The shared instant appears once, and history leads.
+  assert.deepEqual(trailLine(samples, live), [
+    [9, 49],
+    [10, 50],
+    [11, 51],
+    [12, 52],
+  ]);
+  assert.deepEqual(trailLine(live, samples), trailLine(samples, live));
+
+  // The oldest samples fall outside the cap.
+  const long = Array.from({ length: 70 }, (_, index) =>
+    at(
+      "abcdef",
+      `2026-10-10T${String(Math.floor(index / 60)).padStart(2, "0")}:${String(index % 60).padStart(2, "0")}:00+00:00`,
+      index,
+      50,
+    ),
+  );
+  assert.equal(recordTrailPoints(new Map(), long, 60).get("abcdef").length, 60);
+  assert.equal(recordTrailPoints(new Map(), long).get("abcdef").length, 70);
 });
 
 test("selector leads with the military flag, then all classes and every provider class", () => {

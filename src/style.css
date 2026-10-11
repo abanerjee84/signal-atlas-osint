@@ -1531,6 +1531,14 @@ summary span {
 .event-button:hover {
   background: var(--surface-raised);
 }
+/* The row behind the aircraft currently ringed on the map. */
+.event-button.selected-event {
+  background: var(--surface-raised);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.event-button.selected-event .event-title {
+  color: var(--accent);
+}
 .event-meta {
   display: flex;
   gap: 7px;
@@ -1672,6 +1680,17 @@ summary span {
   font-size: 12px;
   min-height: 26px;
   padding: 2px 7px;
+}
+.detail-action {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  font-size: 11px;
+  min-height: 30px;
+}
+.detail-action[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .error-text {
   color: #f0b38e;

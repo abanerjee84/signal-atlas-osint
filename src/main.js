@@ -17,6 +17,10 @@ import { createCountryRibbon } from "./country-ribbon.js";
 import {
   aircraftFacts,
   AIRCRAFT_FILTERS,
+  aircraftTransponderId,
+  recordTrailPoints,
+  trailLine,
+  trailSamples,
   matchesAircraftFilter,
   filterLiveAircraft,
 } from "./aircraft.js";
@@ -108,6 +112,7 @@ const state = {
   categoryCounts: {},
   sources: [],
   selectedEvent: null,
+  followAircraft: null,
   country: "",
   q: "",
   token: "",
@@ -536,13 +541,13 @@ async function refreshOrbits() {
 }
 
 function showOrbitDetail(item, locate) {
-  state.selectedEvent = item;
+  applyEventSelection(item);
   showView("feed");
   const card = element("article", "detail-card");
   const close = element("button", "detail-close", "Close");
   close.addEventListener("click", () => {
     $("#event-detail").hidden = true;
-    state.selectedEvent = null;
+    applyEventSelection(null);
   });
   const title = element("h3", "orbital-name", item.name);
   title.append(countryFlagImage(item.operator_country, orbitalCountry(item)));
@@ -725,6 +730,111 @@ function attachAircraftPhoto(event, button, anchor) {
     if (button.dataset.eventId !== event.event_id) return;
     paint(aircraftDetailsFor(event));
   });
+}
+
+function setFollowedAircraft(eventId) {
+  const id = eventId || null;
+  state.followAircraft = id;
+  worldMap?.setFollowedAircraft?.(id);
+  for (const button of document.querySelectorAll("[data-follow-aircraft]")) {
+    const on = Boolean(id) && button.dataset.followAircraft === id;
+    button.setAttribute("aria-pressed", String(on));
+    button.textContent = on ? "Stop tracking" : "Track aircraft";
+  }
+}
+
+// The trail of a watched airframe. Retained history is half-hourly and sparse,
+// so live positions are appended as they arrive; the path grows while the
+// layer is watched and resets on reload.
+const liveTrails = new Map();
+let trailHistory = new Map();
+let trailKey = "";
+let trailRequest = 0;
+let trailLoadedAt = 0;
+const TRAIL_AIRCRAFT_LIMIT = 2000;
+function trailTransponder(event) {
+  return event?.category === "aviation" ? aircraftTransponderId(event) : null;
+}
+function refreshTrail() {
+  // Tracking only ever applies to the open aircraft, so the selection is the
+  // single source of truth for which path is drawn.
+  const transponder = trailTransponder(state.selectedEvent);
+  worldMap?.setTrailCoordinates?.(
+    transponder
+      ? trailLine(
+          trailHistory.get(transponder) || [],
+          liveTrails.get(transponder) || [],
+        )
+      : null,
+  );
+}
+async function loadAircraftTrail(event) {
+  const hex = String(event?.aircraft?.icao24 || "").toLowerCase();
+  if (!/^[a-f0-9]{6}$/.test(hex)) {
+    trailHistory = new Map();
+    refreshTrail();
+    return;
+  }
+  const key = `${hex}:${state.period}:${state.country || ""}`;
+  if (key === trailKey && Date.now() - trailLoadedAt < 300000) {
+    refreshTrail();
+    return;
+  }
+  trailKey = key;
+  const token = ++trailRequest;
+  try {
+    const result = await api(
+      `events?categories=aviation&q=${encodeURIComponent(hex)}&limit=60&order=latest`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    // A later selection wins over this response.
+    if (token !== trailRequest) return;
+    trailLoadedAt = Date.now();
+    // The search is a substring match; only this transponder may be drawn.
+    trailHistory = new Map([
+      [
+        hex,
+        trailSamples(
+          (result.items || []).filter(
+            (item) => aircraftTransponderId(item) === hex,
+          ),
+        ),
+      ],
+    ]);
+  } catch {
+    if (token === trailRequest) trailHistory = new Map();
+  }
+  refreshTrail();
+}
+
+function applyEventSelection(event, reveal = false) {
+  state.selectedEvent = event;
+  const aviation = event?.category === "aviation";
+  worldMap?.setSelectedAircraft?.(aviation ? event.event_id : "");
+  if (aviation) loadAircraftTrail(event);
+  else {
+    trailKey = "";
+    trailHistory = new Map();
+    refreshTrail();
+  }
+  // Tracking belongs to the aircraft that was opened; moving to another one
+  // or closing the card releases the camera.
+  if (state.followAircraft && state.followAircraft !== event?.event_id)
+    setFollowedAircraft(null);
+  for (const [eventId, row] of eventRows) {
+    const selected = Boolean(event) && eventId === event.event_id;
+    const button = row.node?.firstElementChild;
+    if (!button) continue;
+    button.classList.toggle("selected-event", selected);
+    if (selected) button.setAttribute("aria-current", "true");
+    else button.removeAttribute("aria-current");
+    if (selected && reveal)
+      button.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
+
+function markSelectedRow() {
+  applyEventSelection(state.selectedEvent);
 }
 
 const eventRows = new Map();
@@ -952,6 +1062,7 @@ function renderEvents() {
     rows.push(empty);
   }
   reconcileList($("#event-list"), rows);
+  markSelectedRow();
   for (const id of eventRows.keys())
     if (!retained.has(id)) eventRows.delete(id);
   for (const id of Object.keys(names)) {
@@ -1033,14 +1144,14 @@ async function selectEvent(id, locate = false) {
     const event =
       state.aircraft?.items.find((item) => item.event_id === id) ||
       (await api(`events/${encodeURIComponent(id)}`));
-    state.selectedEvent = event;
+    applyEventSelection(event, true);
     showView("feed");
     $("#event-detail").hidden = false;
     const card = element("article", "detail-card");
     const close = element("button", "detail-close", "Close");
     close.addEventListener("click", () => {
       $("#event-detail").hidden = true;
-      state.selectedEvent = null;
+      applyEventSelection(null);
     });
     card.append(close, badge(event.confidence), element("h3", "", event.title));
     if (event.category !== "aviation")
@@ -1116,6 +1227,18 @@ async function selectEvent(id, locate = false) {
     if (event.category === "aviation") {
       const enriched = aircraftDetailCard(event, null, true);
       card.append(enriched);
+      const track = element("button", "detail-action", "Track aircraft");
+      track.dataset.followAircraft = event.event_id;
+      track.setAttribute(
+        "aria-pressed",
+        String(state.followAircraft === event.event_id),
+      );
+      track.addEventListener("click", () =>
+        setFollowedAircraft(
+          state.followAircraft === event.event_id ? null : event.event_id,
+        ),
+      );
+      card.append(track);
       loadAircraftDetails(event).then((details) => {
         if (
           state.selectedEvent?.event_id === event.event_id &&
@@ -2210,7 +2333,7 @@ function renderNetworkSummary() {
     parts.join(" · ") || "News and defence connections hidden";
 }
 function analyzeTopic(group) {
-  state.selectedEvent = null;
+  applyEventSelection(null);
   state.analysisEventIds = group.event_ids;
   $("#ai-question").value =
     `Assess the public evidence for ${group.name}. Distinguish official claims from independently supported facts, explain geographic relationships, identify source bias and evidence gaps. Do not infer military movements or capabilities beyond the cited wording.`;
@@ -2399,6 +2522,7 @@ async function initialize() {
       },
       mapError: (text) =>
         message(`Map: ${text}. Use the event list to inspect observations.`),
+      followStopped: () => setFollowedAircraft(null),
     });
     worldMap.setDensityWeighted(state.densityConfidence);
     await refreshOrbits();
@@ -2634,6 +2758,7 @@ async function refreshAircraft() {
         .catch(() => null),
     ]);
     state.aircraftRegistry = registry;
+    worldMap?.setAircraftRegistry?.(registry);
     if (
       file?.available &&
       Array.isArray(file.items) &&
@@ -2648,6 +2773,18 @@ async function refreshAircraft() {
     if (!viewingAircraft() || key !== aircraftFilterKey()) return;
     state.aircraft = result;
     state.aircraftFilter = key;
+    // Append what the network reported this cycle, so the watched airframe
+    // gains a dense path rather than half-hourly retained crumbs.
+    recordTrailPoints(liveTrails, result.items || []);
+    // Bound the store by dropping the least recently added airframe, never
+    // the one currently being watched.
+    const watched = trailTransponder(state.selectedEvent);
+    while (liveTrails.size > TRAIL_AIRCRAFT_LIMIT) {
+      const oldest = liveTrails.keys().next().value;
+      if (oldest === undefined || oldest === watched) break;
+      liveTrails.delete(oldest);
+    }
+    refreshTrail();
     renderEvents();
   } catch {
     if (state.aircraft) state.aircraft.stale = true;

@@ -22,6 +22,7 @@ import {
   aircraftTransition,
   aircraftSummary,
   aircraftMotionDuration,
+  isRotorcraft,
 } from "./aircraft.js";
 import {
   colors,
@@ -33,7 +34,11 @@ import {
 import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
 import { orbitalFacts, orbitalLabel, orbitalCountry } from "./orbits.js";
 import { drawCountryFlag, countryFlagImage } from "./country-flags.js";
-import { aircraftDetailCard, loadAircraftDetails } from "./aircraft-details.js";
+import {
+  aircraftDetailCard,
+  aircraftRegistry,
+  loadAircraftDetails,
+} from "./aircraft-details.js";
 export { colors, CATEGORY_NAMES } from "./layer-symbols.js";
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -63,6 +68,81 @@ const PULSE_DURATION = 1800;
 const PULSE_GAP = 380;
 const PULSE_LIMIT = 18;
 // Aircraft class selection is applied before supplying the map source.
+function helicopterIcon() {
+  // The glyph rotates with the reported ground track, so it must be a plan
+  // view: a side or three-quarter silhouette would lie sideways for half the
+  // compass. The map draws this at roughly 20-40 pixels, so it uses heavy
+  // marks only. The rotor sits above the cabin, never behind it, or the shape
+  // reads as a swept wing.
+  const size = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  context.translate(size / 2, size / 2);
+  context.scale(2, 2);
+  context.lineCap = "round";
+  context.fillStyle = colors.aviation;
+  context.strokeStyle = colors.aviation;
+  // Four main-rotor blades over the hub: the recognisable plan view of a
+  // helicopter. The nose leads, because this glyph rotates with the reported
+  // ground track.
+  const hub = [0, -4];
+  context.lineWidth = 2.2;
+  for (const angle of [45, 135, 225, 315]) {
+    const radians = (angle * Math.PI) / 180;
+    context.beginPath();
+    context.moveTo(
+      hub[0] + Math.cos(radians) * 2.6,
+      hub[1] + Math.sin(radians) * 2.6,
+    );
+    context.lineTo(
+      hub[0] + Math.cos(radians) * 10.2,
+      hub[1] + Math.sin(radians) * 10.2,
+    );
+    context.stroke();
+  }
+  // Cabin, drawn over the blades so its outline separates it from the rotor.
+  context.fillStyle = colors.aviation;
+  context.beginPath();
+  context.ellipse(0, -3, 2.8, 3.4, 0, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#55460a";
+  context.lineWidth = 0.9;
+  context.stroke();
+  // Rotor hub on top of the cabin.
+  context.fillStyle = colors.aviation;
+  context.beginPath();
+  context.arc(hub[0], hub[1], 1.7, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#55460a";
+  context.stroke();
+  // Tail boom.
+  context.fillStyle = colors.aviation;
+  context.beginPath();
+  context.moveTo(-1.5, 0.2);
+  context.lineTo(1.5, 0.2);
+  context.lineTo(0.9, 8);
+  context.lineTo(-0.9, 8);
+  context.closePath();
+  context.fill();
+  // Tail rotor, a small cross on the fin.
+  context.strokeStyle = colors.aviation;
+  context.lineWidth = 1.5;
+  context.beginPath();
+  context.moveTo(-2.8, 9.2);
+  context.lineTo(2.8, 9.2);
+  context.moveTo(0, 6.6);
+  context.lineTo(0, 11.8);
+  context.stroke();
+  return context.getImageData(0, 0, size, size);
+}
+const AIRCRAFT_ICON = [
+  "case",
+  ["get", "rotorcraft"],
+  "aircraft-helicopter",
+  "aircraft-plane",
+];
 function aircraftIcon() {
   // Drawn nose-up: icon-rotation-alignment "map" then points it along the track.
   const size = 48;
@@ -175,7 +255,14 @@ function graticule() {
 
 export function createWorldMap(
   world,
-  { selectEvent, selectCountry, viewportChanged, mapError, inspectRegion },
+  {
+    selectEvent,
+    selectCountry,
+    viewportChanged,
+    mapError,
+    inspectRegion,
+    followStopped,
+  },
 ) {
   const map = new maplibregl.Map({
     container: "map",
@@ -221,12 +308,59 @@ export function createWorldMap(
     aircraftTarget = empty(),
     aircraftSignature = "";
   let aircraftInView = true;
+  let selectedAircraftId = "";
+  let followedAircraftId = "";
+  // Following reads the interpolated collection, so the camera tracks the
+  // aircraft between observations instead of jumping once per report.
+  function recentreFollowedAircraft() {
+    if (!followedAircraftId) return;
+    const feature = aircraftData.features.find(
+      (item) => item.properties.event_id === followedAircraftId,
+    );
+    if (!feature) return;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const center = map.getCenter();
+    // Skip the redraw while the aircraft is already comfortably in frame.
+    if (
+      Math.abs(center.lat - latitude) * 90 < 0.4 &&
+      Math.abs(center.lng - longitude) * 90 < 0.4
+    )
+      return;
+    map.jumpTo({ center: [longitude, latitude] });
+  }
+  // One aircraft would be lost among a thousand, so only the aircraft under
+  // attention carries a trail. The caller owns the samples; the map only draws.
+  function setTrailCoordinates(points) {
+    const line = Array.isArray(points) && points.length > 1 ? points : null;
+    map.getSource("aircraft-trail")?.setData(
+      line
+        ? {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                id: "aircraft-trail-line",
+                properties: { points: line.length },
+                geometry: { type: "LineString", coordinates: line },
+              },
+            ],
+          }
+        : empty(),
+    );
+    map.getCanvas().dataset.aircraftTrail = String(line?.length || 0);
+  }
+  const aircraftSelectionFilter = () => [
+    "==",
+    ["get", "event_id"],
+    selectedAircraftId,
+  ];
   const aircraftMotion = matchMedia("(prefers-reduced-motion: reduce)");
   function finishAircraftMotion() {
     cancelAnimationFrame(aircraftFrame);
     aircraftFrame = undefined;
     aircraftData = aircraftTarget;
     map.getSource("aircraft")?.setData(aircraftData);
+    recentreFollowedAircraft();
     map.getCanvas().dataset.aircraftMoving = "0";
   }
   function aircraftVisibilityChanged() {
@@ -265,7 +399,11 @@ export function createWorldMap(
     );
     aircraftRecords = records;
     aircraftTarget = features(
-      records.map((r) => ({ ...r, aircraft_summary: aircraftSummary(r) })),
+      records.map((r) => ({
+        ...r,
+        aircraft_summary: aircraftSummary(r),
+        rotorcraft: isRotorcraft(r, aircraftRegistry()[r.aircraft?.icao24]),
+      })),
     );
     aircraftData = aircraftTarget;
     if (
@@ -324,6 +462,7 @@ export function createWorldMap(
           }),
         };
         map.getSource("aircraft")?.setData(aircraftData);
+        recentreFollowedAircraft();
       }
       aircraftFrame = requestAnimationFrame(animate);
     }
@@ -457,7 +596,15 @@ export function createWorldMap(
   };
   for (const type of ["dragstart", "zoomstart", "rotatestart", "pitchstart"])
     map.on(type, (event) => {
-      if (event.originalEvent) worldView = false;
+      if (!event.originalEvent) return;
+      worldView = false;
+      // Panning away is how a viewer says they have seen enough of the
+      // aircraft; programmatic moves carry no originalEvent and are exempt.
+      if (followedAircraftId) {
+        followedAircraftId = "";
+        map.getCanvas().dataset.followedAircraft = "";
+        followStopped?.();
+      }
     });
 
   // Give the canvas the actual unobscured rectangle. Resizing a sidebar must
@@ -844,6 +991,7 @@ export function createWorldMap(
     });
     map.addSource("density", { type: "geojson", data: eventData });
     map.addSource("aircraft", { type: "geojson", data: aircraftData });
+    map.addSource("aircraft-trail", { type: "geojson", data: empty() });
     map.addSource("sentiment", { type: "geojson", data: sentimentData });
     map.addSource("military-places", { type: "geojson", data: militaryPlaces });
     map.addSource("military-network", { type: "geojson", data: militaryData });
@@ -1262,7 +1410,25 @@ export function createWorldMap(
         "icon-ignore-placement": true,
       },
     });
+    map.addLayer({
+      id: "aircraft-trail-line",
+      type: "line",
+      source: "aircraft-trail",
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+      },
+      paint: {
+        "line-color": colors.aviation,
+        "line-width": 2,
+        // Retained observations are half-hourly, so the trail is evidence of
+        // where the aircraft was reported, not a continuous path.
+        "line-opacity": 0.75,
+        "line-dasharray": [2, 1.5],
+      },
+    });
     map.addImage("aircraft-plane", aircraftIcon(), { pixelRatio: 2 });
+    map.addImage("aircraft-helicopter", helicopterIcon(), { pixelRatio: 2 });
     map.addLayer({
       id: "aircraft-track",
       type: "symbol",
@@ -1274,7 +1440,7 @@ export function createWorldMap(
         [">=", ["get", "aircraft_track_deg"], 0],
       ],
       layout: {
-        "icon-image": "aircraft-plane",
+        "icon-image": AIRCRAFT_ICON,
         "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.85, 8, 1.1],
         // Map alignment rotates the glyph along the reported track, so the
         // nose points where the aircraft is going at every zoom and bearing.
@@ -1288,6 +1454,39 @@ export function createWorldMap(
       paint: {
         "icon-opacity": 1,
       },
+    });
+    // A selected aircraft is redrawn ringed and larger. It reads from the same
+    // source and matches on the event id, so it follows the interpolated
+    // position between observations instead of snapping between reports.
+    map.addLayer({
+      id: "aircraft-selected-halo",
+      type: "circle",
+      source: "aircraft",
+      filter: aircraftSelectionFilter(),
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 17, 8, 32],
+        "circle-stroke-width": 2.5,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-opacity": 0.95,
+        "circle-color": colors.aviation,
+        "circle-opacity": 0.16,
+      },
+    });
+    map.addLayer({
+      id: "aircraft-selected",
+      type: "symbol",
+      source: "aircraft",
+      filter: aircraftSelectionFilter(),
+      layout: {
+        "icon-image": AIRCRAFT_ICON,
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 1.35, 8, 1.75],
+        "icon-rotate": ["get", "aircraft_track_deg"],
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "map",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+      paint: { "icon-opacity": 1 },
     });
     // A forgiving hit target also covers the gaps between the wings and tail.
     // It shares the symbol's filter/source, so hidden or excluded aircraft
@@ -2327,6 +2526,41 @@ export function createWorldMap(
   return {
     map,
     focusThreatRoute,
+    setSelectedAircraft(eventId) {
+      const next = String(eventId || "");
+      if (next === selectedAircraftId) return;
+      selectedAircraftId = next;
+      for (const id of ["aircraft-selected-halo", "aircraft-selected"])
+        if (map.getLayer(id)) map.setFilter(id, aircraftSelectionFilter());
+      map.getCanvas().dataset.selectedAircraft = next;
+    },
+    setFollowedAircraft(eventId) {
+      const next = String(eventId || "");
+      if (next === followedAircraftId) return;
+      followedAircraftId = next;
+      map.getCanvas().dataset.followedAircraft = next;
+      if (!next) return;
+      const feature = aircraftData.features.find(
+        (item) => item.properties.event_id === next,
+      );
+      if (!feature) return;
+      worldView = false;
+      map.easeTo({
+        center: feature.geometry.coordinates,
+        zoom: Math.max(map.getZoom(), 7),
+        duration: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : 600,
+      });
+    },
+    setTrailCoordinates,
+    setAircraftRegistry() {
+      // The registry arrives after the first positions; identity only decides
+      // the glyph, so it lands on the next aircraft update.
+      map.getCanvas().dataset.aircraftRegistry = String(
+        Object.keys(aircraftRegistry()).length,
+      );
+    },
     setOrbits(items, tracks) {
       for (const item of items) {
         const id = `orbit-label-${item.catalog_id}`;
