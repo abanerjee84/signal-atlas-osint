@@ -1146,7 +1146,9 @@ summary span {
 }
 .map-actions button,
 .map-actions summary {
-  background: var(--surface);
+  /* The toolbar is --surface, so these must sit on --surface-raised or they
+     read as plain text rather than as buttons. */
+  background: var(--surface-raised);
   font-size: 11px;
   box-shadow: 0 2px 5px #0002;
   min-height: 32px;
