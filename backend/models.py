@@ -68,6 +68,16 @@ class NewsMetadata(BaseModel):
     publisher_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
     publisher_basis: str = "Configured publisher base country; not a report's place of origin"
     mentioned_countries: list[str] = Field(default_factory=list, max_length=20)
+    upstream_sources: list[str] = Field(default_factory=list, max_length=5)
+    reporting_location: str = Field(default="", max_length=250)
+    event_type: str = Field(default="", max_length=50)
+
+    @field_validator("upstream_sources")
+    @classmethod
+    def references(cls, values):
+        if any(len(value) > 2048 for value in values):
+            raise ValueError("Upstream reference too long")
+        return list(dict.fromkeys(Report.safe_url(value) for value in values))
 
     @field_validator("mentioned_countries")
     @classmethod

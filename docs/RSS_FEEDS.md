@@ -2,7 +2,7 @@
 
 Discovery references: [awesome-osint](https://github.com/jivoi/awesome-osint) and [awesome-rss-feeds](https://github.com/plenaryapp/awesome-rss-feeds). Sources are individually selected and bounded; list membership does not guarantee access, factual reliability or redistribution rights.
 
-The default registry contains **66 RSS/Atom feeds**. This directory describes configuration, not live health. Visit the in-app source status for current failures. Feed excerpts retain attribution and original links.
+This directory records configured public RSS/Atom sources. Eighteen additional conflict and defence feeds are listed in the [conflict source audit](CONFLICT_SOURCE_AUDIT.md#verified-additional-feeds) and implemented in `backend/connectors/conflict_sources.py`. Mixed conflict feeds route military wording to Military OSINT and political/security reporting to Geopolitics. This directory describes configuration, not live health. Visit the in-app source status for current failures. Feed excerpts retain attribution and original links.
 
 | Source                                                         | Layer        | Refresh (minutes) | Feed                                                                                           |
 | -------------------------------------------------------------- | ------------ | ----------------- | ---------------------------------------------------------------------------------------------- |

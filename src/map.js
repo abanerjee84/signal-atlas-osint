@@ -13,7 +13,13 @@ import {
   aircraftTransition,
   aircraftSummary,
 } from "./aircraft.js";
-import { colors, CATEGORY_NAMES, symbolImage } from "./layer-symbols.js";
+import {
+  colors,
+  CATEGORY_NAMES,
+  symbolImage,
+  conflictIcon,
+} from "./layer-symbols.js";
+import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
 import { orbitalFacts } from "./orbits.js";
 export { colors, CATEGORY_NAMES } from "./layer-symbols.js";
 
@@ -134,7 +140,7 @@ function graticule() {
 
 export function createWorldMap(
   world,
-  { selectEvent, selectCountry, viewportChanged, mapError },
+  { selectEvent, selectCountry, viewportChanged, mapError, inspectRegion },
 ) {
   const map = new maplibregl.Map({
     container: "map",
@@ -305,6 +311,24 @@ export function createWorldMap(
     pulseCursor = 0;
   map.on("styleimagemissing", ({ id }) => {
     const match = /^cluster-(\w+)-(reported|context)-(\d+|99plus)$/.exec(id);
+    const [category, type] = match?.[1]?.split("_") || [];
+    if (
+      match &&
+      ["military", "geopolitical"].includes(category) &&
+      CONFLICT_TYPES.some((t) => t.id === type)
+    ) {
+      map.addImage(
+        id,
+        conflictIcon(
+          type,
+          colors[category],
+          match[2] === "context",
+          match[3] === "99plus" ? "99+" : match[3],
+        ),
+        { pixelRatio: 2 },
+      );
+      return;
+    }
     if (!match || !(match[1] in colors || match[1] === "mixed")) return;
     map.addImage(
       id,
@@ -609,6 +633,14 @@ export function createWorldMap(
           { pixelRatio: 2 },
         );
     }
+    for (const category of ["military", "geopolitical"])
+      for (const type of CONFLICT_TYPES)
+        for (const context of [false, true])
+          map.addImage(
+            `conflict-${category}-${type.id}-${context ? "context" : "reported"}`,
+            conflictIcon(type.id, colors[category], context),
+            { pixelRatio: 2 },
+          );
     for (const [tone, color] of [
       ["positive", PULSE_POSITIVE],
       ["negative", PULSE_NEGATIVE],
@@ -702,6 +734,12 @@ export function createWorldMap(
       clusterMaxZoom: 7,
       clusterRadius: 38,
       clusterProperties: {
+        ...Object.fromEntries(
+          CONFLICT_TYPES.map((type) => [
+            `type_${type.id}`,
+            ["+", ["case", ["==", ["get", "conflict_kind"], type.id], 1, 0]],
+          ]),
+        ),
         ...Object.fromEntries(
           Object.keys(colors).map((category) => [
             category,
@@ -1037,6 +1075,16 @@ export function createWorldMap(
           "cluster-",
           [
             "case",
+            ...["military", "geopolitical"].flatMap((category) =>
+              CONFLICT_TYPES.flatMap((type) => [
+                [
+                  "all",
+                  ["==", ["get", category], ["get", "point_count"]],
+                  ["==", ["get", `type_${type.id}`], ["get", "point_count"]],
+                ],
+                `${category}_${type.id}`,
+              ]),
+            ),
             ...Object.keys(colors).flatMap((category) => [
               ["==", ["get", category], ["get", "point_count"]],
               category,
@@ -1070,7 +1118,7 @@ export function createWorldMap(
       layout: {
         "icon-image": [
           "concat",
-          ["get", "category"],
+          ["coalesce", ["get", "marker_type"], ["get", "category"]],
           "-",
           [
             "case",
@@ -1274,6 +1322,34 @@ export function createWorldMap(
         map.getCanvas().style.cursor = "";
       });
     }
+    map.on("mousemove", "military-context", (event) => {
+      const p = event.features?.[0]?.properties;
+      if (!p) return;
+      const card = element("div", "connection-popup");
+      card.append(element("strong", "", `${p.name} · Military reporting`));
+      const stories = [
+        ...new Set(
+          (militaryNetwork?.edges || [])
+            .filter((edge) => edge.from === p.code || edge.to === p.code)
+            .flatMap((edge) => edge.titles || []),
+        ),
+      ];
+      for (const title of stories.slice(0, 2))
+        card.append(element("p", "hover-summary", title));
+      card.append(
+        element(
+          "p",
+          "helper",
+          `${p.count} defence reports · country context, not a unit position`,
+        ),
+      );
+      hoverPopup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "military-context", () => {
+      hoverPopup.remove();
+      map.getCanvas().style.cursor = "";
+    });
     map.on("click", "military-context", (event) => {
       const feature = event.features[0];
       const card = element("div", "");
@@ -1411,7 +1487,7 @@ export function createWorldMap(
       const feature = event.features[0];
       const card = element("div", "");
       card.append(
-        element("strong", "", "Regional volume anomaly"),
+        element("strong", "", "Regional reporting surge"),
         element(
           "p",
           "",
@@ -1419,6 +1495,15 @@ export function createWorldMap(
         ),
         element("p", "helper", feature.properties.basis),
       );
+      const inspect = element("button", "", "Inspect reports in area");
+      inspect.addEventListener("click", () =>
+        inspectRegion?.({
+          ...feature.properties,
+          longitude: feature.geometry.coordinates[0],
+          latitude: feature.geometry.coordinates[1],
+        }),
+      );
+      card.append(inspect);
       popup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
     });
     map.on("click", "cross-category", (event) => {
@@ -1454,6 +1539,11 @@ export function createWorldMap(
         list.append(row);
       }
       card.append(list, element("p", "helper", entry.basis));
+      const inspect = element("button", "", "Inspect country reports");
+      inspect.addEventListener("click", () =>
+        selectCountry(entry.country, true),
+      );
+      card.append(inspect);
       popup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
     });
     map.on("mouseenter", "cross-category", () => {
@@ -1514,10 +1604,25 @@ export function createWorldMap(
       map.getCanvas().style.cursor = "";
       popup.remove();
     });
+    let eventHoverKey = null;
     for (const layer of ["clusters", "event-points", "aircraft-track"]) {
-      map.on("mouseenter", layer, (event) => {
+      map.on("mousemove", layer, async (event) => {
+        // Country endpoints can share a position with a report cluster. Keep
+        // their attacker/target evidence visible instead of replacing it with
+        // an asynchronously loaded cluster preview.
+        if (
+          map.queryRenderedFeatures(event.point, {
+            layers: ["threat-endpoints", "orbital-positions"],
+          }).length
+        ) {
+          eventHoverKey = null;
+          return;
+        }
         map.getCanvas().style.cursor = "pointer";
         const feature = event.features[0];
+        const hoverKey = `${layer}-${feature.properties.cluster_id ?? feature.properties.event_id}`;
+        if (eventHoverKey === hoverKey) return;
+        eventHoverKey = hoverKey;
         const text = feature.properties.point_count
           ? `${feature.properties.point_count} loaded observations. ${Object.keys(
               colors,
@@ -1530,14 +1635,70 @@ export function createWorldMap(
           : layer === "aircraft-track"
             ? `${feature.properties.title} · ${feature.properties.aircraft_summary || ""} · Position observed ${feature.properties.time_key}. Departure / destination not provided.`
             : feature.properties.title;
-        popup
+        const card = element("div", "event-hover-card");
+        card.append(element("strong", "hover-summary", text));
+        if (feature.properties.point_count) {
+          try {
+            const leaves = await map
+              .getSource("events")
+              .getClusterLeaves(feature.properties.cluster_id, 3, 0);
+            if (eventHoverKey !== hoverKey) return;
+            for (const leaf of leaves)
+              card.append(
+                element(
+                  "p",
+                  "hover-summary",
+                  leaf.properties.hover_summary || leaf.properties.title,
+                ),
+              );
+          } catch {
+            /* A new collection can replace a cluster while hovering. */
+          }
+        }
+        if (!feature.properties.point_count && layer !== "aircraft-track") {
+          if (feature.properties.conflict_label)
+            card.prepend(
+              element("p", "hover-kind", feature.properties.conflict_label),
+            );
+          const summary = feature.properties.hover_summary;
+          if (summary && summary !== text)
+            card.append(element("p", "hover-summary", summary));
+          else
+            card.append(
+              element("p", "helper", "Summary from the source headline"),
+            );
+          card.append(
+            element(
+              "p",
+              "helper",
+              feature.properties.location_basis || "Location not supplied",
+            ),
+          );
+          const date = feature.properties.published_at;
+          card.append(
+            element(
+              "p",
+              "helper",
+              `${feature.properties.confidence || "Single-source"} · ${date ? new Date(date).toLocaleString() : "Date unavailable"}`,
+            ),
+          );
+          card.append(
+            element(
+              "p",
+              "helper",
+              feature.properties.hover_source || feature.properties.source_id,
+            ),
+          );
+        }
+        hoverPopup
           .setLngLat(feature.geometry.coordinates)
-          .setDOMContent(element("p", "", text))
+          .setDOMContent(card)
           .addTo(map);
       });
       map.on("mouseleave", layer, () => {
+        eventHoverKey = null;
         map.getCanvas().style.cursor = "";
-        popup.remove();
+        hoverPopup.remove();
       });
     }
     theme();
@@ -1583,6 +1744,40 @@ export function createWorldMap(
     ]
       .sort()
       .join(",");
+    map.getCanvas().dataset.conflictKinds = [
+      ...new Set(
+        symbols.map((f) => f.properties.conflict_kind).filter(Boolean),
+      ),
+    ].join(",");
+    map.getCanvas().dataset.conflictHoverPoints = JSON.stringify(
+      [
+        ...[...symbols].sort(
+          (a, b) =>
+            Number(Boolean(b.properties.conflict_kind)) -
+            Number(Boolean(a.properties.conflict_kind)),
+        ),
+        ...clusters,
+        ...map.queryRenderedFeatures({ layers: ["military-context"] }),
+      ]
+        .filter(
+          (f) =>
+            ["military", "geopolitical"].includes(f.properties.category) ||
+            f.properties.military > 0 ||
+            f.layer.id === "military-context",
+        )
+        .slice(0, 25)
+        .map((f) => {
+          const p = map.project(f.geometry.coordinates);
+          return {
+            x: p.x,
+            y: p.y,
+            event_id: f.properties.event_id,
+            category: f.properties.category,
+            layer: f.layer.id,
+            type: f.properties.conflict_kind,
+          };
+        }),
+    );
     map.getCanvas().dataset.clusterSymbols = String(clusters.length);
     map.getCanvas().dataset.newsConnections = String(
       map.queryRenderedFeatures({
@@ -1886,7 +2081,22 @@ export function createWorldMap(
               type: "Point",
               coordinates: [event.longitude, event.latitude],
             },
-            properties: event,
+            properties: {
+              ...event,
+              marker_type: conflictType(event)
+                ? `conflict-${event.category}-${conflictType(event).id}`
+                : event.category,
+              conflict_label: conflictType(event)?.label || "",
+              conflict_kind: conflictType(event)?.id || "",
+              hover_summary: conflictSummary(event),
+              hover_source: (() => {
+                try {
+                  return new URL(event.source_url).hostname;
+                } catch {
+                  return event.source_id;
+                }
+              })(),
+            },
           })),
       });
       eventData = features(
@@ -1948,6 +2158,7 @@ export function createWorldMap(
             recent_count: item.recent_count,
             previous_count: item.previous_count,
             baseline_count: item.baseline_count,
+            cell_degrees: item.cell_degrees,
             basis: item.basis,
           },
         })),
@@ -2071,6 +2282,23 @@ export function createWorldMap(
           zoom: event.location_precision === "regional" ? 3 : 5,
         });
       }
+    },
+    focusRegion(item) {
+      worldView = false;
+      const radius = (Number(item.cell_degrees) || 10) / 2;
+      map.fitBounds(
+        [
+          [
+            Math.max(-180, item.longitude - radius),
+            Math.max(-80, item.latitude - radius),
+          ],
+          [
+            Math.min(180, item.longitude + radius),
+            Math.min(80, item.latitude + radius),
+          ],
+        ],
+        { padding: 30, duration: 0 },
+      );
     },
     setTheme(value) {
       light = value;

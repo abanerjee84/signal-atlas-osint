@@ -22,7 +22,7 @@ export const CATEGORY_NAMES = {
   threat: "Cyber: Threat Actors — attack report / detection",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
-  analysis: "Analysis and anomaly alerts",
+  analysis: "Reporting signals & alerts",
   space: "Satellites & ISS",
 };
 const marks = {
@@ -155,4 +155,278 @@ export function symbolImage(category, options) {
   return canvas
     .getContext("2d")
     .getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// Small, drawn pictograms remain legible without platform-specific emoji fonts.
+export function conflictIcon(type, color, context = false, count = null) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = count ? 64 : 48;
+  const c = canvas.getContext("2d");
+  c.scale(2, 2);
+  c.translate(12, 12);
+  c.lineWidth = 1.6;
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  c.fillStyle = context ? "#14212a" : color;
+  c.strokeStyle = color;
+  c.beginPath();
+  c.arc(0, 0, 10.5, 0, Math.PI * 2);
+  c.fillStyle = "#14212a";
+  c.fill();
+  if (context) c.setLineDash([2, 2]);
+  c.stroke();
+  c.setLineDash([]);
+  const line = (points) => {
+    c.beginPath();
+    points.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+    c.stroke();
+  };
+  const circle = (x, y, r) => {
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.stroke();
+  };
+  switch (type) {
+    case "drone":
+      line([
+        [-5, -5],
+        [5, 5],
+      ]);
+      line([
+        [5, -5],
+        [-5, 5],
+      ]);
+      for (const x of [-5, 5]) for (const y of [-5, 5]) circle(x, y, 2.2);
+      circle(0, 0, 1.5);
+      break;
+    case "airstrike":
+      line([
+        [0, -7],
+        [0, 0],
+        [-6, 2],
+        [0, 1],
+        [6, 2],
+        [0, 0],
+      ]);
+      line([
+        [0, 3],
+        [0, 7],
+      ]);
+      line([
+        [-3, 5],
+        [0, 7],
+        [3, 5],
+      ]);
+      break;
+    case "missile":
+      line([
+        [-4, 5],
+        [-2, -3],
+        [3, -7],
+        [6, -2],
+        [1, 5],
+        [-4, 5],
+      ]);
+      line([
+        [-4, 5],
+        [-6, 7],
+      ]);
+      line([
+        [0, 5],
+        [-1, 8],
+      ]);
+      break;
+    case "explosion":
+      circle(-1, 2, 4.5);
+      line([
+        [2, -2],
+        [4, -5],
+        [6, -5],
+      ]);
+      line([
+        [5, -7],
+        [6, -6],
+        [8, -6],
+      ]);
+      break;
+    case "alert":
+      line([
+        [-6, 6],
+        [6, 6],
+      ]);
+      line([
+        [-4, 4],
+        [-4, 0],
+        [-2, -3],
+        [2, -3],
+        [4, 0],
+        [4, 4],
+        [-4, 4],
+      ]);
+      line([
+        [0, -5],
+        [0, -8],
+      ]);
+      line([
+        [-6, -3],
+        [-8, -5],
+      ]);
+      line([
+        [6, -3],
+        [8, -5],
+      ]);
+      break;
+    case "shelling":
+      circle(-3, 5, 2);
+      circle(4, 5, 2);
+      line([
+        [-6, 3],
+        [5, 3],
+        [5, 0],
+        [-3, 0],
+        [-6, 3],
+      ]);
+      line([
+        [-1, 0],
+        [7, -6],
+      ]);
+      break;
+    case "clashes":
+      line([
+        [-6, -7],
+        [6, 6],
+      ]);
+      line([
+        [6, -7],
+        [-6, 6],
+      ]);
+      line([
+        [-7, 3],
+        [-3, 7],
+      ]);
+      line([
+        [3, 7],
+        [7, 3],
+      ]);
+      break;
+    case "naval":
+      line([
+        [0, -6],
+        [0, 6],
+      ]);
+      circle(0, -6, 1.8);
+      line([
+        [-6, 1],
+        [-6, 4],
+        [0, 7],
+        [6, 4],
+        [6, 1],
+      ]);
+      line([
+        [-3, -2],
+        [3, -2],
+      ]);
+      break;
+    case "deployment":
+      c.strokeRect(-7, 1, 14, 5);
+      c.strokeRect(-3, -3, 7, 4);
+      line([
+        [3, -2],
+        [8, -5],
+      ]);
+      for (const x of [-4, 0, 4]) circle(x, 4, 0.6);
+      break;
+    case "weapons":
+      c.strokeRect(-6, -5, 12, 12);
+      line([
+        [-6, -5],
+        [6, 7],
+      ]);
+      line([
+        [6, -5],
+        [-6, 7],
+      ]);
+      break;
+    case "diplomacy":
+      line([
+        [0, 7],
+        [0, -7],
+        [7, -5],
+        [0, -2],
+      ]);
+      line([
+        [-6, 6],
+        [-6, -3],
+        [-1, -1],
+      ]);
+      break;
+    case "protest":
+      c.strokeRect(-7, -7, 14, 9);
+      line([
+        [0, 2],
+        [0, 8],
+      ]);
+      line([
+        [-3, -3],
+        [3, -3],
+      ]);
+      break;
+    case "security":
+      circle(0, 0, 5);
+      line([
+        [-8, 0],
+        [-3, 0],
+      ]);
+      line([
+        [3, 0],
+        [8, 0],
+      ]);
+      line([
+        [0, -8],
+        [0, -3],
+      ]);
+      line([
+        [0, 3],
+        [0, 8],
+      ]);
+      break;
+    default:
+      line([
+        [-6, -6],
+        [6, -6],
+        [5, 3],
+        [0, 7],
+        [-5, 3],
+        [-6, -6],
+      ]);
+      line([
+        [0, -3],
+        [0, 2],
+      ]);
+      circle(0, 4, 0.5);
+  }
+  if (count) {
+    c.fillStyle = "#14212a";
+    c.beginPath();
+    c.roundRect(2, -12, 17, 10, 2);
+    c.fill();
+    c.stroke();
+    c.fillStyle = "#eef4f6";
+    c.font = "700 6.5px Segoe UI, Arial, sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(String(count), 10.5, -7);
+  }
+  return c.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+export function conflictCanvas(type, category, context = false) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 48;
+  canvas.className = "layer-symbol";
+  canvas.setAttribute("aria-hidden", "true");
+  canvas
+    .getContext("2d")
+    .putImageData(conflictIcon(type, colors[category], context), 0, 0);
+  return canvas;
 }

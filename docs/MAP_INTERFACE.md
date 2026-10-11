@@ -6,6 +6,14 @@ GP hexagon (geopolitical), MI shield (military), MT hull (maritime), S speech bu
 AN triangle (analysis). Aircraft retain the yellow plane, restricted to ADS-B
 classes 4 and 5 with an actual reported track. P identifies a publisher base.
 
+Geopolitical and military reports additionally use fourteen topic pictograms,
+including bombs, drones, rockets, artillery and sirens. The **Conflict symbols**
+key explains them; hover previews summarize stored evidence, with location,
+publication time, source and confidence. Homogeneous topic clusters retain that
+pictogram. See [conflict reporting and reporting signals](CONFLICT_REPORTING.md).
+The former analysis overlay is now **Reporting signals & alerts**, with one
+control shared by the sidebar and Layers menu; optional AI remains separate.
+
 Solid symbols mark reported locations; hollow dashed symbols mark regional
 context. Cluster badges show loaded observation counts, with 99+ for larger
 clusters. A cluster containing one category keeps that category's shape; + marks

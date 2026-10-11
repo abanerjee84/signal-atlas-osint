@@ -866,6 +866,36 @@ summary span {
 .map-hover-details {
   pointer-events: none;
 }
+.event-hover-card strong,
+.hover-summary {
+  display: block;
+  text-wrap: pretty;
+  line-height: 1.5;
+}
+.hover-kind {
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.conflict-key-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0;
+  font-size: 11px;
+}
+.conflict-key-item canvas {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.conflict-key-inactive {
+  color: var(--muted);
+}
+.reporting-signal-row {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
 .map-toolbar-row {
   display: flex;
   align-items: center;
@@ -1179,7 +1209,7 @@ summary span {
 }
 .analysis-evidence {
   position: absolute;
-  left: 24px;
+  left: calc(var(--map-ribbon-width, 218px) + 12px);
   bottom: 24px;
   width: 250px;
   max-height: 42vh;

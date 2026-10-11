@@ -1,0 +1,86 @@
+[
+  {
+    "id": "alert",
+    "label": "Siren / evacuation alert",
+    "pattern": "\\b(?:air[- ]raid (?:alerts?|warnings?)|sirens?|evacuat\\w*)\\b",
+    "military": true
+  },
+  {
+    "id": "drone",
+    "label": "Drone activity",
+    "pattern": "\\b(?:drones?|UAVs?|FPV|unmanned aerial|Shahed)\\b",
+    "military": true
+  },
+  {
+    "id": "airstrike",
+    "label": "Airstrike / bombing",
+    "pattern": "\\b(?:airstrikes?|air strikes?|air raids?|bombing|bombed|aerial attacks?)\\b",
+    "military": true
+  },
+  {
+    "id": "missile",
+    "label": "Missile / rocket",
+    "pattern": "\\b(?:missiles?|rockets?|ballistic|cruise missile)\\b",
+    "military": true
+  },
+  {
+    "id": "shelling",
+    "label": "Artillery / shelling",
+    "pattern": "\\b(?:shelling|shelled|artillery|howitzers?|mortars?)\\b",
+    "military": true
+  },
+  {
+    "id": "explosion",
+    "label": "Bomb / explosion",
+    "pattern": "\\b(?:explosions?|explosives?|bombs?|IEDs?|detonat\\w*|blast)\\b",
+    "military": true
+  },
+  {
+    "id": "clashes",
+    "label": "Fighting / armed attack",
+    "pattern": "\\b(?:clashes?|fighting|combat|armed attacks?|offensives?|ambush\\w*|insurgents?|terroris\\w*|strikes?)\\b",
+    "military": true
+  },
+  {
+    "id": "naval",
+    "label": "Naval activity",
+    "pattern": "\\b(?:naval|navy|warships?|frigates?|destroyers?|submarines?|aircraft carriers?)\\b",
+    "military": true
+  },
+  {
+    "id": "deployment",
+    "label": "Deployment / exercise",
+    "pattern": "\\b(?:troops?|deployment|mobilis\\w*|mobiliz\\w*|military exercises?|military drills?|battalions?|regiments?|military movements?)\\b",
+    "military": true
+  },
+  {
+    "id": "weapons",
+    "label": "Weapons / defence equipment",
+    "pattern": "\\b(?:weapons?|ammunition|armaments?|procurement|fighter jets?|defen[cs]e equipment)\\b",
+    "military": true
+  },
+  {
+    "id": "diplomacy",
+    "label": "Diplomacy / ceasefire",
+    "pattern": "\\b(?:ceasefire|diploma\\w*|negotiat\\w*|peace talks?|treaties|treaty|sanctions?)\\b",
+    "military": false
+  },
+  {
+    "id": "protest",
+    "label": "Protest / unrest",
+    "pattern": "\\b(?:protests?|demonstrat\\w*|riots?|unrest)\\b",
+    "military": false
+  },
+  {
+    "id": "security",
+    "label": "Security / violence report",
+    "pattern": "\\b(?:gunfire|shootings?|killed|wounded|attacks?|violence)\\b",
+    "military": false
+  },
+  {
+    "id": "conflict",
+    "label": "Other conflict reporting",
+    "pattern": "\\b(?:conflicts?|war|military|army|rebels?|forces|frontline|defen[cs]e|security|border|president|minister|government|elections?|parliament|hostages?|refugees?|humanitarian)\\b",
+    "military": false
+  }
+]

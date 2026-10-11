@@ -8,6 +8,8 @@ import uuid
 from pathlib import Path
 
 from backend.config import ROOT, Settings
+from backend.connectors.conflict_sources import conflict_sources
+from backend.connectors.world_feeds import world_feeds
 from backend.database import Database
 from backend.models import stamp
 from scripts.collect_orbits import orbital_loop
@@ -71,6 +73,30 @@ def run_thread(database, chromium=None, rendered_table=True):
                 await asyncio.to_thread(stopped.wait, 60)
 
         research = asyncio.create_task(research_loop())
+
+        async def conflict_loop():
+            identifiers = [
+                provider.source_id for provider in conflict_sources(Settings()) + world_feeds(Settings())
+            ] + ["nato", "uk_mod", "dvids"]
+            position = 0
+            while not stopped.is_set():
+                batch = identifiers[position : position + 6]
+                position = (position + 6) if position + 6 < len(identifiers) else 0
+                try:
+                    async with asyncio.timeout(120):
+                        result = await collect_once(batch, table_reader=reader, robots_cache=policy_cache)
+                    with guard:
+                        state["conflict_results"] = [
+                            {"source_id": row["source_id"], "state": row["state"]}
+                            for row in result["results"]
+                        ]
+                        state.pop("conflict_error", None)
+                except Exception as error:
+                    with guard:
+                        state["conflict_error"] = "Conflict collection failed (" + type(error).__name__ + ")"
+                await asyncio.to_thread(stopped.wait, 20)
+
+        conflicts = asyncio.create_task(conflict_loop())
         orbits = asyncio.create_task(orbital_loop(stopped, database))
         try:
             while not stopped.is_set():
@@ -100,8 +126,9 @@ def run_thread(database, chromium=None, rendered_table=True):
                 await asyncio.to_thread(stopped.wait, max(0, INTERVAL - (loop.time() - began)))
         finally:
             research.cancel()
+            conflicts.cancel()
             orbits.cancel()
-            await asyncio.gather(research, orbits, return_exceptions=True)
+            await asyncio.gather(research, conflicts, orbits, return_exceptions=True)
             if reader:
                 await reader.close()
 

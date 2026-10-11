@@ -114,6 +114,14 @@
             class="layers"
             aria-label="Selectable intelligence layers"
           ></div>
+          <details id="conflict-legend" class="coverage-details">
+            <summary>Conflict symbols</summary>
+            <div id="conflict-symbol-key"></div>
+            <p class="helper">
+              Symbols describe the report's topic. Dashed rims mark country
+              context; solid rims mark approximate reported locations.
+            </p>
+          </details>
           <p class="helper">
             Counts follow your filters. Aircraft and satellites show current
             positions; event history uses retained observations.
@@ -222,7 +230,7 @@
                     Weight by evidence</label
                   >
                   <label
-                    ><input id="analysis-overlays" type="checkbox" /> Analysis
+                    ><input id="analysis-overlays" type="checkbox" /> Reporting
                     overlays</label
                   >
                   <p id="network-summary" aria-live="polite"></p>
@@ -402,7 +410,7 @@
           aria-label="Cross-category and regional analysis evidence"
           hidden
         >
-          <h3>Analysis overlays</h3>
+          <h3>Reporting signals</h3>
           <div id="cross-category-body"></div>
         </section>
       </section>
@@ -431,6 +439,21 @@
             ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
           </div>
           <section id="feed-view">
+            <section
+              id="reporting-signals"
+              hidden
+              aria-label="Reporting signals and alerts"
+            >
+              <h3>Reporting signals & alerts</h3>
+              <p class="helper">
+                Amber: report surges. Teal: evidence across layers. These show
+                changes in collected reporting, not confirmed escalation or
+                causal links. Use enabled layers and your filters; when this
+                layer is selected alone, it examines conflict and geopolitical
+                reporting.
+              </p>
+              <div id="anomaly-alerts" aria-live="polite"></div>
+            </section>
             <details id="radware-vector-panel" open hidden>
               <summary>Observed attack methods · Radware</summary>
               <div id="radware-vector-body"></div>
@@ -540,6 +563,36 @@
               <div id="military-source-status"></div>
             </details>
             <div id="military-groups"></div>
+            <details>
+              <summary>Conflict background and research</summary>
+              <p>
+                <a
+                  href="https://www.cfr.org/global-conflict-tracker/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >CFR Global Conflict Tracker ↗</a
+                >
+                · conflict background and assessments
+              </p>
+              <p>
+                <a
+                  href="https://ucdp.uu.se/downloads/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >UCDP conflict datasets ↗</a
+                >
+                · dated historical violence records
+              </p>
+              <p>
+                <a
+                  href="https://www.crisisgroup.org/crisiswatch"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Crisis Group CrisisWatch ↗</a
+                >
+                · regional conflict assessments
+              </p>
+            </details>
           </section>
           <section id="analysis-view" hidden>
             <h3>Evidence-grounded analysis</h3>
@@ -560,7 +613,6 @@
             </form>
             <p id="ai-error" class="error-text" role="alert"></p>
             <div id="ai-result" aria-live="polite"></div>
-            <div id="anomaly-alerts"></div>
           </section>
           <section id="sentiment-view" hidden>
             <h3>Global sentiment</h3>

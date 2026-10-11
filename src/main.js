@@ -3,7 +3,13 @@ import { api, dateText, element, relativeTime, sourceLink } from "./api.js";
 import { createWorldMap, THIN_SAMPLE } from "./map.js";
 import { renderMilitary } from "./military.js";
 import { renderSocial, focusSocialPost } from "./social.js";
-import { symbolCanvas } from "./layer-symbols.js";
+import {
+  symbolCanvas,
+  conflictIcon,
+  conflictCanvas,
+  colors,
+} from "./layer-symbols.js";
+import { CONFLICT_TYPES, conflictType } from "./conflicts.js";
 import { createCountryRibbon } from "./country-ribbon.js";
 import { aircraftFacts } from "./aircraft.js";
 import {
@@ -32,7 +38,9 @@ const threatProviders = [
   "radware_threatmap",
 ];
 const backgroundSources = (id) =>
-  threatProviders.includes(id) || id.startsWith("threat_research_");
+  threatProviders.includes(id) ||
+  id.startsWith("threat_research_") ||
+  id.startsWith("conflict_");
 const names = {
   geopolitical: "Geopolitical events",
   military: "Military OSINT",
@@ -43,7 +51,7 @@ const names = {
   threat: "Cyber: Threat Actors",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
-  analysis: "Analysis and anomaly alerts",
+  analysis: "Reporting signals & alerts",
   space: "Satellites & ISS",
 };
 const defaults = [
@@ -112,7 +120,10 @@ const state = {
   orbits: [],
   orbitalItems: [],
   orbitalLoaded: false,
+  reportingSignals: 0,
 };
+if (state.analysisOverlays) state.layers.add("analysis");
+state.analysisOverlays = state.layers.has("analysis");
 // Preserve old saved selections while exposing a single cyber layer control.
 if (state.layers.has("cyber") || state.layers.has("threat")) {
   state.layers.add("cyber");
@@ -197,7 +208,13 @@ function filters({ sentiment = false } = {}) {
     (id) => !["sentiment", "analysis", "threat", "space"].includes(id),
   );
   return {
-    categories: sentiment ? [] : physical.length ? physical : ["sentiment"],
+    categories: sentiment
+      ? []
+      : physical.length
+        ? physical
+        : state.layers.has("analysis")
+          ? ["geopolitical", "military"]
+          : ["sentiment"],
     q: state.q,
     country: state.country || undefined,
     start: start.toISOString(),
@@ -245,6 +262,8 @@ function renderLayers() {
     const copy = element("span", "layer-copy");
     const note = element("small", "layer-note");
     note.dataset.layerNote = id;
+    if (id === "analysis")
+      note.textContent = "Report surges & links across layers";
     copy.append(element("span", "", name), note);
     label.append(input, mark, copy, count);
     input.addEventListener("change", () => {
@@ -256,7 +275,10 @@ function renderLayers() {
       saveSession("osint.layers", [...state.layers]);
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
-      if (input.checked && id === "analysis") showView("analysis");
+      if (id === "analysis") {
+        syncReportingSignals();
+        if (input.checked) showView("feed");
+      }
       if (worldMap) {
         renderEvents();
         renderNetworkSummary();
@@ -267,6 +289,40 @@ function renderLayers() {
     $("#layers").append(label);
   }
   applyLayerSearch();
+}
+
+function syncReportingSignals() {
+  state.analysisOverlays = state.layers.has("analysis");
+  saveSession("osint.analysisOverlays", state.analysisOverlays);
+  saveSession("osint.layers", [...state.layers]);
+  $("#analysis-overlays").checked = state.analysisOverlays;
+  $("#reporting-signals").hidden = !state.analysisOverlays;
+  const layer = $('[data-layer="analysis"]');
+  if (layer) layer.checked = state.analysisOverlays;
+  worldMap?.setAnalysisVisible(state.analysisOverlays);
+  renderCrossCategoryPanel();
+}
+
+function renderConflictKey(events) {
+  const key = $("#conflict-symbol-key");
+  key.replaceChildren();
+  $("#conflict-legend").hidden =
+    !state.layers.has("military") && !state.layers.has("geopolitical");
+  const used = new Set(
+    events.map((event) => conflictType(event)?.id).filter(Boolean),
+  );
+  for (const type of CONFLICT_TYPES) {
+    const row = element("div", "conflict-key-item");
+    row.classList.toggle("conflict-key-inactive", !used.has(type.id));
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 48;
+    canvas.setAttribute("aria-hidden", "true");
+    canvas
+      .getContext("2d")
+      .putImageData(conflictIcon(type.id, colors.military), 0, 0);
+    row.append(canvas, element("span", "", type.label));
+    key.append(row);
+  }
 }
 
 function applyLayerSearch() {
@@ -394,11 +450,11 @@ function renderSources(status) {
   $("#system-status").textContent = status.worker_alive
     ? `${active} sources current`
     : status.public_gatherer_alive
-      ? "Live cyber updates"
+      ? "Live source updates"
       : "Collector inactive";
   $("#system-status").title =
     !status.worker_alive && status.public_gatherer_alive
-      ? "The dedicated cyber gatherer is active. The main collector for other sources is inactive."
+      ? "Public conflict, cyber and satellite collection is active."
       : "Collection status";
   $("#system-status").classList.toggle(
     "offline",
@@ -584,6 +640,7 @@ function renderEvents() {
     visible.push(...flights);
   }
   worldMap?.setEvents(visible);
+  renderConflictKey(visible);
   updateOrbitalPositions();
   $("#matched-count").textContent = Math.max(
     0,
@@ -616,7 +673,14 @@ function renderEvents() {
     const button = element("button", "event-button");
     button.dataset.eventId = event.event_id;
     const meta = element("div", "event-meta");
-    const mark = symbolCanvas(event.category);
+    const type = conflictType(event);
+    const mark = type
+      ? conflictCanvas(
+          type.id,
+          event.category,
+          event.location_precision === "regional",
+        )
+      : symbolCanvas(event.category);
     const time = element("time", "", relativeTime(event[timeColumn]));
     time.dateTime = event[timeColumn];
     time.title = dateText(event[timeColumn]);
@@ -722,7 +786,9 @@ function renderEvents() {
       $(`[data-count="${id}"]`).title =
         "Cyber advisories and investigations plus up to 500 attack reports and 300 sampled detections; not global attack totals";
     const health = state.layerHealth[id];
-    const sources = state.sources.filter((source) => source.category === id);
+    const sources = state.sources.filter(
+      (source) => source.category === id || source.categories?.includes(id),
+    );
     const note = $(`[data-layer-note="${id}"]`);
     // Prefer the server's per-layer health verdict: a layer can be empty
     // because its sources are down, not because nothing happened.
@@ -747,7 +813,7 @@ function renderEvents() {
             : id === "threat"
               ? "Published reports · reported origin → target"
               : id === "military"
-                ? "Public announcements"
+                ? "Conflict reports, forces & defence coverage"
                 : healthNote
       : id === "threat"
         ? "No matching published threat reports"
@@ -761,6 +827,9 @@ function renderEvents() {
         health.coverage === "none_current" || health.coverage === "no_sources",
       );
   }
+  $('[data-count="analysis"]').textContent = String(state.reportingSignals);
+  $('[data-count="analysis"]').title =
+    "Regional report surges plus countries with evidence in multiple enabled layers; not a count of attacks";
   $("#map-sample-note").textContent =
     state.events.length < state.total
       ? `Showing ${state.events.length.toLocaleString()} records across layers and regions; load more in Events. Threat layer uses up to 500 recent reports; other layer counts include all matches.`
@@ -925,6 +994,13 @@ async function selectEvent(id, locate = false) {
           `${report.source_id} · ${dateText(report.published_at)}`,
         ),
       );
+      const news = report.metadata?.news;
+      if (news?.reporting_location)
+        reference.append(
+          element("p", "helper", `Reported place: ${news.reporting_location}`),
+        );
+      for (const url of news?.upstream_sources || [])
+        reference.append(sourceLink(url, "Cited original source ↗"));
       if (report.report_id)
         reference.append(
           sourceLink(
@@ -1344,6 +1420,10 @@ async function refresh() {
   $("#event-list").setAttribute("aria-busy", "true");
   countryRibbon.setBusy(true);
   try {
+    // Adjacent filter changes should issue one query batch. Aborting a browser
+    // request cannot cancel work that the API has already begun.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (signal.aborted) return;
     const query = params();
     const threatQuery = new URLSearchParams(query);
     threatQuery.delete("categories");
@@ -1397,7 +1477,7 @@ async function refresh() {
       api(`timeline?${query}&interval=${interval}`, { signal }),
       api(`sentiment?${sentimentQuery}`, { signal }),
       Promise.resolve(null),
-      api("anomalies", { signal }),
+      Promise.resolve(null),
       api(`relations?${query}`, { signal }),
       api(`military?${query}`, { signal }),
       api("layers", { signal }),
@@ -1487,8 +1567,10 @@ async function refresh() {
       state.sources = status.connectors;
       renderSources(status);
       $("#threat-stream-health").replaceChildren();
-      for (const source of status.connectors.filter((item) =>
-        backgroundSources(item.source_id),
+      for (const source of status.connectors.filter(
+        (item) =>
+          threatProviders.includes(item.source_id) ||
+          item.source_id.startsWith("threat_research_"),
       )) {
         $("#threat-stream-health").append(
           element(
@@ -1545,6 +1627,25 @@ async function refresh() {
       state.layerHealth = Object.fromEntries(
         results[8].value.map((layer) => [layer.id, layer.health]),
       );
+      for (const source of state.sources.filter(
+        (s) => s.compatibility_only && s.source_id.startsWith("conflict_"),
+      )) {
+        for (const category of new Set([
+          source.category,
+          ...(source.categories || []),
+        ])) {
+          const health = state.layerHealth[category];
+          if (!health) continue;
+          health.total += 1;
+          if (source.state === "ok" && !source.stale) health.current += 1;
+          else health.failing += 1;
+          health.coverage = health.current
+            ? health.failing
+              ? "degraded"
+              : "current"
+            : "none_current";
+        }
+      }
       for (const option of $("#sentiment-platform").options) {
         if (["mastodon", "lemmy", "telegram"].includes(option.value))
           option.disabled = !state.extendedSources;
@@ -1553,17 +1654,6 @@ async function refresh() {
       renderEvents();
     }
     renderAnomalyAlerts(results);
-    $("#anomaly-alerts").replaceChildren();
-    if (results[5].status === "fulfilled" && state.layers.has("analysis")) {
-      for (const item of results[5].value.items)
-        $("#anomaly-alerts").append(
-          element(
-            "p",
-            "anomaly",
-            `${names[item.category]}: ${item.recent_count} events in current 6h versus ${item.previous_count} in prior 6h. ${item.basis}`,
-          ),
-        );
-    }
     const failures = results
       .slice(1)
       .filter((result) => result.status === "rejected");
@@ -1640,16 +1730,6 @@ function renderCrossCategoryPanel() {
 
 function renderAnomalyAlerts(results) {
   $("#anomaly-alerts").replaceChildren();
-  if (!state.layers.has("analysis")) return;
-  if (results[5].status === "fulfilled")
-    for (const item of results[5].value.items)
-      $("#anomaly-alerts").append(
-        element(
-          "p",
-          "anomaly",
-          `${names[item.category]}: ${item.recent_count} events in current 6h versus ${item.previous_count} in prior 6h. ${item.basis}`,
-        ),
-      );
   worldMap.setRegionalAnomalies(
     results[9].status === "fulfilled" ? results[9].value.items : [],
   );
@@ -1663,12 +1743,16 @@ function renderAnomalyAlerts(results) {
     results[9].status === "fulfilled" ? results[9].value.items : [];
   const cross =
     results[10].status === "fulfilled" ? results[10].value.regions : [];
+  state.reportingSignals = regional.length + cross.length;
+  $('[data-count="analysis"]').textContent = String(state.reportingSignals);
+  syncReportingSignals();
+  if (!state.layers.has("analysis")) return;
   if (regional.length)
     $("#anomaly-alerts").append(
       element(
         "p",
         "anomaly",
-        `${regional.length} regional cells above their own 72h baseline. Shown as amber rings on the map.`,
+        `${regional.length} areas show a report surge against their 72-hour baseline. Amber rings mark these areas.`,
       ),
     );
   if (cross.length)
@@ -1676,17 +1760,91 @@ function renderAnomalyAlerts(results) {
       element(
         "p",
         "anomaly",
-        `${cross.length} countries carry records in 2+ categories in the last 24h. Shown as teal rings. Co-occurrence is not causation.`,
+        `${cross.length} countries have reports in multiple enabled layers within the past 24 hours. Teal rings mark shared country context.`,
       ),
     );
+  if (!regional.length && !cross.length)
+    $("#anomaly-alerts").append(
+      element(
+        "p",
+        "helper",
+        "No report surge or overlap meets the threshold in this view. Enable additional layers or broaden the period to explore more evidence.",
+      ),
+    );
+  for (const item of cross.slice(0, 5)) {
+    const name =
+      state.world.features.find((f) => f.properties.code === item.country)
+        ?.properties.name || item.country;
+    const row = element("div", "reporting-signal-row");
+    row.append(
+      element("strong", "", name),
+      element(
+        "p",
+        "helper",
+        Object.entries(item.categories)
+          .map(([category, count]) => `${names[category]}: ${count}`)
+          .join(" · "),
+      ),
+    );
+    const inspect = element("button", "", "Inspect reports");
+    inspect.addEventListener("click", () => {
+      ensureSignalEvidence();
+      selectCountry(item.country, true);
+    });
+    row.append(inspect);
+    $("#anomaly-alerts").append(row);
+  }
+  for (const item of regional.slice(0, 5)) {
+    const row = element("div", "reporting-signal-row");
+    row.append(
+      element(
+        "strong",
+        "",
+        `Report surge · ${item.latitude.toFixed(1)}°, ${item.longitude.toFixed(1)}°`,
+      ),
+      element(
+        "p",
+        "helper",
+        `${item.recent_count} reports in six hours; ${item.previous_count} in the preceding six hours. Comparison uses ${item.baseline_count} reports across 72 hours.`,
+      ),
+    );
+    const inspect = element("button", "", "Inspect reports in area");
+    inspect.addEventListener("click", () => inspectSignalRegion(item));
+    row.append(inspect);
+    $("#anomaly-alerts").append(row);
+  }
+}
+
+function ensureSignalEvidence() {
+  if (
+    ![...state.layers].some(
+      (id) => !["analysis", "sentiment", "space", "threat"].includes(id),
+    )
+  ) {
+    state.layers.add("geopolitical");
+    state.layers.add("military");
+    renderLayers();
+    syncReportingSignals();
+  }
+}
+
+function inspectSignalRegion(item) {
+  ensureSignalEvidence();
+  state.country = "";
+  $("#country").value = "";
+  $("#viewport-filter").checked = true;
+  worldMap.focusRegion(item);
+  showView("feed");
+  refresh();
 }
 
 function renderEvidenceGaps() {
   const panel = $("#evidence-gaps");
   if (!panel) return;
   const gaps = Object.entries(state.layerHealth).filter(
-    ([, health]) =>
-      health.coverage === "none_current" || health.coverage === "no_sources",
+    ([id, health]) =>
+      id !== "analysis" &&
+      (health.coverage === "none_current" || health.coverage === "no_sources"),
   );
   const degraded = Object.entries(state.layerHealth).filter(
     ([, health]) => health.coverage === "degraded",
@@ -2035,6 +2193,7 @@ async function initialize() {
     worldMap = createWorldMap(state.world, {
       selectEvent,
       selectCountry,
+      inspectRegion: inspectSignalRegion,
       viewportChanged() {
         if ($("#viewport-filter").checked) {
           clearTimeout(viewportTimer);
@@ -2125,11 +2284,12 @@ $("#density-confidence").addEventListener("change", (event) => {
   worldMap.setDensityWeighted(state.densityConfidence);
 });
 $("#analysis-overlays").addEventListener("change", (event) => {
-  state.analysisOverlays = event.target.checked;
-  saveSession("osint.analysisOverlays", state.analysisOverlays);
-  worldMap.setAnalysisVisible(state.analysisOverlays);
-  $("#analysis-evidence").hidden = !state.analysisOverlays;
-  renderCrossCategoryPanel();
+  event.target.checked
+    ? state.layers.add("analysis")
+    : state.layers.delete("analysis");
+  syncReportingSignals();
+  if (event.target.checked) showView("feed");
+  refresh();
 });
 $("#sentiment-evidence").addEventListener("change", (event) => {
   state.sentimentEvidence = event.target.checked;
@@ -2206,7 +2366,8 @@ $("#playback").addEventListener("click", () => {
   }, 300);
 });
 setInterval(() => {
-  if (!document.hidden && !playbackTimer && !busy) refresh();
+  if (!document.hidden && !playbackTimer && !busy && !$("#refresh").disabled)
+    refresh();
 }, 60000);
 function aircraftFilterKey() {
   const f = filters();
@@ -2338,7 +2499,11 @@ async function refreshThreatFeeds() {
       renderVectorBreakdown(state.vectorSummary);
       $("#threat-stream-health").replaceChildren();
       for (const source of bridge.connectors || []) {
-        if (!backgroundSources(source.source_id)) continue;
+        if (
+          !threatProviders.includes(source.source_id) &&
+          !source.source_id.startsWith("threat_research_")
+        )
+          continue;
         $("#threat-stream-health").append(
           element(
             "p",

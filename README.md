@@ -15,7 +15,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 ## What you can do
 
 - **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.
-- **Follow geopolitical and military reporting:** worldwide publisher feeds, official announcements, defence topics and connections between places mentioned in reports.
+- **Follow geopolitical and military reporting:** nine public Liveuamap regional maps, 18 additional publisher feeds, dated ISW assessments and existing worldwide/official reporting. Conflict symbols distinguish drones, missiles, airstrikes, artillery, bombs, sirens, deployments and other report types. Hover summaries show source wording, location, date and confidence; cards retain original citations.
 - **Compare countries:** a map-side leaderboard for report mentions, sampled sentiment and intelligence activity, with source and sample counts.
 - **Track eligible aircraft:** OpenSky classes 4 and 5, normally refreshed every two minutes, with short transitions between reported positions. Cards show registration country, altitude, speed, ground track and observation age.
 - **Follow satellites and ISS:** 15 named spacecraft from public CelesTrak and AMSAT orbital files. Distinct satellite and ISS icons show calculated ground positions, with hover details, altitude, speed, mission, period and source elements. Positions update locally every two seconds; no account or key is needed.
@@ -27,7 +27,16 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
 - **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
 
-The ten selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber: Threat Actors**, **Economic and energy**, **Environment and humanitarian**, **Analysis and anomaly alerts**, and **Satellites & ISS**. The cyber switch combines advisories, investigations, attack reporting and sampled provider traffic. Layer availability depends on source access and the selected period.
+The ten selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber: Threat Actors**, **Economic and energy**, **Environment and humanitarian**, **Reporting signals & alerts**, and **Satellites & ISS**. The cyber switch combines advisories, investigations, attack reporting and sampled provider traffic. Layer availability depends on source access and the selected period.
+
+**Reporting signals & alerts** shows regional surges in collected reporting and countries with reports across multiple enabled layers. Its sidebar and map-menu switches control the same overlay. Alerts include comparisons and inspection actions; they are separate from optional AI analysis and do not establish escalation or causation. See [conflict collection and reporting signals](docs/CONFLICT_REPORTING.md).
+
+<details>
+<summary>Preview conflict reporting and signals</summary>
+
+![Conflict workspace with report-type symbols and inspectable reporting signals](docs/conflict-workspace.jpg)
+
+</details>
 
 <details>
 <summary>Preview the threat-actor workspace</summary>
@@ -182,6 +191,8 @@ On Linux/macOS, substitute `.venv/bin/python`. Browser tests start or reuse the 
 - [Investigation workspace](docs/ADVANCED_OSINT.md)
 - [Threat intelligence sources and relationships](docs/THREAT_INTELLIGENCE.md)
 - [Social narratives and military reporting](docs/SOCIAL_MILITARY.md)
+- [Conflict collection, symbols and reporting signals](docs/CONFLICT_REPORTING.md)
+- [Conflict tracker and upstream publisher audit](docs/CONFLICT_SOURCE_AUDIT.md)
 - [Aircraft refresh, card metadata and AI drafts](docs/AIRCRAFT_ECONOMIC_AI_UPDATE.md)
 - [API guide](docs/API.md)
 - [Operations, backups and recovery](docs/OPERATIONS.md)

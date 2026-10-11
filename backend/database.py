@@ -159,7 +159,7 @@ class Database:
             elif existing:
                 # Refresh primary-source revisions without overwriting other supporting reports.
                 db.execute(
-                    """UPDATE events SET title=?,description=?,latitude=?,longitude=?,country_code=?,
+                    """UPDATE events SET title=?,description=?,category=?,latitude=?,longitude=?,country_code=?,
                 location_precision=?,location_basis=?,occurred_at=?,published_at=?,time_key=?,
                 confidence=?,evidence_basis=?,severity=?,severity_basis=?,tags=?,updated_at=?,
                 aircraft_track_deg=?,aircraft_callsign=?,aircraft_category=?
@@ -167,6 +167,7 @@ class Database:
                     (
                         report.title,
                         report.description,
+                        report.category,
                         report.latitude,
                         report.longitude,
                         country,

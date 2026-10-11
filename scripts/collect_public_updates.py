@@ -10,6 +10,7 @@ import httpx
 
 from backend.config import ROOT, Settings
 from backend.connectors.base import SafeHTTP
+from backend.connectors.conflict_sources import conflict_sources
 from backend.connectors.public_discussion import discussion_feeds
 from backend.connectors.registry import connectors
 from backend.connectors.threat_maps import threat_maps
@@ -28,13 +29,19 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
     if not settings.database.exists():
         raise RuntimeError("Start the installed application yourself before this collection pass")
     providers = (
-        threat_feeds(settings) + threat_maps(settings) + world_feeds(settings) + discussion_feeds(settings)
+        threat_feeds(settings)
+        + threat_maps(settings)
+        + world_feeds(settings)
+        + discussion_feeds(settings)
+        + conflict_sources(settings)
     )
     providers += [
         provider
         for provider in connectors(settings)
-        if provider.source_id.startswith("reddit_")
-        and "archive" not in provider.source_id
+        if (
+            provider.source_id in {"nato", "uk_mod", "dvids"}
+            or (provider.source_id.startswith("reddit_") and "archive" not in provider.source_id)
+        )
         and not getattr(provider, "manual", False)
     ]
     gate = asyncio.Semaphore(2)
@@ -93,7 +100,7 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
     maps = []
     from backend.connectors.threat_research import research_scrapers
 
-    for provider in threat_maps(settings) + research_scrapers(settings):
+    for provider in threat_maps(settings) + research_scrapers(settings) + conflict_sources(settings):
         current = statuses.get(provider.source_id, {"state": "never_run"})
         maps.append(
             {
@@ -104,6 +111,11 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
             }
         )
     status_file = ROOT / "public/threatmap-status.json"
+    previous_summary = None
+    try:
+        previous_summary = json.loads(status_file.read_text(encoding="utf-8")).get("vector_summary")
+    except (ValueError, OSError):
+        pass
     background = False
     heartbeat_file = settings.database.parent / "run/threat-map-thread.json"
     try:
@@ -120,7 +132,7 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
             "checked_at": stamp(),
             "background_collection": background,
             "connectors": maps,
-            "vector_summary": getattr(table_reader, "radware_summary", None),
+            "vector_summary": getattr(table_reader, "radware_summary", None) or previous_summary,
         },
         allow_inplace=True,
     )

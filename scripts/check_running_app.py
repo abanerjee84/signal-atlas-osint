@@ -42,9 +42,14 @@ def main():
         page.on("pageerror", lambda error: errors.append(str(error)))
 
         def settled():
-            page.wait_for_load_state("networkidle")
-            expect(page.locator("#refresh")).to_be_enabled(timeout=45000)
-            expect(page.locator("#event-list")).to_have_attribute("aria-busy", "false")
+            # Live telemetry keeps making requests. Check one atomic ready
+            # state, rather than racing two assertions against the next poll.
+            page.wait_for_function(
+                "document.querySelector('#refresh-time').textContent.startsWith('Read ') && "
+                "!document.querySelector('#refresh').disabled && "
+                "document.querySelector('#event-list').getAttribute('aria-busy') === 'false'",
+                timeout=45000,
+            )
             expect(page.locator("#load-error")).to_be_hidden()
 
         page.goto(args.url)

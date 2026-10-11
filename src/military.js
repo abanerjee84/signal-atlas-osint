@@ -9,7 +9,9 @@ export function renderMilitary(
     `${result.report_count} dated reports · ${result.official_count} official announcements · ${result.media_count} media reports · ${result.sources.length} feeds. Selected period, geography and search apply. Topics can overlap.`;
   const status = document.querySelector("#military-source-status");
   status.replaceChildren(element("p", "helper", result.methodology));
-  for (const source of sources.filter((s) => s.category === "military"))
+  for (const source of sources.filter(
+    (s) => s.category === "military" || s.categories?.includes("military"),
+  ))
     status.append(
       element(
         "p",
@@ -30,7 +32,14 @@ export function renderMilitary(
   for (const group of result.groups) {
     const card = element("article", "military-brief");
     card.append(
-      element("h3", "", group.name),
+      element(
+        "h3",
+        "",
+        group.name.replace(
+          "Other official defence reporting",
+          "Other defence reporting",
+        ),
+      ),
       element("p", "helper", group.assessment),
       element(
         "p",

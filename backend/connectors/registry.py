@@ -3,6 +3,7 @@ import re
 from ..models import Category
 from .acled import ACLED
 from .cisa import CISA
+from .conflict_sources import conflict_sources
 from .cyber_feeds import cyber_feeds
 from .firms import FIRMS
 from .gdelt import GDELT
@@ -73,6 +74,7 @@ def connectors(settings):
     providers.extend(threat_feeds(settings))
     providers.extend(threat_maps(settings))
     providers.extend(world_feeds(settings))
+    providers.extend(conflict_sources(settings))
     providers.extend(discussion_feeds(settings))
     for identifier, name, url, country, kind in [
         (
