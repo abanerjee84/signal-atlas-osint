@@ -308,7 +308,8 @@ export function createWorldMap(
     socialVisible = false;
   let militaryPlaces = empty();
   let militaryReports = [],
-    previewEvents = [];
+    previewEvents = [],
+    reportSignature = "";
   let sentimentResult = null;
   let militaryData = empty(),
     militaryNetwork = null,
@@ -1735,6 +1736,30 @@ export function createWorldMap(
     const now = performance.now();
     if (now - lastSample < 250 || !map.getLayer("event-points")) return;
     lastSample = now;
+    const sampled = map.queryRenderedFeatures({
+      layers: [
+        "event-points",
+        "clusters",
+        "aircraft-track",
+        "countries-fill",
+        "military-context",
+        "news-connections-solid",
+        "news-connections-dotted",
+        "military-connections",
+        "social-connections",
+        "threat-connections",
+        "threat-directions",
+        "threat-endpoints",
+      ],
+    });
+    const byLayer = new Map();
+    for (const feature of sampled) {
+      const list = byLayer.get(feature.layer.id) || [];
+      list.push(feature);
+      byLayer.set(feature.layer.id, list);
+    }
+    const samples = ({ layers }) =>
+      layers.flatMap((id) => byLayer.get(id) || []);
     map.getCanvas().dataset.worldView = String(worldView);
     map.getCanvas().dataset.southTip = String(map.project([-67.3, -55.98]).y);
     map.getCanvas().dataset.worldFrame = JSON.stringify(
@@ -1746,19 +1771,19 @@ export function createWorldMap(
         return [projected.x, projected.y];
       }),
     );
-    const observations = map.queryRenderedFeatures({
+    const observations = samples({
       layers: ["event-points", "clusters", "aircraft-track"],
     }).length;
-    const countries = map.queryRenderedFeatures({
+    const countries = samples({
       layers: ["countries-fill"],
     }).length;
     map.getCanvas().dataset.rendered = String(observations + countries > 0);
     map.getCanvas().dataset.observations = String(observations);
     map.getCanvas().dataset.aircraft = String(
-      map.queryRenderedFeatures({ layers: ["aircraft-track"] }).length,
+      samples({ layers: ["aircraft-track"] }).length,
     );
-    const symbols = map.queryRenderedFeatures({ layers: ["event-points"] });
-    const clusters = map.queryRenderedFeatures({ layers: ["clusters"] });
+    const symbols = samples({ layers: ["event-points"] });
+    const clusters = samples({ layers: ["clusters"] });
     map.getCanvas().dataset.layerSymbols = String(symbols.length);
     map.getCanvas().dataset.symbolCategories = [
       ...new Set(symbols.map((feature) => feature.properties.category)),
@@ -1778,7 +1803,7 @@ export function createWorldMap(
             Number(Boolean(a.properties.conflict_kind)),
         ),
         ...clusters,
-        ...map.queryRenderedFeatures({ layers: ["military-context"] }),
+        ...samples({ layers: ["military-context"] }),
       ]
         .filter(
           (f) =>
@@ -1801,23 +1826,23 @@ export function createWorldMap(
     );
     map.getCanvas().dataset.clusterSymbols = String(clusters.length);
     map.getCanvas().dataset.newsConnections = String(
-      map.queryRenderedFeatures({
+      samples({
         layers: ["news-connections-solid", "news-connections-dotted"],
       }).length,
     );
     map.getCanvas().dataset.militaryConnections = String(
-      map.queryRenderedFeatures({ layers: ["military-connections"] }).length,
+      samples({ layers: ["military-connections"] }).length,
     );
     map.getCanvas().dataset.socialConnections = String(
-      map.queryRenderedFeatures({ layers: ["social-connections"] }).length,
+      samples({ layers: ["social-connections"] }).length,
     );
     map.getCanvas().dataset.threatConnections = String(
-      map.queryRenderedFeatures({ layers: ["threat-connections"] }).length,
+      samples({ layers: ["threat-connections"] }).length,
     );
     map.getCanvas().dataset.threatDirections = String(
-      map.queryRenderedFeatures({ layers: ["threat-directions"] }).length,
+      samples({ layers: ["threat-directions"] }).length,
     );
-    const endpointFeatures = map.queryRenderedFeatures({
+    const endpointFeatures = samples({
       layers: ["threat-endpoints"],
     });
     map.getCanvas().dataset.threatEndpoints = String(endpointFeatures.length);
@@ -2089,40 +2114,47 @@ export function createWorldMap(
     },
     setEvents(events) {
       previewEvents = events;
+      const reports = events.filter((event) => event.category !== "aviation");
+      const signature = JSON.stringify(reports);
       const features = (records) => ({
         type: "FeatureCollection",
         features: records
           .filter((event) => event.latitude !== null)
-          .map((event) => ({
-            type: "Feature",
-            id: event.event_id,
-            geometry: {
-              type: "Point",
-              coordinates: [event.longitude, event.latitude],
-            },
-            properties: {
-              ...event,
-              marker_type: conflictType(event)
-                ? `conflict-${event.category}-${conflictType(event).id}`
-                : event.category,
-              conflict_label: conflictType(event)?.label || "",
-              conflict_kind: conflictType(event)?.id || "",
-              hover_summary: conflictSummary(event),
-              hover_source: (() => {
-                try {
-                  return new URL(event.source_url).hostname;
-                } catch {
-                  return event.source_id;
-                }
-              })(),
-            },
-          })),
+          .map((event) => {
+            const kind = conflictType(event);
+            return {
+              type: "Feature",
+              id: event.event_id,
+              geometry: {
+                type: "Point",
+                coordinates: [event.longitude, event.latitude],
+              },
+              properties: {
+                ...event,
+                marker_type: kind
+                  ? `conflict-${event.category}-${kind.id}`
+                  : event.category,
+                conflict_label: kind?.label || "",
+                conflict_kind: kind?.id || "",
+                hover_summary: conflictSummary(event),
+                hover_source: (() => {
+                  try {
+                    return new URL(event.source_url).hostname;
+                  } catch {
+                    return event.source_id;
+                  }
+                })(),
+              },
+            };
+          }),
       });
-      eventData = features(
-        events.filter((event) => event.category !== "aviation"),
-      );
+      const reportsChanged = signature !== reportSignature;
+      if (reportsChanged) {
+        reportSignature = signature;
+        eventData = features(reports);
+        map.getSource("events")?.setData(eventData);
+      }
       updateAircraft(latestAircraft(events), features);
-      map.getSource("events")?.setData(eventData);
       map.getSource("density")?.setData({
         type: "FeatureCollection",
         features: [...eventData.features, ...aircraftData.features],
@@ -2227,6 +2259,7 @@ export function createWorldMap(
       startPulses();
     },
     setCyberNetwork(network, enabled) {
+      if (cyberNetwork === network && cyberVisible === enabled) return;
       cyberNetwork = network;
       cyberVisible = enabled;
       cyberData = networkFeatures(network);
@@ -2235,6 +2268,7 @@ export function createWorldMap(
       startPulses();
     },
     setThreatNetwork(network, enabled) {
+      if (threatNetwork === network && threatVisible === enabled) return;
       threatNetwork = network;
       threatVisible = enabled;
       threatData = networkFeatures(network);

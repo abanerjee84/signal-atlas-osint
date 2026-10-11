@@ -116,11 +116,38 @@ def mentioned_countries(text: str) -> list[str]:
 
     # These common place names are not mentions of those countries.
     text = re.sub(r"\b(?:Indian Ocean|British Columbia)\b", "", text, flags=re.I)
-    codes = {code for code, matcher in country_matchers() if matcher.search(text)}
+    index, fallback = country_candidate_matchers()
+    candidates = dict(fallback)
+    for word in set(re.findall(r"\w+", text)):
+        candidates.update(index.get(country_word_key(word), ()))
+    codes = {code for code, matcher in candidates.items() if matcher.search(text)}
     for code, pattern in {"US": r"\bUS\b", "GB": r"\bUK\b", "AE": r"\bUAE\b"}.items():
         if re.search(pattern, text):
             codes.add(code)
     return sorted(codes)[:20]
+
+
+def country_word_key(word):
+    # Python IGNORECASE also equates these four Unicode letters with ASCII.
+    # Use the same equivalence for candidate selection, then keep the original
+    # whole-name regex as the authority for boundaries and full aliases.
+    return word.translate(str.maketrans({"İ": "i", "ı": "i", "ſ": "s", "K": "k"})).lower()
+
+
+@lru_cache(maxsize=1)
+def country_candidate_matchers():
+    import re
+
+    index, fallback = {}, []
+    for code, matcher in country_matchers():
+        names = matcher.pattern.removeprefix(r"(?<!\w)(?:").removesuffix(r")(?!\w)")
+        for name in names.split("|"):
+            first = re.match(r"\w+", name)
+            if first:
+                index.setdefault(country_word_key(first[0]), {})[code] = matcher
+            else:
+                fallback.append((code, matcher))
+    return index, fallback
 
 
 def unique_country_context(text: str) -> dict | None:

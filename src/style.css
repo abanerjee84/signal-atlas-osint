@@ -1400,6 +1400,8 @@ summary span {
 }
 .event-list li {
   border-bottom: 1px solid var(--border);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
 }
 .event-button {
   display: block;

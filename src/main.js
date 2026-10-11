@@ -2,6 +2,7 @@ import "./style.css";
 import { api, dateText, element, relativeTime, sourceLink } from "./api.js";
 import { createWorldMap, THIN_SAMPLE } from "./map.js";
 import { createMapProgress } from "./map-progress.js";
+import { reconcileList } from "./keyed-list.js";
 import { renderMilitary } from "./military.js";
 import { renderSocial, focusSocialPost } from "./social.js";
 import {
@@ -588,11 +589,13 @@ function renderSources(status) {
   }
 }
 
+const eventRows = new Map();
 function renderEvents() {
   $("#radware-vector-panel").hidden = !state.layers.has("threat");
   renderVectorBreakdown(state.vectorSummary);
   $("#threat-map-references").hidden = !state.layers.has("threat");
-  $("#event-list").replaceChildren();
+  const rows = [],
+    retained = new Set();
   const playhead = Number($("#playhead").value);
   const { start, end } = timeRange();
   const cutoff = new Date(start.getTime() + ((end - start) * playhead) / 100);
@@ -680,6 +683,16 @@ function renderEvents() {
     ? `${state.aircraft.stale ? "Aircraft update delayed" : "Current aircraft"} · ${state.aircraft.items.length} positions`
     : "Aircraft: stored observations · position age shown on cards";
   for (const event of visible) {
+    retained.add(event.event_id);
+    const signature = JSON.stringify(event) + timeColumn;
+    const cached = eventRows.get(event.event_id);
+    if (cached?.signature === signature) {
+      const time = cached.node.querySelector("time");
+      const label = relativeTime(event[timeColumn]);
+      if (time.textContent !== label) time.textContent = label;
+      rows.push(cached.node);
+      continue;
+    }
     const li = element("li");
     const button = element("button", "event-button");
     button.dataset.eventId = event.event_id;
@@ -731,7 +744,8 @@ function renderEvents() {
     button.append(footer);
     button.addEventListener("click", () => selectEvent(event.event_id, true));
     li.append(button);
-    $("#event-list").append(li);
+    eventRows.set(event.event_id, { signature, node: li });
+    rows.push(li);
   }
   const orbitVisible =
     state.layers.has("space") && playhead === 100 ? state.orbitalItems : [];
@@ -758,7 +772,7 @@ function renderEvents() {
       ),
     );
     li.append(button);
-    $("#event-list").append(li);
+    rows.push(li);
   }
   if (!visible.length && !orbitVisible.length) {
     const empty = element("li", "empty-state");
@@ -779,8 +793,11 @@ function renderEvents() {
       refresh();
     });
     empty.append(action);
-    $("#event-list").append(empty);
+    rows.push(empty);
   }
+  reconcileList($("#event-list"), rows);
+  for (const id of eventRows.keys())
+    if (!retained.has(id)) eventRows.delete(id);
   for (const id of Object.keys(names)) {
     if (["sentiment", "analysis", "threat", "space"].includes(id)) continue;
     const count =
@@ -1450,7 +1467,7 @@ async function refresh(options = {}) {
     if (signal.aborted) return;
     const query = params();
     const threatQuery = new URLSearchParams(query);
-    threatQuery.delete("categories");
+    threatQuery.set("categories", "threat");
     threatQuery.delete("aircraft_categories");
     threatQuery.delete("country");
     threatQuery.delete("bbox");
@@ -1575,7 +1592,6 @@ async function refresh(options = {}) {
     refreshAircraft();
     if (results[1].status === "fulfilled")
       state.sources = results[1].value.connectors;
-    renderEvents();
     if (results[1].status === "fulfilled") {
       const status = {
         ...results[1].value,
@@ -1649,7 +1665,6 @@ async function refresh(options = {}) {
         showTopic,
         analyzeTopic,
       });
-      showTopic(state.militaryTopic);
     }
     if (results[11].status === "fulfilled") {
       state.cyberNetwork = results[11].value;
@@ -1693,8 +1708,11 @@ async function refresh(options = {}) {
           option.disabled = !state.extendedSources;
       }
       renderEvidenceGaps();
-      renderEvents();
     }
+    renderEvents();
+    // Country previews must see this refresh's reports before context markers
+    // are rebuilt, including single-country reports outside the brief's top 12.
+    if (results[7].status === "fulfilled") showTopic(state.militaryTopic);
     renderAnomalyAlerts(results);
     const failures = results
       .slice(1)
@@ -2449,6 +2467,7 @@ async function loadThreatTelemetry(query, signal) {
     ].map((name) => {
       const sourceQuery = new URLSearchParams(query);
       sourceQuery.set("q", name);
+      sourceQuery.set("categories", "threat");
       return api(`events?${sourceQuery}&limit=100&order=balanced`, { signal });
     }),
   );

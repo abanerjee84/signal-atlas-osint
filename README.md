@@ -194,6 +194,7 @@ On Linux/macOS, substitute `.venv/bin/python`. Browser tests start or reuse the 
 - [Conflict collection, symbols and reporting signals](docs/CONFLICT_REPORTING.md)
 - [Conflict tracker and upstream publisher audit](docs/CONFLICT_SOURCE_AUDIT.md)
 - [Aircraft refresh, card metadata and AI drafts](docs/AIRCRAFT_ECONOMIC_AI_UPDATE.md)
+- [Performance measurements and optimization](docs/PERFORMANCE.md)
 - [API guide](docs/API.md)
 - [Operations, backups and recovery](docs/OPERATIONS.md)
 - [Ubuntu deployment](docs/DEPLOYMENT.md)
