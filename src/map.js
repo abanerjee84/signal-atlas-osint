@@ -66,12 +66,13 @@ const PULSE_LIMIT = 18;
 // the classes selected for this map, declared by the transponder.
 function aircraftIcon() {
   // Drawn nose-up: icon-rotation-alignment "map" then points it along the track.
-  const size = 24;
+  const size = 48;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const context = canvas.getContext("2d");
   context.translate(size / 2, size / 2);
+  context.scale(2, 2);
   context.fillStyle = colors.aviation;
   context.beginPath();
   context.moveTo(0, -10);
@@ -1277,7 +1278,7 @@ export function createWorldMap(
       ],
       layout: {
         "icon-image": "aircraft-plane",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.55, 8, 0.75],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.85, 8, 1.1],
         // Map alignment rotates the glyph along the reported track, so the
         // nose points where the aircraft is going at every zoom and bearing.
         "icon-rotate": ["get", "aircraft_track_deg"],
@@ -1291,6 +1292,27 @@ export function createWorldMap(
         "icon-opacity": 1,
       },
     });
+    // A forgiving hit target also covers the gaps between the wings and tail.
+    // It shares the symbol's filter/source, so hidden or excluded aircraft
+    // cannot be selected. Resolve overlapping targets by screen distance.
+    map.addLayer({
+      id: "aircraft-hit-target",
+      type: "circle",
+      source: "aircraft",
+      filter: map.getFilter("aircraft-track"),
+      paint: { "circle-radius": 16, "circle-opacity": 0 },
+    });
+    const nearestAircraft = (event) =>
+      event.features.reduce((nearest, feature) => {
+        const point = map.project(feature.geometry.coordinates);
+        const distance = Math.hypot(
+          point.x - event.point.x,
+          point.y - event.point.y,
+        );
+        return !nearest || distance < nearest.distance
+          ? { feature, distance }
+          : nearest;
+      }, null)?.feature;
     map.on("click", "clusters", async (event) => {
       const feature = event.features[0];
       const zoom = await map
@@ -1307,9 +1329,16 @@ export function createWorldMap(
     map.on("click", "event-points", (event) =>
       selectEvent(event.features[0].properties.event_id),
     );
-    map.on("click", "aircraft-track", (event) =>
-      selectEvent(event.features[0].properties.event_id),
-    );
+    map.on("click", "aircraft-hit-target", (event) => {
+      if (
+        map.queryRenderedFeatures(event.point, {
+          layers: ["threat-endpoints", "orbital-positions"],
+        }).length
+      )
+        return;
+      const feature = nearestAircraft(event);
+      if (feature) selectEvent(feature.properties.event_id);
+    });
     map.addSource("orbital-positions", { type: "geojson", data: orbitalData });
     map.addSource("orbital-tracks", { type: "geojson", data: orbitalTracks });
     for (const phase of ["past", "future"])
@@ -1428,7 +1457,7 @@ export function createWorldMap(
         map.queryRenderedFeatures(event.point, {
           layers: [
             "event-points",
-            "aircraft-track",
+            "aircraft-hit-target",
             "orbital-positions",
             "clusters",
             "publisher-points",
@@ -1521,7 +1550,7 @@ export function createWorldMap(
           layers: [
             "event-points",
             "clusters",
-            "aircraft-track",
+            "aircraft-hit-target",
             "threat-endpoints",
             "orbital-positions",
           ],
@@ -1595,7 +1624,7 @@ export function createWorldMap(
             layers: [
               "event-points",
               "clusters",
-              "aircraft-track",
+              "aircraft-hit-target",
               "military-context",
               "orbital-positions",
             ],
@@ -1827,7 +1856,7 @@ export function createWorldMap(
       popup.remove();
     });
     let eventHoverKey = null;
-    for (const layer of ["clusters", "event-points", "aircraft-track"]) {
+    for (const layer of ["clusters", "event-points", "aircraft-hit-target"]) {
       map.on("mousemove", layer, async (event) => {
         // Country endpoints can share a position with a report cluster. Keep
         // their attacker/target evidence visible instead of replacing it with
@@ -1841,12 +1870,16 @@ export function createWorldMap(
           return;
         }
         map.getCanvas().style.cursor = "pointer";
-        const feature = event.features[0];
+        const feature =
+          layer === "aircraft-hit-target"
+            ? nearestAircraft(event)
+            : event.features[0];
+        if (!feature) return;
         const hoverKey = `${layer}-${feature.properties.cluster_id ?? feature.properties.event_id}`;
         if (eventHoverKey === hoverKey) return;
         eventHoverKey = hoverKey;
         let card;
-        if (layer === "aircraft-track") {
+        if (layer === "aircraft-hit-target") {
           const record = aircraftRecords.find(
             (item) => item.event_id === feature.properties.event_id,
           );
@@ -1900,7 +1933,7 @@ export function createWorldMap(
         const popupElement = hoverPopup.getElement();
         popupElement.style.translate = "";
         popupElement.classList.remove("aircraft-hover-shifted");
-        if (layer === "aircraft-track") {
+        if (layer === "aircraft-hit-target") {
           const bounds = map.getContainer().getBoundingClientRect();
           const rect = popupElement.getBoundingClientRect();
           const dx =
