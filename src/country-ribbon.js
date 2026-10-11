@@ -1,5 +1,6 @@
 import { element } from "./api.js";
 import { CATEGORY_NAMES, symbolCanvas } from "./layer-symbols.js";
+import { attackVectorLabel } from "./threats.js";
 
 export function createCountryRibbon({
   selectCountry,
@@ -239,7 +240,7 @@ export function createCountryRibbon({
     document.querySelector("#country-ranking-scope").textContent =
       "Country routes · click a row to follow its direction";
     document.querySelector("#country-ranking-status").textContent =
-      `${edges.length} routes · ${edges.reduce((n, edge) => n + edge.count, 0)} sampled detections / reports`;
+      `${edges.length} routes · ${edges.reduce((n, edge) => n + edge.count, 0)} evidence rows`;
     list.setAttribute(
       "aria-label",
       "Attacker origin to victim target country routes",
@@ -255,7 +256,7 @@ export function createCountryRibbon({
       );
       button.setAttribute(
         "aria-label",
-        `Attacker or origin ${name(edge.from)} to victim or target ${name(edge.to)}; ${edge.count} ${edge.kind === "observed_traffic_to_target" ? "provider detections" : "published reports"}. Show route.`,
+        `Attacker or origin ${name(edge.from)} to victim or target ${name(edge.to)}; vector / type: ${attackVectorLabel(edge)}; ${edge.count} ${edge.reporting_period ? "daily aggregate rows" : edge.kind === "observed_traffic_to_target" ? "provider detections" : "published reports"}. Show route.`,
       );
       const from = element("span", "route-country route-origin");
       from.append(
@@ -268,6 +269,13 @@ export function createCountryRibbon({
         element("span", "", name(edge.to)),
       );
       button.append(from, element("span", "route-arrow", "→"), to);
+      button.append(
+        element(
+          "span",
+          "route-vector",
+          `Vector / type: ${attackVectorLabel(edge)}`,
+        ),
+      );
       button.append(
         element(
           "small",
@@ -286,7 +294,7 @@ export function createCountryRibbon({
             `${edge.reporting_period} · ${edge.request_count.toLocaleString()} requests`,
           ),
         );
-      button.title = `${name(edge.from)} → ${name(edge.to)}. ${edge.basis}`;
+      button.title = `${name(edge.from)} → ${name(edge.to)}. Vector / type: ${attackVectorLabel(edge)}. ${edge.basis}`;
       button.addEventListener("click", () => {
         selectedCyberRoute = edge.id;
         for (const item of list.querySelectorAll("[data-threat-route]"))

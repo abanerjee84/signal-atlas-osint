@@ -1,8 +1,79 @@
 {
-  "imperva_country_routes": 100,
-  "bitdefender_country_routes": 12,
-  "animated_arrows": true,
-  "reduced_motion": true,
-  "errors": [],
-  "server_lifecycle_actions": 0
+  "map_layout": {
+    "layout_checks": [
+      {
+        "view": "desktop expanded",
+        "toolbar_height": 76.796875,
+        "map_width": 974,
+        "map_height": 751
+      },
+      {
+        "view": "desktop collapsed",
+        "toolbar_height": 76.796875,
+        "map_width": 1224,
+        "map_height": 751
+      },
+      {
+        "view": "desktop restored",
+        "toolbar_height": 76.796875,
+        "map_width": 974,
+        "map_height": 751
+      },
+      {
+        "view": "selected route reset",
+        "toolbar_height": 76.796875,
+        "map_width": 974,
+        "map_height": 751
+      },
+      {
+        "view": "manual view reset",
+        "toolbar_height": 76.796875,
+        "map_width": 974,
+        "map_height": 751
+      },
+      {
+        "view": "1600x1000",
+        "toolbar_height": 76.796875,
+        "map_width": 654,
+        "map_height": 671
+      },
+      {
+        "view": "1280x900",
+        "toolbar_height": 76.796875,
+        "map_width": 386,
+        "map_height": 571
+      },
+      {
+        "view": "800x900",
+        "toolbar_height": 72.796875,
+        "map_width": 744,
+        "map_height": 407
+      }
+    ],
+    "provider_vectors": true,
+    "unknown_vector_label": true,
+    "keyboard_menus": true,
+    "selected_route_preserved": true,
+    "manual_view_preserved": true,
+    "errors": [],
+    "server_lifecycle_actions": 0
+  },
+  "cyber_regression": {
+    "server_lifecycle_actions": 0,
+    "initial": {
+      "layers": 9,
+      "threat_cards": 205,
+      "threat_edges": "68"
+    },
+    "social_posts": 100,
+    "errors": [],
+    "cyber_country_routes": 53,
+    "direction_arrows": "170",
+    "country_endpoints": "39",
+    "animated_arrows": true,
+    "reduced_motion_respected": true,
+    "threat_seven_day_cards": 374,
+    "bunkerweb_cards": 100,
+    "threat_seven_day_edges": "183"
+  }
 }

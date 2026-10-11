@@ -1,6 +1,7 @@
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { element } from "./api.js";
+import { attackVectorLabel } from "./threats.js";
 import { connectionGeometry, pointAlong } from "./geo-lines.js";
 import {
   CYBER_PALETTE,
@@ -113,10 +114,19 @@ export function createWorldMap(
     container: "map",
     center: [0, 22],
     zoom: 0.5,
-    minZoom: -1,
+    minZoom: -3,
     maxZoom: 12,
     attributionControl: false,
     renderWorldCopies: false,
+    // The default Mercator constraint zooms in until the world fills a tall
+    // canvas. Allow letterboxing so both dateline edges fit on narrow screens.
+    transformConstrain: (center, zoom) => ({
+      center: new maplibregl.LngLat(
+        Math.max(-180, Math.min(180, center.lng)),
+        Math.max(-85, Math.min(85, center.lat)),
+      ),
+      zoom: Math.max(-3, Math.min(12, zoom)),
+    }),
     style: {
       version: 8,
       sources: {},
@@ -298,14 +308,68 @@ export function createWorldMap(
     className: "map-hover-details",
   });
   let selectedThreatRoute = null;
-  const resetWorld = () =>
+  let worldView = true;
+  const resetWorld = () => {
+    worldView = true;
+    popup.remove();
+    hoverPopup.remove();
     map.fitBounds(
       [
-        [-179.9, -55],
-        [179.9, 80],
+        [-179.9, -57],
+        [179.9, 74],
       ],
-      { padding: { top: 140, bottom: 80, left: 20, right: 20 }, duration: 0 },
+      { padding: { top: 12, bottom: 24, left: 12, right: 44 }, duration: 0 },
     );
+  };
+  for (const type of ["dragstart", "zoomstart", "rotatestart", "pitchstart"])
+    map.on(type, (event) => {
+      if (event.originalEvent) worldView = false;
+    });
+
+  // Give the canvas the actual unobscured rectangle. Resizing a sidebar must
+  // refit a world overview, but must not reset a country, route or manual view.
+  const workspace = document.querySelector(".map-workspace");
+  const toolbar = document.querySelector(".map-toolbar");
+  const ribbon = document.querySelector("#country-ribbon");
+  let layoutFrame;
+  const updateLayout = () => {
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      workspace.style.setProperty(
+        "--map-toolbar-height",
+        `${toolbar.offsetHeight}px`,
+      );
+      const left = Math.min(
+        ribbon.offsetLeft + ribbon.offsetWidth + 8,
+        workspace.clientWidth - 120,
+      );
+      workspace.style.setProperty(
+        "--map-ribbon-width",
+        `${Math.max(0, left)}px`,
+      );
+      map.resize();
+      if (worldView) resetWorld();
+    });
+  };
+  const resize = new ResizeObserver(updateLayout);
+  for (const item of [workspace, toolbar, ribbon]) resize.observe(item);
+  map.on("remove", () => {
+    resize.disconnect();
+    cancelAnimationFrame(layoutFrame);
+  });
+  const menus = [...toolbar.querySelectorAll("details")];
+  for (const menu of menus) {
+    menu.addEventListener("toggle", () => {
+      if (menu.open)
+        for (const other of menus) if (other !== menu) other.open = false;
+    });
+    menu.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        menu.open = false;
+        menu.querySelector("summary").focus();
+      }
+    });
+  }
 
   // Weight by evidence strength, not just volume. A single unverified report
   // should not heat a cell like corroborated reporting.
@@ -461,6 +525,11 @@ export function createWorldMap(
       light ? "#a9bdc8" : "#40525d",
     );
     map.setPaintProperty("grid", "line-color", light ? "#becdd5" : "#243741");
+    map.setPaintProperty(
+      "polar-mask",
+      "fill-color",
+      light ? "#dee8ed" : "#101b22",
+    );
   }
   map.on("load", () => {
     const arrowIcon = (color) => {
@@ -544,6 +613,39 @@ export function createWorldMap(
         "line-opacity": 0.7,
       },
     });
+    // Exclude polar cartography from the overview without hiding the evidence
+    // routes above the basemap. The southern cutoff retains Cape Horn.
+    map.addSource("polar-mask", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [
+          [-85.051129, -57],
+          [74, 85.051129],
+        ].map(([south, north]) => ({
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-180, south],
+                [180, south],
+                [180, north],
+                [-180, north],
+                [-180, south],
+              ],
+            ],
+          },
+        })),
+      },
+    });
+    map.addLayer({
+      id: "polar-mask",
+      type: "fill",
+      source: "polar-mask",
+      paint: { "fill-color": "#101b22", "fill-antialias": false },
+    });
     map.addLayer({
       id: "country-selected",
       type: "fill",
@@ -558,6 +660,7 @@ export function createWorldMap(
       filter: ["==", ["get", "code"], selected],
       paint: { "line-color": "#77d4bc", "line-width": 1.4 },
     });
+    map.moveLayer("polar-mask");
     map.addSource("events", {
       type: "geojson",
       data: eventData,
@@ -996,6 +1099,7 @@ export function createWorldMap(
       selectEvent(event.features[0].properties.event_id),
     );
     map.on("click", "countries-fill", (event) => {
+      if (event.lngLat.lat < -57 || event.lngLat.lat > 74) return;
       if (
         map.queryRenderedFeatures(event.point, {
           layers: [
@@ -1061,6 +1165,14 @@ export function createWorldMap(
             `${kind}. ${edge.count} ${edge.kind === "observed_traffic_to_target" ? "sampled detections" : "supporting feed reports"}. ${edge.basis || "This is context, not movement or verified interaction."}`,
           ),
         );
+        if (layer === "threat-connections")
+          card.append(
+            element(
+              "p",
+              "attack-vector",
+              `Vector / type: ${attackVectorLabel(edge)}`,
+            ),
+          );
         for (let i = 0; i < Math.min(3, edge.titles.length); i++) {
           const button = element("button", "connection-story", edge.titles[i]);
           button.addEventListener("click", () =>
@@ -1137,6 +1249,11 @@ export function createWorldMap(
               `${name(edge.from)} → ${name(edge.to)} · ${edge.count} observations / reports`,
             ),
             element("p", "helper", edge.titles[0]),
+            element(
+              "p",
+              "attack-vector",
+              `Vector / type: ${attackVectorLabel(edge)}`,
+            ),
           );
           if (edge.reporting_period)
             card.append(
@@ -1188,6 +1305,19 @@ export function createWorldMap(
           `${properties.count} observations / reports. Country refers to provider traffic geography or reported attribution; it does not prove actor nationality or compromise.`,
         ),
       );
+      const related = (threatNetwork?.edges || []).filter((edge) =>
+        properties.role === "origin"
+          ? edge.from === properties.country
+          : edge.to === properties.country,
+      );
+      for (const edge of related.slice(0, 3))
+        card.append(
+          element(
+            "p",
+            "attack-vector",
+            `${edge.from} → ${edge.to} · Vector / type: ${attackVectorLabel(edge)}`,
+          ),
+        );
       const button = element("button", "", "Open source details");
       button.addEventListener("click", () => selectEvent(properties.event_id));
       card.append(button);
@@ -1339,6 +1469,16 @@ export function createWorldMap(
     const now = performance.now();
     if (now - lastSample < 250 || !map.getLayer("event-points")) return;
     lastSample = now;
+    map.getCanvas().dataset.worldView = String(worldView);
+    map.getCanvas().dataset.worldFrame = JSON.stringify(
+      [
+        [-179.9, -57],
+        [179.9, 74],
+      ].map((point) => {
+        const projected = map.project(point);
+        return [projected.x, projected.y];
+      }),
+    );
     const observations = map.queryRenderedFeatures({
       layers: ["event-points", "clusters", "aircraft-track"],
     }).length;
@@ -1388,8 +1528,8 @@ export function createWorldMap(
       })
       .find(
         ([x, y]) =>
-          x > 330 &&
-          y > 180 &&
+          x > 20 &&
+          y > 20 &&
           x < map.getCanvas().clientWidth - 35 &&
           y < map.getCanvas().clientHeight - 35,
       );
@@ -1400,8 +1540,6 @@ export function createWorldMap(
   map.on("error", (event) =>
     mapError(event.error?.message || "Map rendering failed"),
   );
-  const resize = new ResizeObserver(() => map.resize());
-  resize.observe(document.querySelector(".map-workspace"));
 
   function networkFeatures(network) {
     return {
@@ -1423,6 +1561,7 @@ export function createWorldMap(
     };
   }
   function focusThreatRoute(edge, move = true) {
+    if (move) worldView = false;
     selectedThreatRoute = edge.id;
     map.setFilter("threat-selected", ["==", ["get", "id"], edge.id]);
     const name = (code) =>
@@ -1441,6 +1580,11 @@ export function createWorldMap(
         `A · Attacker / origin: ${name(edge.from)} (${edge.from})`,
       ),
       element("p", "", `V · Victim / target: ${name(edge.to)} (${edge.to})`),
+      element(
+        "p",
+        "attack-vector",
+        `Vector / type: ${attackVectorLabel(edge)}`,
+      ),
       element(
         "p",
         "",
@@ -1479,10 +1623,10 @@ export function createWorldMap(
         ],
         {
           padding: {
-            left: Math.min(310, map.getContainer().clientWidth * 0.36),
-            right: Math.min(60, map.getContainer().clientWidth * 0.1),
-            top: Math.min(190, map.getContainer().clientHeight * 0.32),
-            bottom: Math.min(80, map.getContainer().clientHeight * 0.15),
+            left: Math.min(35, map.getContainer().clientWidth * 0.1),
+            right: Math.min(50, map.getContainer().clientWidth * 0.1),
+            top: Math.min(80, map.getContainer().clientHeight * 0.2),
+            bottom: Math.min(50, map.getContainer().clientHeight * 0.15),
           },
           maxZoom: 4,
           duration: reducedMotion() ? 0 : 700,
@@ -1803,15 +1947,19 @@ export function createWorldMap(
       const feature = world.features.find(
         (feature) => feature.properties.code === code,
       );
-      if (fly && feature)
+      if (fly && feature) {
+        worldView = false;
         map.jumpTo({ center: feature.properties.center, zoom: 3 });
+      }
     },
     locate(event) {
-      if (event.latitude !== null)
+      if (event.latitude !== null) {
+        worldView = false;
         map.jumpTo({
           center: [event.longitude, event.latitude],
           zoom: event.location_precision === "regional" ? 3 : 5,
         });
+      }
     },
     setTheme(value) {
       light = value;

@@ -171,6 +171,95 @@
           aria-label="Interactive world map. Use the country selector or event list for keyboard access."
         ></div>
         <div class="map-toolbar">
+          <div class="map-toolbar-row">
+            <div class="map-heading"><h2 id="map-title">World view</h2></div>
+            <div class="map-summary">
+              <span><strong id="matched-count">0</strong> matching</span>
+              <span><strong id="mapped-count">0</strong> mapped</span>
+              <span id="refresh-time">Waiting for API</span>
+            </div>
+            <div class="map-actions">
+              <button id="reset-view" aria-label="Reset map to world view">
+                World view
+              </button>
+              <details class="map-options-details">
+                <summary>Layers</summary>
+                <div class="map-options-body map-toolbar-toggles">
+                  <label
+                    ><input id="news-connections" type="checkbox" checked />
+                    News links</label
+                  >
+                  <label
+                    ><input id="military-connections" type="checkbox" checked />
+                    Defence links</label
+                  >
+                  <label
+                    ><input id="cyber-connections" type="checkbox" checked />
+                    Cyber context</label
+                  >
+                  <label><input id="heatmap" type="checkbox" /> Density</label>
+                  <label
+                    ><input id="density-confidence" type="checkbox" checked />
+                    Weight by evidence</label
+                  >
+                  <label
+                    ><input id="analysis-overlays" type="checkbox" /> Analysis
+                    overlays</label
+                  >
+                  <p id="network-summary" aria-live="polite"></p>
+                  <p
+                    id="aircraft-live-status"
+                    class="helper aircraft-live-status"
+                    hidden
+                  ></p>
+                </div>
+              </details>
+              <details class="map-legend-details">
+                <summary title="Map legend and method">Key</summary>
+                <div class="map-legend-body">
+                  <p>
+                    A = attacker / traffic origin. V = victim / target. Arrows
+                    travel from A to V every 6 seconds; hover for evidence.
+                    Country centers are illustrative.
+                  </p>
+                  <p>
+                    Vector / type uses the provider's attack category or
+                    blocking reason. A generic ATTACK row does not identify a
+                    technique. Missing types stay unspecified.
+                  </p>
+                  <div id="layer-symbol-key" class="layer-symbol-key"></div>
+                  <p>
+                    Solid monograms: reported locations. Hollow dashed
+                    monograms: regional context. Number badges: loaded clusters;
+                    + means mixed layers. P: publisher base. Select a cluster to
+                    expand.
+                  </p>
+                  <p id="network-key">
+                    Solid: publisher base → country discussed. Dotted: countries
+                    mentioned together. Brief pulses show reports arriving along
+                    each link, tinted by their wording: green positive · red
+                    negative · gray neutral or unscored. Tone describes the
+                    reports travelling, not opinion of the receiving country.
+                  </p>
+                  <p id="aviation-key">
+                    Yellow aircraft: ADS-B classes 4 (Large) and 5 (High Vortex
+                    Large) only. Icons point along reported ground track,
+                    clockwise from true north. Class 6 and missing classes or
+                    tracks are excluded. Each aircraft shows its latest loaded
+                    position. Size class is not a military classification.
+                  </p>
+                  <p id="map-sample-note"></p>
+                  <p>
+                    Country boundaries: Natural Earth, public domain.
+                    Illustrative borders.
+                  </p>
+                </div>
+              </details>
+              <button id="theme" aria-label="Switch to light theme">
+                ◐ <span>Light</span>
+              </button>
+            </div>
+          </div>
           <div
             id="cyber-map-legend"
             class="cyber-map-legend"
@@ -178,95 +267,13 @@
             aria-label="Cyber map legend"
             hidden
           >
-            <span class="cyber-legend-origin">A · Traffic origin</span>
+            <span class="cyber-legend-origin">A · Origin</span>
             <span class="cyber-legend-target">V · Target</span>
             <span class="cyber-legend-traffic">→ Observed traffic</span>
             <span class="cyber-legend-report">→ Reported attribution</span>
             <span class="cyber-legend-selected">— Selected route</span>
-            <small
-              >Arrows show direction, replayed every 6s · hover for evidence ·
-              country centers</small
-            >
           </div>
-          <div class="map-toolbar-row">
-            <div class="map-heading">
-              <span class="eyebrow">GLOBAL OBSERVATIONS</span>
-              <h2 id="map-title">World view</h2>
-            </div>
-            <div class="map-summary">
-              <span><strong id="matched-count">0</strong> matching</span>
-              <span><strong id="mapped-count">0</strong> mapped</span>
-              <span id="refresh-time">Waiting for API</span>
-            </div>
-            <p
-              id="aircraft-live-status"
-              class="helper aircraft-live-status"
-              hidden
-            ></p>
-            <div class="map-actions">
-              <button id="reset-view" aria-label="Reset map to world view">
-                World view</button
-              ><button id="theme" aria-label="Switch to light theme">
-                ◐ <span>Light</span>
-              </button>
-            </div>
-          </div>
-          <div class="map-toolbar-row map-toolbar-toggles">
-            <span id="sentiment-key" hidden
-              >Score: green + · red − · gray 0</span
-            ><label
-              ><input id="news-connections" type="checkbox" checked /> News
-              links</label
-            ><label
-              ><input id="military-connections" type="checkbox" checked />
-              Defence</label
-            ><label
-              ><input id="cyber-connections" type="checkbox" checked /> Cyber
-              context</label
-            ><label><input id="heatmap" type="checkbox" /> Density</label
-            ><label
-              ><input id="density-confidence" type="checkbox" checked /> Weight
-              by evidence</label
-            ><label
-              ><input id="analysis-overlays" type="checkbox" /> Analysis
-              overlays</label
-            ><span class="legend-swatch"
-              ><span class="legend-point"></span> Reported</span
-            ><span class="legend-swatch"
-              ><span class="legend-region"></span> Context</span
-            >
-            <span id="network-summary" aria-live="polite"></span>
-            <details class="map-legend-details">
-              <summary title="Map legend and method">ⓘ Key</summary>
-              <div class="map-legend-body">
-                <div id="layer-symbol-key" class="layer-symbol-key"></div>
-                <p>
-                  Solid monograms: reported locations. Hollow dashed monograms:
-                  regional context. Number badges: loaded clusters; + means
-                  mixed layers. P: publisher base. Select a cluster to expand.
-                </p>
-                <p id="network-key">
-                  Solid: publisher base → country discussed. Dotted: countries
-                  mentioned together. Brief pulses show reports arriving along
-                  each link, tinted by their wording: green positive · red
-                  negative · gray neutral or unscored. Tone describes the
-                  reports travelling, not opinion of the receiving country.
-                </p>
-                <p id="aviation-key">
-                  Yellow aircraft: ADS-B classes 4 (Large) and 5 (High Vortex
-                  Large) only. Icons point along reported ground track,
-                  clockwise from true north. Class 6 and missing classes or
-                  tracks are excluded. Each aircraft shows its latest loaded
-                  position. Size class is not a military classification.
-                </p>
-                <p id="map-sample-note"></p>
-                <p>
-                  Country boundaries: Natural Earth, public domain. Illustrative
-                  borders.
-                </p>
-              </div>
-            </details>
-          </div>
+          <span id="sentiment-key" hidden>Score: green + · red − · gray 0</span>
         </div>
         <aside
           id="country-ribbon"

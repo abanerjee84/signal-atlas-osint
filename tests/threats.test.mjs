@@ -6,6 +6,7 @@ import {
   threatTimeline,
   threatFacts,
   threatCaption,
+  attackVectorLabel,
 } from "../src/threats.js";
 
 const places = [
@@ -20,6 +21,38 @@ const report = {
   source_url: "https://example.org/report",
   tags: ["actor:APT28", "attributed-country:RU", "victim-country:UA"],
 };
+test("route vectors retain distinct report types without inventing a technique", () => {
+  const rows = [
+    { ...report, tags: [...report.tags, "attack-kind:Phishing"] },
+    {
+      ...report,
+      event_id: "two",
+      source_url: "https://example.org/two",
+      tags: [...report.tags, "attack-kind:Ransomware"],
+    },
+    {
+      ...report,
+      event_id: "three",
+      source_url: "https://example.org/three",
+      tags: [...report.tags, "attack-kind:Phishing"],
+    },
+  ];
+  const edge = buildThreatNetwork(rows, places).edges[0];
+  assert.deepEqual(edge.attack_kinds, ["Phishing", "Ransomware"]);
+  assert.equal(attackVectorLabel(edge), "Phishing · Ransomware");
+  assert.equal(
+    attackVectorLabel(buildThreatNetwork([report], places).edges[0]),
+    "Not specified by provider",
+  );
+  assert.equal(
+    attackVectorLabel({ attack_kinds: ["Attack", "N/A", "Unknown"] }),
+    "Not specified by provider",
+  );
+  assert.equal(
+    attackVectorLabel({ attack_kinds: ["OWASP - RCE/RFI"] }),
+    "OWASP - RCE/RFI",
+  );
+});
 test("daily requests stay separate from incident counts and reporting periods", () => {
   const sample = (id, period, requests) => ({
     ...report,

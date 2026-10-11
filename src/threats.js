@@ -54,6 +54,16 @@ export function threatCaption(facts) {
       : `Sampled traffic · ${facts.attack_kind}. Infrastructure: ${facts.traffic_origin_country || "unknown origin"} → ${facts.traffic_target_country || "unknown target"}. Actor unknown.`;
 }
 
+// A traffic category is not necessarily a technique. Keep the provider's wording
+// and explicitly distinguish a generic ATTACK row from a supplied vector.
+export function attackVectorLabel(edge) {
+  const kinds = (edge.attack_kinds || []).filter(
+    (kind) =>
+      !/^(?:attack|n\/a|unknown|reported cyber activity)$/i.test(kind.trim()),
+  );
+  return kinds.length ? kinds.join(" · ") : "Not specified by provider";
+}
+
 export function buildThreatNetwork(events, places, selection = {}) {
   const byCode = new Map(places.map((place) => [place.code, place]));
   const inBounds = (code) => {
@@ -122,6 +132,7 @@ export function buildThreatNetwork(events, places, selection = {}) {
         from_coordinates: byCode.get(origin).center,
         to_coordinates: byCode.get(victim).center,
         titles: [],
+        attack_kinds: [],
         event_ids: [],
         source_urls: [],
         basis: traffic
@@ -136,6 +147,8 @@ export function buildThreatNetwork(events, places, selection = {}) {
       )
         continue;
       edge.count++;
+      if (!edge.attack_kinds.includes(facts.attack_kind))
+        edge.attack_kinds.push(facts.attack_kind);
       edge.request_count += facts.provider_requests;
       if ((event.updated_at || event.time_key || "") > edge.last_seen)
         edge.last_seen = event.updated_at || event.time_key;

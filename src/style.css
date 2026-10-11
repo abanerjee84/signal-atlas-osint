@@ -511,6 +511,12 @@ summary span {
   color: var(--muted);
   font-size: 9px;
 }
+.route-vector {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .country-ribbon-heading h3 {
   margin: 0;
   font-size: 12px;
@@ -715,8 +721,8 @@ summary span {
   }
 }
 #map {
-  height: 100%;
-  width: 100%;
+  position: absolute;
+  inset: var(--map-toolbar-height, 80px) 0 0 var(--map-ribbon-width, 218px);
 }
 .map-toolbar {
   position: absolute;
@@ -728,15 +734,15 @@ summary span {
   flex-direction: column;
   gap: 6px;
   padding: 8px 12px;
-  background: linear-gradient(var(--surface) 55%, transparent);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   pointer-events: none;
 }
 .cyber-map-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 7px 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 2px 0;
   font-size: 11px;
   pointer-events: auto;
 }
@@ -792,10 +798,12 @@ summary span {
   gap: 6px;
   margin-left: auto;
 }
-.map-actions button {
+.map-actions button,
+.map-actions summary {
   background: var(--surface);
   font-size: 11px;
   box-shadow: 0 2px 5px #0002;
+  min-height: 32px;
 }
 .map-summary {
   display: flex;
@@ -837,25 +845,29 @@ summary span {
 }
 #network-summary {
   font-size: 9px;
-  white-space: nowrap;
+  white-space: normal;
 }
-.map-legend-details {
+.map-legend-details,
+.map-options-details {
   position: relative;
 }
-.map-legend-details > summary {
+.map-legend-details > summary,
+.map-options-details > summary {
   list-style: none;
   cursor: pointer;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 3px;
-  padding: 3px 8px;
+  padding: 7px 10px;
   white-space: nowrap;
   color: var(--muted);
 }
-.map-legend-details > summary::-webkit-details-marker {
+.map-legend-details > summary::-webkit-details-marker,
+.map-options-details > summary::-webkit-details-marker {
   display: none;
 }
-.map-legend-body {
+.map-legend-body,
+.map-options-body {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
@@ -870,6 +882,18 @@ summary span {
   color: var(--muted);
   display: grid;
   gap: 7px;
+  max-height: min(440px, 60vh);
+  overflow-y: auto;
+  z-index: 3;
+}
+.map-options-body label {
+  min-height: 30px;
+  border: 0;
+  padding: 4px 0;
+}
+.map-actions summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .map-legend-body p {
   margin: 0;
@@ -1116,7 +1140,7 @@ summary span {
   font-size: 18px;
 }
 .maplibregl-ctrl-top-right {
-  top: 92px !important;
+  top: 0 !important;
 }
 .tab-buttons {
   display: flex;
@@ -1530,10 +1554,6 @@ dialog a {
   }
   .playback-controls input {
     width: 100px;
-  }
-  .map-toolbar-toggles .legend-swatch,
-  #network-summary {
-    display: none;
   }
   .workspace.left-collapsed {
     grid-template-columns: 48px minmax(280px, 1fr) 290px;

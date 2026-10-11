@@ -30,7 +30,7 @@ The nine selectable map layers are **Geopolitical events**, **Military OSINT**, 
 <details>
 <summary>Preview the threat-actor workspace</summary>
 
-![Cyber workspace with a top legend, small markers, directed routes and Imperva reporting periods](docs/threat-actor-workspace.jpg)
+![Cyber workspace with compact controls, origin-to-target routes, provider attack types and reporting periods](docs/threat-actor-workspace.jpg)
 
 Catalog relationships describe published reference knowledge. A name match or shared mention does not establish responsibility for an incident.
 
@@ -124,6 +124,8 @@ Reported coordinates, country context and publisher origin have different meanin
 Cyber traffic routes are blue; reported attacker-to-victim attribution links are pink. An infrastructure country never establishes the attacker's nationality. Vendor samples are shown separately from published reports and are not global attack totals. Natural Earth reference points supplement countries omitted by the low-detail boundary file, without creating boundary polygons. See [the scraper analysis](docs/THREAT_MAP_SCRAPERS.md).
 
 With **Cyber: Threat Actors** active, the Countries ribbon offers an **Attacker → Victim** table with provider filters. Small A/V markers, moving arrows, a top legend and hover evidence identify origins, targets and source reports. A separate gathering thread checks live feeds every ten seconds against the running database, without opening a server port: `python -m scripts.collect_threat_maps --watch`. Install the optional pinned `requirements-browser.txt` renderer and Chromium for the Bitdefender table and normal Imperva page. Imperva rows preserve their daily period and request counts; choose **Last 7 days** for older reports. Arrows illustrate direction rather than packet timing. See [collection details and graceful gatherer shutdown](docs/THREAT_MAP_SCRAPERS.md). Provider backoff still applies.
+
+Route rows, hover previews and selected routes show **Vector / type** using the provider's category or blocking reason. Generic Bitdefender ATTACK rows remain **Not specified by provider**; they do not establish a technique. The compact toolbar keeps overlay switches in **Layers** and explanations in **Key**. World view fits the canvas beside the Countries ribbon, excluding polar cartography above 74°N and below 57°S; collapsing the ribbon refits the overview without resetting a selected route or a manual view.
 
 Sentiment describes the wording of sampled English text. It does not measure national opinion, verify a claim or identify a person's stance. Unknown origins stay unknown. Non-English reports remain available without an English sentiment score.
 
