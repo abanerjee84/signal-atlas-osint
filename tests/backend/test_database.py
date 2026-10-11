@@ -200,6 +200,21 @@ def test_job_lock(database):
     assert database.lock("test", "owner-two", 100)
 
 
+def test_lock_renewal_requires_current_owner_and_live_lease(database):
+    assert database.lock("watch", "first", 30)
+    assert database.renew_lock("watch", "first", 60)
+    assert not database.renew_lock("watch", "other", 60)
+    assert not database.lock("watch", "other", 30)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE job_locks SET expires_at=? WHERE name='watch'", (stamp(utcnow() - timedelta(seconds=1)),)
+        )
+    assert not database.renew_lock("watch", "first", 60)
+    assert database.lock("watch", "other", 30)
+    assert not database.renew_lock("watch", "first", 60)
+    assert database.renew_lock("watch", "other", 60)
+
+
 def test_ordering_follows_selected_time_basis(database, report):
     first = report.model_copy(
         update={

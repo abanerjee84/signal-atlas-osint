@@ -1,0 +1,1285 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AD",
+        "name": "Andorra",
+        "iso3": "AND",
+        "center": [
+          1.539409,
+          42.547643
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.539409,
+          42.547643
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AG",
+        "name": "Antigua and Barbuda",
+        "iso3": "ATG",
+        "center": [
+          -61.790612,
+          17.352249
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -61.790612,
+          17.352249
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AI",
+        "name": "Anguilla",
+        "iso3": "AIA",
+        "center": [
+          -63.026361,
+          18.242979
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -63.026361,
+          18.242979
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AS",
+        "name": "American Samoa",
+        "iso3": "ASM",
+        "center": [
+          -170.747153,
+          -14.32671
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -170.747153,
+          -14.32671
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AW",
+        "name": "Aruba",
+        "iso3": "ABW",
+        "center": [
+          -69.972795,
+          12.5174
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -69.972795,
+          12.5174
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "AX",
+        "name": "Aland",
+        "iso3": "ALA",
+        "center": [
+          19.869671,
+          60.156467
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.869671,
+          60.156467
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "BB",
+        "name": "Barbados",
+        "iso3": "BRB",
+        "center": [
+          -59.568966,
+          13.163709
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -59.568966,
+          13.163709
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "BH",
+        "name": "Bahrain",
+        "iso3": "BHR",
+        "center": [
+          50.554816,
+          26.055972
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50.554816,
+          26.055972
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "BL",
+        "name": "Saint Barthelemy",
+        "iso3": "BLM",
+        "center": [
+          -62.833193,
+          17.901987
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -62.833193,
+          17.901987
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "BM",
+        "name": "Bermuda",
+        "iso3": "BMU",
+        "center": [
+          -64.763573,
+          32.296592
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -64.763573,
+          32.296592
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "CK",
+        "name": "Cook Islands",
+        "iso3": "COK",
+        "center": [
+          -159.785675,
+          -21.215993
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -159.785675,
+          -21.215993
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "CV",
+        "name": "Cabo Verde",
+        "iso3": "CPV",
+        "center": [
+          -23.639434,
+          15.074761
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -23.639434,
+          15.074761
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "CW",
+        "name": "Cura\u00e7ao",
+        "iso3": "CUW",
+        "center": [
+          -68.920578,
+          12.145039
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -68.920578,
+          12.145039
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "DM",
+        "name": "Dominica",
+        "iso3": "DMA",
+        "center": [
+          -61.344958,
+          15.458829
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -61.344958,
+          15.458829
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "FM",
+        "name": "Federated States of Micronesia",
+        "iso3": "FSM",
+        "center": [
+          158.234019,
+          6.887553
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          158.234019,
+          6.887553
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "FO",
+        "name": "Faroe Islands",
+        "iso3": "FRO",
+        "center": [
+          -7.058429,
+          62.185604
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.058429,
+          62.185604
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "GD",
+        "name": "Grenada",
+        "iso3": "GRD",
+        "center": [
+          -61.680461,
+          12.113156
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -61.680461,
+          12.113156
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "GG",
+        "name": "Guernsey",
+        "iso3": "GGY",
+        "center": [
+          -2.561736,
+          49.463533
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.561736,
+          49.463533
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "GI",
+        "name": "Gibraltar",
+        "iso3": "GIB",
+        "center": [
+          -5.3467,
+          36.129426
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.3467,
+          36.129426
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "GS",
+        "name": "South Georgia and the Islands",
+        "iso3": "SGS",
+        "center": [
+          -31.063179,
+          -55.683402
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -31.063179,
+          -55.683402
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "GU",
+        "name": "Guam",
+        "iso3": "GUM",
+        "center": [
+          144.703614,
+          13.354173
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          144.703614,
+          13.354173
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "HK",
+        "name": "Hong Kong S.A.R.",
+        "iso3": "HKG",
+        "center": [
+          114.097769,
+          22.448829
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.097769,
+          22.448829
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "HM",
+        "name": "Heard Island and McDonald Islands",
+        "iso3": "HMD",
+        "center": [
+          73.50521,
+          -53.103462
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.50521,
+          -53.103462
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "IM",
+        "name": "Isle of Man",
+        "iso3": "IMN",
+        "center": [
+          -4.530069,
+          54.220833
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.530069,
+          54.220833
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "IO",
+        "name": "British Indian Ocean Territory",
+        "iso3": "IOT",
+        "center": [
+          71.348349,
+          -6.190826
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71.348349,
+          -6.190826
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "JE",
+        "name": "Jersey",
+        "iso3": "JEY",
+        "center": [
+          -2.090146,
+          49.220808
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.090146,
+          49.220808
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "KI",
+        "name": "Kiribati",
+        "iso3": "KIR",
+        "center": [
+          -157.384577,
+          1.820437
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -157.384577,
+          1.820437
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "KM",
+        "name": "Comoros",
+        "iso3": "COM",
+        "center": [
+          43.318094,
+          -11.727683
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.318094,
+          -11.727683
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "KN",
+        "name": "Saint Kitts and Nevis",
+        "iso3": "KNA",
+        "center": [
+          -62.757975,
+          17.336558
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -62.757975,
+          17.336558
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "KY",
+        "name": "Cayman Islands",
+        "iso3": "CYM",
+        "center": [
+          -81.24055,
+          19.319862
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.24055,
+          19.319862
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "LC",
+        "name": "Saint Lucia",
+        "iso3": "LCA",
+        "center": [
+          -60.980094,
+          13.892371
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -60.980094,
+          13.892371
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "LI",
+        "name": "Liechtenstein",
+        "iso3": "LIE",
+        "center": [
+          9.559439,
+          47.111405
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.559439,
+          47.111405
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MC",
+        "name": "Monaco",
+        "iso3": "MCO",
+        "center": [
+          7.398291,
+          43.739652
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.398291,
+          43.739652
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MF",
+        "name": "Saint Martin",
+        "iso3": "MAF",
+        "center": [
+          -63.049399,
+          18.081302
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -63.049399,
+          18.081302
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MH",
+        "name": "Marshall Islands",
+        "iso3": "MHL",
+        "center": [
+          171.193609,
+          7.082568
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          171.193609,
+          7.082568
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MO",
+        "name": "Macao S.A.R",
+        "iso3": "MAC",
+        "center": [
+          113.556038,
+          22.129735
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.556038,
+          22.129735
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MP",
+        "name": "Northern Mariana Islands",
+        "iso3": "MNP",
+        "center": [
+          145.734397,
+          15.188188
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          145.734397,
+          15.188188
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MS",
+        "name": "Montserrat",
+        "iso3": "MSR",
+        "center": [
+          -62.188252,
+          16.73717
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -62.188252,
+          16.73717
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MT",
+        "name": "Malta",
+        "iso3": "MLT",
+        "center": [
+          14.433005,
+          35.892886
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.433005,
+          35.892886
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MU",
+        "name": "Mauritius",
+        "iso3": "MUS",
+        "center": [
+          57.565848,
+          -20.299506
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          57.565848,
+          -20.299506
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "MV",
+        "name": "Maldives",
+        "iso3": "MDV",
+        "center": [
+          73.507554,
+          4.174441
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.507554,
+          4.174441
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "NF",
+        "name": "Norfolk Island",
+        "iso3": "NFK",
+        "center": [
+          167.954531,
+          -29.033042
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          167.954531,
+          -29.033042
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "NR",
+        "name": "Nauru",
+        "iso3": "NRU",
+        "center": [
+          166.932644,
+          -0.520261
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          166.932644,
+          -0.520261
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "NU",
+        "name": "Niue",
+        "iso3": "NIU",
+        "center": [
+          -169.862565,
+          -19.045956
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -169.862565,
+          -19.045956
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "PF",
+        "name": "French Polynesia",
+        "iso3": "PYF",
+        "center": [
+          -149.46157,
+          -17.628081
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -149.46157,
+          -17.628081
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "PM",
+        "name": "Saint Pierre and Miquelon",
+        "iso3": "SPM",
+        "center": [
+          -56.332352,
+          47.040344
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -56.332352,
+          47.040344
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "PN",
+        "name": "Pitcairn Islands",
+        "iso3": "PCN",
+        "center": [
+          -128.317536,
+          -24.364576
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -128.317536,
+          -24.364576
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "PW",
+        "name": "Palau",
+        "iso3": "PLW",
+        "center": [
+          134.580157,
+          7.518252
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          134.580157,
+          7.518252
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "SC",
+        "name": "Seychelles",
+        "iso3": "SYC",
+        "center": [
+          55.480175,
+          -4.676659
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.480175,
+          -4.676659
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "SG",
+        "name": "Singapore",
+        "iso3": "SGP",
+        "center": [
+          103.816925,
+          1.366587
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.816925,
+          1.366587
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "SH",
+        "name": "Saint Helena",
+        "iso3": "SHN",
+        "center": [
+          -5.71262,
+          -15.950487
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.71262,
+          -15.950487
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "SM",
+        "name": "San Marino",
+        "iso3": "SMR",
+        "center": [
+          12.441206,
+          43.933916
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.441206,
+          43.933916
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "ST",
+        "name": "S\u00e3o Tom\u00e9 and Principe",
+        "iso3": "STP",
+        "center": [
+          7.021,
+          0.9709
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.021,
+          0.9709
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "SX",
+        "name": "Sint Maarten",
+        "iso3": "SXM",
+        "center": [
+          -63.070133,
+          18.04088
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -63.070133,
+          18.04088
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "TC",
+        "name": "Turks and Caicos Islands",
+        "iso3": "TCA",
+        "center": [
+          -71.752704,
+          21.81663
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.752704,
+          21.81663
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "TO",
+        "name": "Tonga",
+        "iso3": "TON",
+        "center": [
+          -175.163014,
+          -21.210026
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -175.163014,
+          -21.210026
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "TV",
+        "name": "Tuvalu",
+        "iso3": "TUV",
+        "center": [
+          179.209587,
+          -8.513717
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          179.209587,
+          -8.513717
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "UM",
+        "name": "United States Minor Outlying Islands",
+        "iso3": "UMI",
+        "center": [
+          166.644535,
+          19.285663
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          166.644535,
+          19.285663
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "VA",
+        "name": "Vatican",
+        "iso3": "VAT",
+        "center": [
+          12.453418,
+          41.903323
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.453418,
+          41.903323
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "VC",
+        "name": "Saint Vincent and the Grenadines",
+        "iso3": "VCT",
+        "center": [
+          -61.3359,
+          13.0879
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -61.3359,
+          13.0879
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "VG",
+        "name": "British Virgin Islands",
+        "iso3": "VGB",
+        "center": [
+          -64.63661,
+          18.426606
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -64.63661,
+          18.426606
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "VI",
+        "name": "United States Virgin Islands",
+        "iso3": "VIR",
+        "center": [
+          -64.779172,
+          17.746706
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -64.779172,
+          17.746706
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "WF",
+        "name": "Wallis and Futuna",
+        "iso3": "WLF",
+        "center": [
+          -178.137436,
+          -14.286415
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -178.137436,
+          -14.286415
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "code": "WS",
+        "name": "Samoa",
+        "iso3": "WSM",
+        "center": [
+          -172.438241,
+          -13.639139
+        ],
+        "location_basis": "Natural Earth country label point; regional context only, no boundary polygon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -172.438241,
+          -13.639139
+        ]
+      }
+    }
+  ]
+}

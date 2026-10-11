@@ -4,6 +4,8 @@ import {
   buildThreatNetwork,
   threatCountryActivity,
   threatTimeline,
+  threatFacts,
+  threatCaption,
 } from "../src/threats.js";
 
 const places = [
@@ -18,6 +20,86 @@ const report = {
   source_url: "https://example.org/report",
   tags: ["actor:APT28", "attributed-country:RU", "victim-country:UA"],
 };
+
+test("traffic is directed separately, counted by observation ID, and not attributed to an actor", () => {
+  const detection = {
+    ...report,
+    event_id: "packet1",
+    source_id: "bunkerweb_threatmap",
+    tags: [
+      "threat-classification:observed_traffic",
+      "traffic-origin-country:RU",
+      "traffic-target-country:UA",
+    ],
+  };
+  const network = buildThreatNetwork(
+    [detection, { ...detection, event_id: "packet2" }, detection, report],
+    places,
+  );
+  const traffic = network.edges.find(
+    (edge) => edge.kind === "observed_traffic_to_target",
+  );
+  assert.equal(traffic.count, 2);
+  assert.equal(traffic.from, "RU");
+  assert.equal(traffic.to, "UA");
+  assert.equal(network.edges.length, 2);
+  assert.equal(network.unknown_origin_count, 0);
+  assert.equal(network.report_count, 1);
+  assert.equal(threatFacts(detection).attacker_country, null);
+  assert.match(threatCaption(threatFacts(detection)), /Actor unknown/);
+  const point = {
+    ...detection,
+    tags: ["threat-classification:detection", "detection-country:US"],
+  };
+  assert.equal(
+    buildThreatNetwork([point], places, { country: "US" }).edges.length,
+    0,
+  );
+  assert.equal(
+    buildThreatNetwork([point], places, { country: "UA" }).events.length,
+    0,
+  );
+});
+
+test("one cyber layer combines country coverage and timeline without duplicate layer counts", () => {
+  const row = { ...report, time_key: "2026-10-11T02:31:00Z" };
+  const network = buildThreatNetwork([row], places);
+  const layers = new Set(["cyber", "threat"]);
+  const ranking = threatCountryActivity(
+    {
+      items: [
+        {
+          country: "RU",
+          mentions: 1,
+          mention_sources: 1,
+          records: 1,
+          intelligence_records: 1,
+          supported_records: 0,
+          categories: { cyber: 1 },
+          layer_count: 1,
+        },
+      ],
+      methodology: { mentions: "", intelligence: "" },
+    },
+    network,
+    places,
+    layers,
+  );
+  const origin = ranking.items.find((item) => item.country === "RU");
+  assert.equal(origin.layer_count, 1);
+  assert.equal(origin.categories.cyber, 2);
+  assert.equal(origin.categories.threat, undefined);
+  const timeline = threatTimeline(
+    {
+      time_basis: "event",
+      items: [{ time: "2026-10-11T02:00:00", category: "cyber", count: 2 }],
+    },
+    network,
+    layers,
+  );
+  assert.equal(timeline.items.length, 1);
+  assert.equal(timeline.items[0].count, 3);
+});
 
 test("only explicit attributed origin and victim tags create a directional edge", () => {
   const result = buildThreatNetwork(

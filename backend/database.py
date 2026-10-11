@@ -454,6 +454,16 @@ class Database:
             except sqlite3.IntegrityError:
                 return False
 
+    def renew_lock(self, name: str, owner: str, seconds: int) -> bool:
+        with self.connect() as db:
+            return (
+                db.execute(
+                    "UPDATE job_locks SET expires_at=? WHERE name=? AND owner=? AND expires_at>=?",
+                    (stamp(utcnow() + timedelta(seconds=seconds)), name, owner, stamp()),
+                ).rowcount
+                == 1
+            )
+
     def unlock(self, name: str, owner: str) -> None:
         with self.connect() as db:
             db.execute("DELETE FROM job_locks WHERE name=? AND owner=?", (name, owner))
@@ -499,3 +509,16 @@ class Database:
             for report in reports:
                 self.ingest(report, db)
         return len(reports)
+
+    def prune_threat_telemetry(self, source_id: str) -> int:
+        """Bound vendor samples independently of published reports, in a short transaction."""
+        if source_id not in {"bitdefender_threatmap", "bunkerweb_threatmap"}:
+            raise ValueError("Unknown threat telemetry source")
+        with self.connect() as db:
+            return db.execute(
+                """DELETE FROM events WHERE category='threat' AND source_id=? AND (
+                ingested_at<? OR event_id NOT IN (
+                SELECT event_id FROM events WHERE category='threat' AND source_id=?
+                ORDER BY ingested_at DESC,event_id LIMIT 2000))""",
+                (source_id, stamp(utcnow() - timedelta(days=7)), source_id),
+            ).rowcount

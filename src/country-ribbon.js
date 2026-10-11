@@ -5,12 +5,14 @@ export function createCountryRibbon({
   selectCountry,
   readSession,
   saveSession,
+  selectThreatRoute,
 }) {
   const root = document.querySelector("#country-ribbon");
   const list = document.querySelector("#country-ranking");
   let data = null;
-  let mode = readSession("osint.countryRank", "mentions");
-  if (!["mentions", "sentiment", "intelligence"].includes(mode))
+  let cyber = { enabled: false, network: null, places: [] };
+  let mode = readSession("osint.countryRank", "cyber");
+  if (!["mentions", "sentiment", "intelligence", "cyber"].includes(mode))
     mode = "mentions";
   let collapsed = readSession(
     "osint.countryRibbonCollapsed",
@@ -54,14 +56,30 @@ export function createCountryRibbon({
   ).observe(toolbar);
 
   function render() {
+    document.querySelector('[data-country-rank="cyber"]').hidden =
+      !cyber.enabled;
+    const cyberMode = mode === "cyber" && cyber.enabled;
+    root.classList.toggle("cyber-mode", cyberMode);
+    document.querySelector("#cyber-route-headings").hidden = !cyberMode;
+    document.querySelector("#cyber-route-filter").hidden = !cyberMode;
     for (const button of root.querySelectorAll("[data-country-rank]"))
       button.setAttribute(
         "aria-pressed",
-        String(button.dataset.countryRank === mode),
+        String(
+          button.dataset.countryRank ===
+            (mode === "cyber" && !cyber.enabled ? "mentions" : mode),
+        ),
       );
     document.querySelector("#country-tone-controls").hidden =
       mode !== "sentiment";
+    if (cyberMode) {
+      renderCyberRoutes();
+      return;
+    }
     if (!data) return;
+    list.setAttribute("aria-label", "Ranked countries");
+    const selectedMode = mode === "cyber" ? "mentions" : mode;
+    if (mode === "cyber") mode = selectedMode;
     const toneOrder = document.querySelector("#country-tone-order").value;
     const eligible = data.items.filter((r) =>
       mode === "mentions"
@@ -200,8 +218,89 @@ export function createCountryRibbon({
         .querySelector(`[data-country-rank-code="${focused}"]`)
         ?.focus({ preventScroll: true });
   }
+  document
+    .querySelector("#cyber-route-source")
+    .addEventListener("change", render);
+
+  function renderCyberRoutes() {
+    const filter = document.querySelector("#cyber-route-source").value;
+    const edges = (cyber.network?.edges || []).filter(
+      (edge) =>
+        filter === "all" ||
+        (filter === "reports"
+          ? edge.kind === "reported_attacker_to_victim"
+          : edge.source_id === filter),
+    );
+    edges.sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+    const name = (code) =>
+      cyber.places.find((place) => place.code === code)?.name || code;
+    document.querySelector("#country-ranking-scope").textContent =
+      "Country routes · click a row to follow its direction";
+    document.querySelector("#country-ranking-status").textContent =
+      `${edges.length} routes · ${edges.reduce((n, edge) => n + edge.count, 0)} sampled detections / reports`;
+    list.setAttribute(
+      "aria-label",
+      "Attacker origin to victim target country routes",
+    );
+    list.replaceChildren();
+    for (const edge of edges) {
+      const row = element("li");
+      const button = element("button", "country-route-row");
+      button.dataset.threatRoute = edge.id;
+      button.setAttribute(
+        "aria-label",
+        `Attacker or origin ${name(edge.from)} to victim or target ${name(edge.to)}; ${edge.count} ${edge.kind === "observed_traffic_to_target" ? "provider detections" : "published reports"}. Show route.`,
+      );
+      const from = element("span", "route-country route-origin");
+      from.append(
+        element("strong", "", edge.from),
+        element("span", "", name(edge.from)),
+      );
+      const to = element("span", "route-country route-target");
+      to.append(
+        element("strong", "", edge.to),
+        element("span", "", name(edge.to)),
+      );
+      button.append(from, element("span", "route-arrow", "→"), to);
+      button.append(
+        element(
+          "small",
+          "route-source",
+          `${edge.count} ${edge.kind === "observed_traffic_to_target" ? "detections" : "reports"} · ${edge.source_id
+            .replace(/_threatmap$/, "")
+            .replace(/^threat_/, "")
+            .replaceAll("_", " ")}${edge.domestic ? " · same country" : ""}`,
+        ),
+      );
+      button.title = `${name(edge.from)} → ${name(edge.to)}. ${edge.basis}`;
+      button.addEventListener("click", () => {
+        for (const item of list.querySelectorAll("[data-threat-route]"))
+          item.setAttribute("aria-pressed", String(item === button));
+        selectThreatRoute(edge);
+      });
+      row.append(button);
+      list.append(row);
+    }
+    if (!edges.length)
+      list.append(
+        element(
+          "li",
+          "country-rank-empty",
+          "No country pairs from this source in the selected period. Check source health; unknown origins stay unassigned.",
+        ),
+      );
+    document.querySelector("#country-ranking-note").textContent =
+      "A = attacker/IP origin · V = victim/target";
+    document.querySelector("#country-ranking-method").textContent =
+      "Provider attacker/victim country labels describe traffic infrastructure, not the actor's nationality or confirmed compromise. Published attribution is shown separately in pink. Counts are bounded samples, not all attacks. Check source health for unavailable feeds.";
+  }
   render();
   return {
+    setCyberData(network, enabled, places) {
+      cyber = { network, enabled, places };
+      if (!enabled && mode === "cyber") mode = "mentions";
+      render();
+    },
     setData(value) {
       data = value;
       render();
@@ -211,6 +310,10 @@ export function createCountryRibbon({
     },
     setError() {
       data = null;
+      if (mode === "cyber" && cyber.enabled) {
+        render();
+        return;
+      }
       list.replaceChildren(
         element(
           "li",

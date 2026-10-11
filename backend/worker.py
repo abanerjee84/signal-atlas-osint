@@ -77,6 +77,8 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 stored += len(pending)
             if selected and not stored:
                 raise ProviderError("All provider records failed validation")
+            if getattr(provider, "telemetry", False):
+                await asyncio.to_thread(database.prune_threat_telemetry, provider.source_id)
             result = {
                 "state": "ok",
                 "last_success": stamp(),

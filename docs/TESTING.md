@@ -1,5 +1,17 @@
 # Test results and reproducibility
 
+## Public threat maps and country routes — 11 October 2026
+
+The backend suite passed **194 tests**, including live-lease ownership/expiry regression coverage. Three additional status-publication tests passed for transient and permanent Windows reader locks and the disposable bridge fallback, bringing backend coverage to 197 tests. All **13 Node tests** passed, including heading bearings across the dateline and same-country detections retaining both endpoint roles without false arrows. The production build and Python lint passed. Runtime dependencies were unchanged.
+
+The requested [webapp-testing workflow](https://github.com/anthropics/skills/tree/main/skills/webapp-testing) was applied with native Python Playwright against the existing app. Checks verified nine merged layer controls; cyber cards, routes, direction arrows and endpoints disappearing when disabled; the Countries attacker/victim view and provider filter; a selected route showing explicit A/origin and V/target text; source-linked detail evidence; and 100 public-discussion posts. There were no page errors. The seven-day cyber view displayed 201 combined cards, including 127 BunkerWeb detections. Its Countries table showed 32 BunkerWeb routes, including Germany → Germany; the world map rendered 96 static direction arrows and 27 endpoints. Screenshots of the routes table and selected route were visually inspected. Counts describe the sampled collection at verification time.
+
+A final browser rerun after status freshness and responsive route framing changes passed with no page errors. It displayed 239 combined cyber cards, including 165 BunkerWeb detections; the provider table had 43 routes, with 117 rendered direction arrows and 30 endpoints. The selected-route screenshot was visually inspected again.
+
+The explicitly authorized background gathering process fires every 120 seconds and opens no listening port. Consecutive recorded starts at 03:29:26, 03:31:26 and 03:33:26 UTC verified the interval. A persistent Windows delete-sharing lock was found on the disposable public status bridge; bounded atomic replacement retries and an explicit in-place fallback were added and tested. BunkerWeb supplied real samples for several targets, including Germany, Hungary, the Netherlands, France, Romania and the US. Bitdefender's public polling transport returned plain `ok` instead of a valid handshake, so source health reports failure and no Bitdefender samples are invented. Site transport, timestamps and coverage limits are documented in [THREAT_MAP_SCRAPERS.md](THREAT_MAP_SCRAPERS.md).
+
+Neither server was started, stopped or restarted: API port 8000/PID 36744 and Vite port 5173/PID 26148 remained unchanged. The data-gathering process alone was reloaded to apply the Windows status-file fix. Historical sections below describe earlier verification.
+
 ## Public-source and Threat Actor update — 11 October 2026
 
 The full backend suite passed **181 tests** after the new layer and social collectors were added. A final focused run passed **21 threat/social tests**, including two additional regressions for researcher-country separation and a phishing campaign's explicit target. All **nine Node tests**, Python lint/format checks and the production build passed. The existing Starlette test-client deprecation warning remains.

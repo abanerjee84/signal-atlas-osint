@@ -8,7 +8,7 @@ import socket
 from abc import ABC, abstractmethod
 from collections import deque
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -16,6 +16,9 @@ from ..config import Settings
 from ..models import Report
 
 APPROVED_HOSTS = {
+    "threatmap.bitdefender.com",
+    "threatmap.bunkerweb.io",
+    "www.bunkerweb.io",
     "blog.talosintelligence.com",
     "www.bleepingcomputer.com",
     "www.securityweek.com",
@@ -161,12 +164,30 @@ class SafeHTTP:
             ):
                 raise ProviderError("Configured feed resolves to a non-public address")
 
-    async def request(self, method: str, url: str, *, attempts: int = 3, max_bytes=None, **kwargs) -> bytes:
+    async def request(
+        self, method: str, url: str, *, attempts: int = 3, max_bytes=None, redirects=0, **kwargs
+    ) -> bytes:
         await self.validate(url)
         bound = self.settings.max_feed_bytes if max_bytes is None else min(max_bytes, 100_663_296)
         for attempt in range(attempts):
             try:
                 async with self.client.stream(method, url, follow_redirects=False, **kwargs) as response:
+                    if (
+                        response.status_code in {301, 302, 303, 307, 308}
+                        and method == "GET"
+                        and 0 < redirects <= 3
+                    ):
+                        destination = urljoin(url, response.headers.get("location", ""))
+                        # Explicit opt-in only for public robots reads; every hop is validated.
+                        await response.aclose()
+                        return await self.request(
+                            method,
+                            destination,
+                            attempts=attempts,
+                            max_bytes=bound,
+                            redirects=redirects - 1,
+                            **kwargs,
+                        )
                     if response.status_code == 429 or response.status_code >= 500:
                         if attempt + 1 == attempts:
                             try:
@@ -223,6 +244,39 @@ class SafeHTTP:
             return json.loads(await self.request(method, url, **kwargs))
         except (ValueError, UnicodeError):
             raise ProviderError("Provider returned malformed JSON") from None
+
+    async def stream_lines(self, url: str, *, max_bytes=1_048_576):
+        """Validated, bounded public SSE read. Caller sets a total time budget."""
+        await self.validate(url)
+        try:
+            async with self.client.stream("GET", url, follow_redirects=False) as response:
+                if response.status_code == 429 or response.status_code >= 500:
+                    try:
+                        delay = float(response.headers.get("Retry-After", "300"))
+                        delay = min(86400, max(300, delay)) if math.isfinite(delay) else 300
+                    except ValueError:
+                        delay = 300
+                    raise ProviderError("Public stream temporarily unavailable", retry_after=delay)
+                if response.status_code != 200:
+                    raise ProviderError(
+                        f"Provider HTTP {response.status_code}", status_code=response.status_code
+                    )
+                if not response.headers.get("content-type", "").startswith("text/event-stream"):
+                    raise ProviderError("Provider did not return a public event stream")
+                # Decode incrementally; a peer cannot grow an unterminated line unboundedly.
+                pending, size = b"", 0
+                async for chunk in response.aiter_bytes():
+                    size += len(chunk)
+                    if size > min(max_bytes, self.settings.max_feed_bytes):
+                        raise ProviderError("Public stream exceeded configured size limit")
+                    pending += chunk
+                    while b"\n" in pending:
+                        line, pending = pending.split(b"\n", 1)
+                        yield line.rstrip(b"\r").decode("utf-8", errors="replace")
+                    if len(pending) > 65536:
+                        raise ProviderError("Public stream line exceeded size limit")
+        except (httpx.TimeoutException, httpx.NetworkError):
+            raise ProviderError("Public stream network failure or timeout") from None
 
 
 class Connector(ABC):

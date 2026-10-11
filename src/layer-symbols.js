@@ -17,8 +17,8 @@ export const CATEGORY_NAMES = {
   aviation: "Aviation",
   maritime: "Maritime",
   sentiment: "Global sentiment",
-  cyber: "Cyber intelligence",
-  threat: "Threat Actor",
+  cyber: "Cyber: Threat Actors",
+  threat: "Cyber: Threat Actors — attack report / detection",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
@@ -36,6 +36,8 @@ const marks = {
   analysis: "AN",
   mixed: "+",
   publisher: "P",
+  attacker: "A",
+  victim: "V",
 };
 
 export function symbolCanvas(category, { context = false, count, color } = {}) {

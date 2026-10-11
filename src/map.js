@@ -2,6 +2,7 @@ import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { element } from "./api.js";
 import { connectionGeometry, pointAlong } from "./geo-lines.js";
+import { cyberRouteFeatures, routeBearing } from "./cyber-routes.js";
 import {
   latestAircraft,
   aircraftTransition,
@@ -286,6 +287,7 @@ export function createWorldMap(
   );
   map.addControl(new maplibregl.ScaleControl({ maxWidth: 80 }), "bottom-right");
   const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "270px" });
+  let selectedThreatRoute = null;
   const resetWorld = () =>
     map.fitBounds(
       [
@@ -304,6 +306,18 @@ export function createWorldMap(
   function visibility() {
     if (!map.getLayer("event-density")) return;
     setAnalysisVisibility();
+    for (const id of [
+      "threat-directions",
+      "threat-endpoints",
+      "threat-selected",
+      "threat-flow-arrows",
+    ])
+      if (map.getLayer(id))
+        map.setLayoutProperty(
+          id,
+          "visibility",
+          threatVisible ? "visible" : "none",
+        );
     confidenceWeight(
       "event-density",
       densityWeighted
@@ -437,6 +451,33 @@ export function createWorldMap(
     map.setPaintProperty("grid", "line-color", light ? "#becdd5" : "#243741");
   }
   map.on("load", () => {
+    const arrowIcon = (color) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 48;
+      const context = canvas.getContext("2d");
+      context.beginPath();
+      context.moveTo(24, 4);
+      context.lineTo(39, 38);
+      context.lineTo(24, 30);
+      context.lineTo(9, 38);
+      context.closePath();
+      context.fillStyle = color;
+      context.fill();
+      context.strokeStyle = "#101b22";
+      context.lineWidth = 3;
+      context.stroke();
+      return context.getImageData(0, 0, 48, 48);
+    };
+    map.addImage("traffic-direction", arrowIcon("#69c8e5"), { pixelRatio: 2 });
+    map.addImage("report-direction", arrowIcon("#ef8ca2"), { pixelRatio: 2 });
+    map.addImage(
+      "threat-origin",
+      symbolImage("attacker", { color: "#ffbf75" }),
+      { pixelRatio: 2 },
+    );
+    map.addImage("threat-target", symbolImage("victim", { color: "#69c8e5" }), {
+      pixelRatio: 2,
+    });
     for (const category of [...Object.keys(colors), "publisher"]) {
       for (const context of [false, true])
         map.addImage(
@@ -524,6 +565,15 @@ export function createWorldMap(
     map.addSource("news-network", { type: "geojson", data: newsData });
     map.addSource("cyber-network", { type: "geojson", data: cyberData });
     map.addSource("threat-network", { type: "geojson", data: threatData });
+    const routeFeatures = cyberRouteFeatures(threatNetwork);
+    map.addSource("threat-directions", {
+      type: "geojson",
+      data: routeFeatures.arrows,
+    });
+    map.addSource("threat-endpoints", {
+      type: "geojson",
+      data: routeFeatures.endpoints,
+    });
     map.addSource("social-network", { type: "geojson", data: socialData });
     map.addSource("publishers", { type: "geojson", data: publisherData });
     map.addSource("new-reports", { type: "geojson", data: empty() });
@@ -607,7 +657,15 @@ export function createWorldMap(
           : {}),
         layout: { "line-cap": "round" },
         paint: {
-          "line-color": color,
+          "line-color":
+            id === "threat-connections"
+              ? [
+                  "case",
+                  ["==", ["get", "kind"], "observed_traffic_to_target"],
+                  "#69c8e5",
+                  color,
+                ]
+              : color,
           "line-width": [
             "interpolate",
             ["linear"],
@@ -617,11 +675,56 @@ export function createWorldMap(
             20,
             2.4,
           ],
-          "line-opacity": 0.38,
+          "line-opacity": id === "threat-connections" ? 0.72 : 0.38,
           ...(dotted ? { "line-dasharray": [2, 3] } : {}),
         },
       });
     }
+    map.addLayer({
+      id: "threat-selected",
+      type: "line",
+      source: "threat-network",
+      filter: ["==", ["get", "id"], ""],
+      paint: { "line-color": "#f9d48f", "line-width": 4, "line-opacity": 0.95 },
+    });
+    map.addLayer({
+      id: "threat-directions",
+      type: "symbol",
+      source: "threat-directions",
+      layout: {
+        "icon-image": [
+          "case",
+          ["==", ["get", "kind"], "observed_traffic_to_target"],
+          "traffic-direction",
+          "report-direction",
+        ],
+        "icon-size": 0.75,
+        "icon-rotate": ["get", "rotation"],
+        "icon-rotation-alignment": "map",
+        "icon-allow-overlap": true,
+      },
+    });
+    map.addLayer({
+      id: "threat-endpoints",
+      type: "symbol",
+      source: "threat-endpoints",
+      layout: {
+        "icon-image": [
+          "case",
+          ["==", ["get", "role"], "origin"],
+          "threat-origin",
+          "threat-target",
+        ],
+        "icon-offset": [
+          "case",
+          ["==", ["get", "role"], "origin"],
+          ["literal", [-14, -14]],
+          ["literal", [14, 14]],
+        ],
+        "icon-size": 1.0,
+        "icon-allow-overlap": true,
+      },
+    });
     map.addLayer({
       id: "military-context",
       type: "symbol",
@@ -647,6 +750,31 @@ export function createWorldMap(
         "circle-color": ["get", "color"],
         "circle-blur": 0.4,
         "circle-opacity": 0.9,
+      },
+    });
+    map.addLayer({
+      id: "threat-flow-arrows",
+      type: "symbol",
+      source: "new-reports",
+      filter: [
+        "in",
+        ["get", "kind"],
+        [
+          "literal",
+          ["observed_traffic_to_target", "reported_attacker_to_victim"],
+        ],
+      ],
+      layout: {
+        "icon-image": [
+          "case",
+          ["==", ["get", "kind"], "observed_traffic_to_target"],
+          "traffic-direction",
+          "report-direction",
+        ],
+        "icon-size": 0.9,
+        "icon-rotate": ["get", "rotation"],
+        "icon-rotation-alignment": "map",
+        "icon-allow-overlap": true,
       },
     });
     for (const [kind, operator, color] of [
@@ -894,17 +1022,19 @@ export function createWorldMap(
         const kind =
           edge.kind === "reported_attacker_to_victim"
             ? `${edge.actor}: reported attacker country → reported victim country`
-            : edge.kind === "publisher_to_country"
-              ? `${edge.source_id}: publisher base → country discussed`
-              : edge.kind === "declared_origin_to_mention"
-                ? "Declared country origin → country discussed"
-                : "Countries mentioned together";
+            : edge.kind === "observed_traffic_to_target"
+              ? `${edge.source_id}: observed infrastructure origin → destination`
+              : edge.kind === "publisher_to_country"
+                ? `${edge.source_id}: publisher base → country discussed`
+                : edge.kind === "declared_origin_to_mention"
+                  ? "Declared country origin → country discussed"
+                  : "Countries mentioned together";
         card.append(
           element("strong", "", `${name(edge.from)} → ${name(edge.to)}`),
           element(
             "p",
             "",
-            `${kind}. ${edge.count} supporting feed reports. ${edge.basis || "This is context, not movement or verified interaction."}`,
+            `${kind}. ${edge.count} ${edge.kind === "observed_traffic_to_target" ? "sampled detections" : "supporting feed reports"}. ${edge.basis || "This is context, not movement or verified interaction."}`,
           ),
         );
         for (let i = 0; i < Math.min(3, edge.titles.length); i++) {
@@ -939,6 +1069,35 @@ export function createWorldMap(
       button.addEventListener("click", () =>
         selectCountry(feature.properties.code),
       );
+      card.append(button);
+      popup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
+    });
+    map.on("click", "threat-directions", (event) => {
+      const edge = threatNetwork?.edges.find(
+        (item) => item.id === event.features[0].properties.id,
+      );
+      if (edge) focusThreatRoute(edge, false);
+    });
+    map.on("click", "threat-endpoints", (event) => {
+      const properties = event.features[0].properties;
+      const place = world.features.find(
+        (item) => item.properties.code === properties.country,
+      )?.properties;
+      const card = element("div", "connection-popup");
+      card.append(
+        element(
+          "strong",
+          "",
+          `${properties.role === "origin" ? "A · Attacker / IP origin" : "V · Victim / target"}: ${place?.name || properties.country}`,
+        ),
+        element(
+          "p",
+          "",
+          `${properties.count} observations / reports. Country refers to provider traffic geography or reported attribution; it does not prove actor nationality or compromise.`,
+        ),
+      );
+      const button = element("button", "", "Open source details");
+      button.addEventListener("click", () => selectEvent(properties.event_id));
       card.append(button);
       popup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
     });
@@ -1122,6 +1281,12 @@ export function createWorldMap(
     map.getCanvas().dataset.threatConnections = String(
       map.queryRenderedFeatures({ layers: ["threat-connections"] }).length,
     );
+    map.getCanvas().dataset.threatDirections = String(
+      map.queryRenderedFeatures({ layers: ["threat-directions"] }).length,
+    );
+    map.getCanvas().dataset.threatEndpoints = String(
+      map.queryRenderedFeatures({ layers: ["threat-endpoints"] }).length,
+    );
   };
   map.on("render", sampleCanvas);
   map.on("idle", sampleCanvas);
@@ -1149,6 +1314,66 @@ export function createWorldMap(
       })),
     };
   }
+  function focusThreatRoute(edge, move = true) {
+    selectedThreatRoute = edge.id;
+    map.setFilter("threat-selected", ["==", ["get", "id"], edge.id]);
+    const name = (code) =>
+      world.features.find((item) => item.properties.code === code)?.properties
+        .name || code;
+    const geometry = connectionGeometry(
+      edge.from_coordinates,
+      edge.to_coordinates,
+    );
+    const card = element("div", "connection-popup");
+    card.append(
+      element("strong", "", `${name(edge.from)} → ${name(edge.to)}`),
+      element(
+        "p",
+        "",
+        `A · Attacker / origin: ${name(edge.from)} (${edge.from})`,
+      ),
+      element("p", "", `V · Victim / target: ${name(edge.to)} (${edge.to})`),
+      element(
+        "p",
+        "",
+        `${edge.count} ${edge.kind === "observed_traffic_to_target" ? "sampled provider detections" : "published reports"}${edge.domestic ? " · same-country detection" : ""}. ${edge.basis}`,
+      ),
+    );
+    const button = element("button", "", "Open source evidence");
+    button.addEventListener("click", () => selectEvent(edge.event_ids[0]));
+    card.append(button);
+    popup.setLngLat(pointAlong(geometry, 0.5)).setDOMContent(card).addTo(map);
+    if (move) {
+      const points = geometry.coordinates
+        .flat()
+        .map(([x, y]) => [
+          x + 360 * Math.round((edge.from_coordinates[0] - x) / 360),
+          y,
+        ]);
+      map.fitBounds(
+        [
+          [
+            Math.min(...points.map((p) => p[0])),
+            Math.min(...points.map((p) => p[1])),
+          ],
+          [
+            Math.max(...points.map((p) => p[0])),
+            Math.max(...points.map((p) => p[1])),
+          ],
+        ],
+        {
+          padding: {
+            left: Math.min(310, map.getContainer().clientWidth * 0.36),
+            right: Math.min(60, map.getContainer().clientWidth * 0.1),
+            top: Math.min(190, map.getContainer().clientHeight * 0.32),
+            bottom: Math.min(80, map.getContainer().clientHeight * 0.15),
+          },
+          maxZoom: 4,
+          duration: reducedMotion() ? 0 : 700,
+        },
+      );
+    }
+  }
   function pulseTracks() {
     const tracks = [];
     for (const [visible, data] of [
@@ -1162,7 +1387,11 @@ export function createWorldMap(
         for (const feature of data.features)
           tracks.push({
             geometry: feature.geometry,
-            color: pulseColor(feature.properties.sentiment),
+            color:
+              feature.properties.kind === "observed_traffic_to_target"
+                ? "#69c8e5"
+                : pulseColor(feature.properties.sentiment),
+            kind: feature.properties.kind,
           });
     return tracks;
   }
@@ -1189,7 +1418,12 @@ export function createWorldMap(
     if (now >= nextPulseAt && pulses.length < PULSE_LIMIT) {
       const track = tracks[pulseCursor % tracks.length];
       pulseCursor = (pulseCursor + 1) % tracks.length;
-      pulses.push({ geometry: track.geometry, color: track.color, began: now });
+      pulses.push({
+        geometry: track.geometry,
+        color: track.color,
+        kind: track.kind,
+        began: now,
+      });
       nextPulseAt = now + PULSE_GAP;
     }
     pulses = pulses.filter((pulse) => now - pulse.began < PULSE_DURATION);
@@ -1204,7 +1438,17 @@ export function createWorldMap(
             (now - pulse.began) / PULSE_DURATION,
           ),
         },
-        properties: { color: pulse.color },
+        properties: {
+          color: pulse.color,
+          kind: pulse.kind || "context",
+          rotation: routeBearing(
+            pointAlong(pulse.geometry, (now - pulse.began) / PULSE_DURATION),
+            pointAlong(
+              pulse.geometry,
+              Math.min(1, (now - pulse.began) / PULSE_DURATION + 0.01),
+            ),
+          ),
+        },
       })),
     });
     pulseFrame = requestAnimationFrame(runPulses);
@@ -1217,6 +1461,7 @@ export function createWorldMap(
 
   return {
     map,
+    focusThreatRoute,
     setEvents(events) {
       const features = (records) => ({
         type: "FeatureCollection",
@@ -1352,6 +1597,17 @@ export function createWorldMap(
       threatVisible = enabled;
       threatData = networkFeatures(network);
       map.getSource("threat-network")?.setData(threatData);
+      const features = cyberRouteFeatures(network);
+      map.getSource("threat-directions")?.setData(features.arrows);
+      map.getSource("threat-endpoints")?.setData(features.endpoints);
+      if (
+        selectedThreatRoute &&
+        !network?.edges.some((edge) => edge.id === selectedThreatRoute)
+      ) {
+        selectedThreatRoute = null;
+        map.setFilter("threat-selected", ["==", ["get", "id"], ""]);
+        popup.remove();
+      }
       visibility();
       startPulses();
     },

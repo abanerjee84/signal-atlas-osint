@@ -39,7 +39,11 @@ def test_api_contract(client, report):
     detail = client.get("/api/events/" + event).json()
     source = client.get("/api/reports/" + detail["reports"][0]["report_id"]).json()
     assert source["raw"] == {"test": True}
-    assert len(client.get("/api/layers").json()) == 10
+    layers = client.get("/api/layers").json()
+    assert len(layers) == 9
+    cyber = next(layer for layer in layers if layer["id"] == "cyber")
+    assert cyber["categories"] == ["cyber", "threat"]
+    assert {"bitdefender_threatmap", "bunkerweb_threatmap", "cisa"} <= set(cyber["sources"])
     assert client.get("/api/events?format=geojson").json()["features"][0]["geometry"]["type"] == "Point"
 
 

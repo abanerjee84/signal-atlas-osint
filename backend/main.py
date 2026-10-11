@@ -204,7 +204,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         statuses = {item["source_id"]: item for item in source_statuses()}
         result = []
         for category in Category:
-            own = [provider for provider in providers if provider.category == category]
+            if category == Category.threat:
+                continue
+            categories = {"cyber", "threat"} if category == Category.cyber else {category.value}
+            own = [provider for provider in providers if provider.category in categories]
             states = [statuses.get(provider.source_id, {}) for provider in own]
             current = [item for item in states if item.get("state") == "ok" and not item.get("stale")]
             needs_access = [item for item in states if item.get("state") == "access_required"]
@@ -217,13 +220,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             result.append(
                 {
                     "id": category.value,
+                    "categories": sorted(categories),
                     "name": {
                         "geopolitical": "Geopolitical events",
                         "military": "Military OSINT",
                         "aviation": "Aviation",
                         "maritime": "Maritime",
                         "sentiment": "Global sentiment",
-                        "cyber": "Cyber intelligence",
+                        "cyber": "Cyber: Threat Actors",
                         "threat": "Threat Actor",
                         "economic": "Economic and energy",
                         "environment": "Environment and humanitarian",

@@ -296,12 +296,38 @@
                 <option value="positive">Most positive first</option>
               </select>
             </div>
+            <button
+              class="country-route-tab"
+              data-country-rank="cyber"
+              aria-pressed="false"
+              hidden
+            >
+              Attacker → Victim
+            </button>
+            <div id="cyber-route-filter" hidden>
+              <label class="sr-only" for="cyber-route-source"
+                >Cyber route source</label
+              >
+              <select id="cyber-route-source">
+                <option value="all">All connected attack sources</option>
+                <option value="bunkerweb_threatmap">
+                  BunkerWeb detections
+                </option>
+                <option value="bitdefender_threatmap">
+                  Bitdefender detections
+                </option>
+                <option value="reports">Published attribution reports</option>
+              </select>
+            </div>
             <p id="country-ranking-scope" class="country-ranking-scope">
               Country references in reports
             </p>
             <p id="country-ranking-status" role="status">
               Reading country activity…
             </p>
+            <div id="cyber-route-headings" hidden>
+              <span>ATTACKER / ORIGIN</span><span>VICTIM / TARGET</span>
+            </div>
             <ol id="country-ranking" aria-label="Ranked countries"></ol>
             <div class="country-ribbon-footer">
               <button id="country-ribbon-reset" hidden>
@@ -352,16 +378,30 @@
           </div>
           <section id="feed-view">
             <details id="threat-map-references" hidden>
-              <summary>Threat reports and live map references</summary>
+              <summary>
+                Cyber reports, traffic samples and source health
+              </summary>
               <p class="helper">
-                TA markers and moving edges show recent published reports.
-                Country attribution is extracted from source wording and remains
-                unverified. Unknown origins stay unknown.
+                TA markers show published reports and sampled provider
+                detections. Pink edges connect reported attribution; blue edges
+                connect observed traffic countries. Country attribution is
+                extracted from source wording and remains unverified. Unknown
+                origins stay unknown.
               </p>
               <p class="helper">
-                These external maps measure their providers' detections or
-                traffic. Infrastructure location does not identify an attacker’s
+                Provider maps measure their detections or traffic.
+                Infrastructure location does not identify an attacker’s
                 nationality.
+              </p>
+              <div id="threat-stream-health" aria-live="polite"></div>
+              <p>
+                <a
+                  href="https://threatmap.bitdefender.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Bitdefender</a
+                >
+                · public stream collector; availability shown above
               </p>
               <p>
                 <a
@@ -397,11 +437,12 @@
                   rel="noopener noreferrer"
                   >BunkerWeb</a
                 >
-                · blocked web requests
+                · sampled public blocked-request stream connected
               </p>
               <p class="helper">
-                External maps open on their providers’ sites; their telemetry is
-                not copied into incident counts.
+                Samples are bounded to 20 seconds per collection and shown
+                separately from published reports. Detection counts are not
+                confirmed incidents or worldwide attack totals.
               </p>
             </details>
             <div id="country-insight" class="country-insight" hidden></div>

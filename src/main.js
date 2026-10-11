@@ -9,6 +9,7 @@ import { aircraftFacts } from "./aircraft.js";
 import {
   buildThreatNetwork,
   threatFacts,
+  threatCaption,
   threatCountryActivity,
   threatTimeline,
 } from "./threats.js";
@@ -20,8 +21,8 @@ const names = {
   aviation: "Aviation",
   maritime: "Maritime",
   sentiment: "Global sentiment",
-  cyber: "Cyber intelligence",
-  threat: "Threat Actor",
+  cyber: "Cyber: Threat Actors",
+  threat: "Cyber: Threat Actors",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
   analysis: "Analysis and anomaly alerts",
@@ -69,6 +70,7 @@ const state = {
   view: "feed",
   sentimentResult: null,
   layerHealth: {},
+  extendedSources: false,
   analysisOverlays: readSession("osint.analysisOverlays", false),
   densityConfidence: readSession("osint.densityConfidence", true),
   crossCategory: [],
@@ -85,6 +87,11 @@ const state = {
   aircraft: null,
   aircraftFilter: "",
 };
+// Preserve old saved selections while exposing a single cyber layer control.
+if (state.layers.has("cyber") || state.layers.has("threat")) {
+  state.layers.add("cyber");
+  state.layers.add("threat");
+}
 let worldMap,
   chart,
   refreshController,
@@ -96,8 +103,10 @@ const countryRibbon = createCountryRibbon({
   selectCountry,
   readSession,
   saveSession,
+  selectThreatRoute: (edge) => worldMap?.focusThreatRoute(edge),
 });
 for (const [category, name] of Object.entries(names)) {
+  if (category === "threat") continue;
   const key = element("span");
   key.append(symbolCanvas(category), element("span", "", name));
   $("#layer-symbol-key").append(key);
@@ -154,6 +163,7 @@ function badge(confidence) {
 function renderLayers() {
   $("#layers").replaceChildren();
   for (const [id, name] of Object.entries(names)) {
+    if (id === "threat") continue;
     const label = element("label", "layer-row");
     const input = element("input");
     input.type = "checkbox";
@@ -173,6 +183,10 @@ function renderLayers() {
     label.append(input, mark, copy, count);
     input.addEventListener("change", () => {
       input.checked ? state.layers.add(id) : state.layers.delete(id);
+      if (id === "cyber")
+        input.checked
+          ? state.layers.add("threat")
+          : state.layers.delete("threat");
       saveSession("osint.layers", [...state.layers]);
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
@@ -268,6 +282,19 @@ function renderSources(status) {
       element("p", "", source.limitation),
     );
     node.append(detail);
+    if (source.compatibility_only) {
+      node.append(
+        element(
+          "p",
+          "helper",
+          source.background_collection
+            ? "Background feed thread · every 2 minutes"
+            : "Stored collection result. Scheduled updates begin after your next collector reload.",
+        ),
+      );
+      $("#source-statuses").append(node);
+      continue;
+    }
     const refreshSource = element(
       "button",
       "",
@@ -412,13 +439,7 @@ function renderEvents() {
       button.append(flight);
     } else if (event.category === "threat") {
       const facts = threatFacts(event);
-      button.append(
-        element(
-          "p",
-          "event-excerpt",
-          `${facts.actor} · ${facts.attack_kind}. Reported attribution: ${facts.attacker_country || "unknown"} → ${facts.victim_countries.join(", ") || "unknown targets"}.`,
-        ),
-      );
+      button.append(element("p", "event-excerpt", threatCaption(facts)));
     } else if (event.description)
       button.append(
         element("span", "event-excerpt", event.description.slice(0, 220)),
@@ -450,19 +471,20 @@ function renderEvents() {
     $("#event-list").append(empty);
   }
   for (const id of Object.keys(names)) {
-    if (["sentiment", "analysis"].includes(id)) continue;
+    if (["sentiment", "analysis", "threat"].includes(id)) continue;
     const count =
       id === "aviation" && live
         ? state.aircraft.items.length
-        : state.categoryCounts[id] || 0;
+        : (state.categoryCounts[id] || 0) +
+          (id === "cyber" ? state.threatCount : 0);
     $(`[data-count="${id}"]`).textContent = count.toLocaleString();
     if (id === "aviation")
       $(`[data-count="${id}"]`).title = live
         ? `${state.aircraft.items.length} current positions; ${(state.categoryCounts[id] || 0).toLocaleString()} retained observations in the selected period`
         : "Retained observations in the selected period";
-    if (id === "threat")
+    if (id === "cyber")
       $(`[data-count="${id}"]`).title =
-        "Matching reports from the latest 500 threat reports in the selected period";
+        "Cyber advisories and investigations plus up to 500 attack reports and 300 sampled detections; not global attack totals";
     const health = state.layerHealth[id];
     const sources = state.sources.filter((source) => source.category === id);
     const note = $(`[data-layer-note="${id}"]`);
@@ -481,7 +503,7 @@ function renderEvents() {
       : "";
     note.textContent = count
       ? id === "cyber"
-        ? "Advisories, investigations and report context"
+        ? "Advisories, attack reports & traffic detections"
         : id === "aviation"
           ? `Classes 4 & 5 · ${live ? "current positions" : "stored observations"}`
           : id === "economic"
@@ -536,13 +558,25 @@ async function selectEvent(id, locate = false) {
     if (event.category === "threat") {
       event.threat ||= event.reports?.[0]?.metadata?.threat;
       const facts = threatFacts(event);
+      const telemetry = facts.classification !== "reported_attack";
       for (const [label, value] of [
         ["Named actor", facts.actor],
-        ["Attack reporting", facts.attack_kind],
-        ["Reported attacker country", facts.attacker_country || "Unknown"],
         [
-          "Reported victim countries",
-          facts.victim_countries.join(", ") || "Unknown",
+          telemetry ? "Provider detection" : "Attack reporting",
+          facts.attack_kind,
+        ],
+        [
+          telemetry ? "Traffic origin country" : "Reported attacker country",
+          (telemetry ? facts.traffic_origin_country : facts.attacker_country) ||
+            "Unknown",
+        ],
+        [
+          telemetry
+            ? "Traffic destination country"
+            : "Reported victim countries",
+          (telemetry
+            ? facts.traffic_target_country
+            : facts.victim_countries.join(", ")) || "Unknown",
         ],
         [
           "Attribution evidence",
@@ -555,6 +589,29 @@ async function selectEvent(id, locate = false) {
         ],
       ])
         fields.append(element("dt", "", label), element("dd", "", value));
+      if (telemetry) {
+        for (const [label, value] of [
+          [
+            "Observation type",
+            facts.classification === "detection"
+              ? "Provider location detection"
+              : "Sampled provider traffic",
+          ],
+          ["Detection country", facts.detection_country || "Not supplied"],
+          [
+            "Received",
+            dateText(event.threat?.received_at || event.published_at),
+          ],
+          ["Provider timestamp", event.threat?.provider_time || "Not supplied"],
+          [
+            "Occurrence time",
+            event.occurred_at
+              ? dateText(event.occurred_at)
+              : "Unknown; receipt time used in timeline",
+          ],
+        ])
+          fields.append(element("dt", "", label), element("dd", "", value));
+      }
     }
     if (event.category === "aviation") {
       for (const [label, value] of Object.entries(aircraftFacts(event)))
@@ -1049,6 +1106,8 @@ async function refresh() {
     threatQuery.delete("country");
     threatQuery.delete("bbox");
     threatQuery.set("q", "threat-report");
+    const telemetryQuery = new URLSearchParams(threatQuery);
+    telemetryQuery.set("q", "threat-telemetry");
     const requestedPlatform = $("#sentiment-platform").value;
     const sentimentQuery = params({ sentiment: true });
     const kind = $("#sentiment-kind").value;
@@ -1058,7 +1117,7 @@ async function refresh() {
       kind === "youtube"
         ? "youtube"
         : kind === "public"
-          ? state.layerHealth.threat
+          ? state.extendedSources
             ? requestedPlatform
             : ["all", "reddit", "x"].includes(requestedPlatform)
               ? requestedPlatform
@@ -1101,21 +1160,34 @@ async function refresh() {
       api(`cross-category?${query}`, { signal }),
       api(`cyber/relations?${query}`, { signal }),
       api(`events?${threatQuery}&limit=500`, { signal }),
+      api(`events?${telemetryQuery}&limit=300`, { signal }),
+      fetch("/threatmap-status.json", { signal, cache: "no-store" })
+        .then((response) => response.json())
+        .catch(() => null),
     ]);
     if (signal.aborted) return;
     if (results[0].status === "rejected") throw results[0].reason;
     const data = results[0].value;
-    state.events = data.items;
+    state.events = data.items.filter((event) => event.category !== "threat");
     state.total = [...state.layers].some(
       (id) => !["threat", "analysis"].includes(id),
     )
       ? data.total
       : 0;
     state.categoryCounts = data.category_counts || {};
-    if (results[12].status === "fulfilled") {
+    if (
+      results[12].status === "fulfilled" ||
+      results[13].status === "fulfilled"
+    ) {
       const world = state.world;
       state.threatNetwork = buildThreatNetwork(
-        results[12].value.items.filter((event) => event.category === "threat"),
+        [12, 13]
+          .flatMap((index) =>
+            results[index].status === "fulfilled"
+              ? results[index].value.items
+              : [],
+          )
+          .filter((event) => event.category === "threat"),
         world.features.map((feature) => feature.properties),
         {
           country: state.country,
@@ -1137,7 +1209,50 @@ async function refresh() {
     if (results[1].status === "fulfilled")
       state.sources = results[1].value.connectors;
     renderEvents();
-    if (results[1].status === "fulfilled") renderSources(results[1].value);
+    if (results[1].status === "fulfilled") {
+      const status = {
+        ...results[1].value,
+        connectors: [...results[1].value.connectors],
+      };
+      const bridge =
+        results[14].status === "fulfilled" ? results[14].value : null;
+      for (const source of bridge?.connectors || []) {
+        if (
+          !["bitdefender_threatmap", "bunkerweb_threatmap"].includes(
+            source.source_id,
+          ) ||
+          status.connectors.some((item) => item.source_id === source.source_id)
+        )
+          continue;
+        const last = Date.parse(source.last_success);
+        status.connectors.push({
+          ...source,
+          compatibility_only: true,
+          background_collection:
+            bridge.background_collection === true &&
+            Date.now() - Date.parse(bridge.checked_at) < 240000,
+          stale:
+            !Number.isFinite(last) ||
+            Date.now() - last > (source.interval_seconds || 120) * 2000,
+        });
+      }
+      state.sources = status.connectors;
+      renderSources(status);
+      $("#threat-stream-health").replaceChildren();
+      for (const source of status.connectors.filter((item) =>
+        ["bitdefender_threatmap", "bunkerweb_threatmap"].includes(
+          item.source_id,
+        ),
+      )) {
+        $("#threat-stream-health").append(
+          element(
+            "p",
+            "helper",
+            `${source.name}: ${source.state === "ok" ? `${source.stored} sampled observations · received ${relativeTime(source.last_success)}${source.stale ? " · sample stale" : ""}` : source.error || source.state}.${source.compatibility_only ? (source.background_collection ? " Background collection every 2 minutes." : " Scheduled updates pending your next collector reload.") : ""}`,
+          ),
+        );
+      }
+    }
     if (results[2].status === "fulfilled")
       renderTimeline(
         threatTimeline(
@@ -1174,12 +1289,16 @@ async function refresh() {
     renderNetworkSummary();
     if (results[4].status === "fulfilled") renderAIUsage(results[4].value);
     if (results[8].status === "fulfilled") {
+      state.extendedSources = results[8].value.some(
+        (layer) =>
+          layer.id === "threat" || layer.categories?.includes("threat"),
+      );
       state.layerHealth = Object.fromEntries(
         results[8].value.map((layer) => [layer.id, layer.health]),
       );
       for (const option of $("#sentiment-platform").options) {
         if (["mastodon", "lemmy", "telegram"].includes(option.value))
-          option.disabled = !state.layerHealth.threat;
+          option.disabled = !state.extendedSources;
       }
       renderEvidenceGaps();
       renderEvents();
@@ -1434,6 +1553,11 @@ function showTopic(name = "") {
   renderNetworkSummary();
 }
 function renderCountryActivity() {
+  countryRibbon.setCyberData(
+    state.threatNetwork,
+    state.layers.has("cyber"),
+    state.world?.features.map((feature) => feature.properties) || [],
+  );
   if (!state.countryActivity) return;
   countryRibbon.setData({
     ...threatCountryActivity(
@@ -1449,12 +1573,10 @@ function renderNetworkSummary() {
   const parts = [];
   if (state.layers.has("threat") && state.threatNetwork) {
     parts.push(
-      `Threat actors: ${state.threatNetwork.report_count} published reports · ${state.threatNetwork.edges.length} reported attribution links · ${state.threatNetwork.unknown_origin_count} unknown origins`,
+      `Cyber detections: ${state.threatNetwork.report_count} published attack reports · ${state.threatNetwork.observation_count} sampled detections · ${state.threatNetwork.edges.filter((edge) => edge.kind === "reported_attacker_to_victim").length} attribution links · ${state.threatNetwork.edges.filter((edge) => edge.kind === "observed_traffic_to_target").length} traffic routes`,
     );
-    const note = $('[data-layer-note="threat"]');
-    if (note)
-      note.textContent =
-        "Published attack reports · attributed origin → reported target";
+    const note = $('[data-layer-note="cyber"]');
+    if (note) note.textContent = "Advisories, reports & traffic country routes";
   }
   if (
     state.layers.has("cyber") &&
@@ -1630,9 +1752,24 @@ async function initialize() {
       new Date().toISOString().slice(11, 19) + " UTC";
   }, 1000);
   try {
-    const response = await fetch("/countries.geojson");
-    if (!response.ok) throw new Error("Local country map could not load");
-    state.world = await response.json();
+    const responses = await Promise.all([
+      fetch("/countries.geojson"),
+      fetch("/country-context.geojson"),
+    ]);
+    if (responses.some((response) => !response.ok))
+      throw new Error("Local country map could not load");
+    const [world, context] = await Promise.all(
+      responses.map((response) => response.json()),
+    );
+    const known = new Set(
+      world.features.map((feature) => feature.properties.code),
+    );
+    world.features.push(
+      ...context.features.filter(
+        (feature) => !known.has(feature.properties.code),
+      ),
+    );
+    state.world = world;
     for (const feature of [...state.world.features].sort((a, b) =>
       a.properties.name.localeCompare(b.properties.name),
     )) {

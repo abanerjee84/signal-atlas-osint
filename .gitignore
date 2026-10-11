@@ -6,6 +6,9 @@ dist/
 
 # Private configuration and runtime data
 data/
+public/threatmap-status.json
+public/threatmap-status.json.tmp
+public/threatmap-status.*.tmp
 .env
 .env.*
 !.env.example

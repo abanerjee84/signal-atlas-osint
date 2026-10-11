@@ -25,7 +25,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
 - **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
 
-The ten selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber intelligence**, **Threat Actor**, **Economic and energy**, **Environment and humanitarian**, and **Analysis and anomaly alerts**. Layer availability depends on source access and the selected period.
+The nine selectable map layers are **Geopolitical events**, **Military OSINT**, **Aviation**, **Maritime**, **Global sentiment**, **Cyber: Threat Actors**, **Economic and energy**, **Environment and humanitarian**, and **Analysis and anomaly alerts**. The cyber switch combines advisories, investigations, attack reporting and sampled provider traffic. Layer availability depends on source access and the selected period.
 
 <details>
 <summary>Preview the threat-actor workspace</summary>
@@ -103,6 +103,7 @@ The default registry contains [66 RSS/Atom feeds](docs/RSS_FEEDS.md), plus other
 | Economic and energy          | BBC Business, Guardian Business/Energy, CNA Business, US EIA, ECB, OFAC                                               | Public feeds and releases                                                                                                |
 | Cyber and threat references  | CISA, NCSC, SANS, MITRE ATT&CK, MISP galaxies, Malpedia, ETDA                                                         | Public feeds/catalogs; source-specific reuse terms                                                                       |
 | Published attack reports     | BleepingComputer, SecurityWeek, The Hacker News, The Record, Cybersecurity Dive, ESET, Microsoft, Cisco Talos         | Public RSS; unverified excerpt attribution, not live packet telemetry                                                    |
+| Sampled cyber detections     | BunkerWeb public blocked-request stream; Bitdefender public map transport                                           | No credentials. Bounded samples; Bitdefender returned an invalid handshake during the latest check                        |
 | Public narratives            | Reddit feeds/archive deliveries and browser imports, Mastodon, Lemmy, public Telegram previews; YouTube channel feeds | No social API keys; selected samples. YouTube uploads are separate from comments. X has no automatic collector connected |
 | Environment and humanitarian | USGS, NASA FIRMS, ReliefWeb                                                                                           | USGS is keyless; FIRMS needs a map key; ReliefWeb needs an approved app name                                             |
 | Aviation                     | OpenSky state vectors                                                                                                 | Account client credentials and provider credits                                                                          |
@@ -119,6 +120,10 @@ Optional settings include `OSINT_OPENSKY_POLL_SECONDS` (120 to 1800), retention 
 ## Reading the map correctly
 
 Reported coordinates, country context and publisher origin have different meanings. A country mentioned in a headline is regional context, not a confirmed incident location. Map edges can indicate publisher-to-context links, co-mentions or documented reference relationships; inspect their source and basis before interpreting them.
+
+Cyber traffic routes are blue; reported attacker-to-victim attribution links are pink. An infrastructure country never establishes the attacker's nationality. Vendor samples are shown separately from published reports and are not global attack totals. Natural Earth reference points supplement countries omitted by the low-detail boundary file, without creating boundary polygons. See [the scraper analysis](docs/THREAT_MAP_SCRAPERS.md).
+
+With **Cyber: Threat Actors** active, the Countries ribbon offers an **Attacker → Victim** table with provider filters. Click a row to highlight the route; arrowheads and A/V markers show its direction. A separate data-gathering thread can sample both public maps every two minutes against an already running database, without opening a server port: `python -m scripts.collect_threat_maps --watch`. Provider backoff still applies.
 
 Sentiment describes the wording of sampled English text. It does not measure national opinion, verify a claim or identify a person's stance. Unknown origins stay unknown. Non-English reports remain available without an English sentiment score.
 

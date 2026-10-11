@@ -4,30 +4,32 @@ import argparse
 import asyncio
 import json
 import ssl
+from datetime import timedelta
 
 import httpx
 
-from backend.config import Settings
+from backend.config import ROOT, Settings
 from backend.connectors.base import SafeHTTP
 from backend.connectors.public_discussion import discussion_feeds
 from backend.connectors.registry import connectors
+from backend.connectors.threat_maps import threat_maps
 from backend.connectors.threat_reports import threat_feeds
 from backend.connectors.world_feeds import world_feeds
 from backend.database import Database
-from backend.models import stamp
+from backend.models import stamp, utcnow
 from backend.worker import collect
+from scripts.collection_status import write_status
 
 
-async def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", action="append", help="Collect only this source ID; repeat for more")
-    args = parser.parse_args()
+async def collect_once(source_ids=None):
     settings = Settings()
     database = Database(settings.database)
     # Uses the already initialized running database; no migration or resident worker.
     if not settings.database.exists():
         raise RuntimeError("Start the installed application yourself before this collection pass")
-    providers = threat_feeds(settings) + world_feeds(settings) + discussion_feeds(settings)
+    providers = (
+        threat_feeds(settings) + threat_maps(settings) + world_feeds(settings) + discussion_feeds(settings)
+    )
     providers += [
         provider
         for provider in connectors(settings)
@@ -36,9 +38,9 @@ async def main():
         and not getattr(provider, "manual", False)
     ]
     gate = asyncio.Semaphore(2)
-    if args.source:
-        providers = [provider for provider in providers if provider.source_id in args.source]
-        if set(args.source) != {provider.source_id for provider in providers}:
+    if source_ids:
+        providers = [provider for provider in providers if provider.source_id in source_ids]
+        if set(source_ids) != {provider.source_id for provider in providers}:
             raise ValueError("Unknown source ID")
     async with httpx.AsyncClient(
         timeout=settings.http_timeout,
@@ -52,23 +54,75 @@ async def main():
             async with gate:
                 statuses = {row["source_id"]: row for row in await asyncio.to_thread(database.statuses)}
                 previous = statuses.get(provider.source_id, {})
+                with database.connect() as db:
+                    source = db.execute(
+                        "SELECT enabled FROM sources WHERE source_id=?", (provider.source_id,)
+                    ).fetchone()
+                if source and not source["enabled"]:
+                    return {"source_id": provider.source_id, "state": "disabled"}
                 if previous.get("next_run") and previous["next_run"] > stamp():
                     return {
                         "source_id": provider.source_id,
                         "state": "deferred",
                         "next_run": previous["next_run"],
                     }
-                return await collect(provider, database, http)
+                scheduled = utcnow()
+                result = await collect(provider, database, http)
+                await asyncio.to_thread(
+                    database.set_status,
+                    provider.source_id,
+                    next_run=stamp(
+                        utcnow() + timedelta(seconds=max(provider.interval, result.get("retry_after", 0)))
+                        if result["state"] == "error"
+                        else max(utcnow(), scheduled + timedelta(seconds=provider.interval))
+                    ),
+                )
+                return result
 
         results = await asyncio.gather(*(run(provider) for provider in providers))
     # Aggregate proof contains no posts, private cases, locations of individuals or credentials.
     proof = {"checked_at": stamp(), "server_lifecycle_actions": 0, "results": results}
+    # Public aggregate health bridge for an older, already-running API. No event payloads.
+    statuses = {row["source_id"]: row for row in database.statuses()}
+    maps = []
+    for provider in threat_maps(settings):
+        current = statuses.get(provider.source_id, {"state": "never_run"})
+        maps.append(
+            {
+                **provider.metadata(),
+                **current,
+                "stale": not current.get("last_success")
+                or current["last_success"] < stamp(utcnow() - timedelta(seconds=provider.interval * 2)),
+            }
+        )
+    status_file = ROOT / "public/threatmap-status.json"
+    background = False
+    heartbeat_file = settings.database.parent / "run/threat-map-thread.json"
+    try:
+        heartbeat = json.loads(heartbeat_file.read_text(encoding="utf-8"))
+        background = heartbeat.get("running", False) and heartbeat.get("heartbeat", "") > stamp(
+            utcnow() - timedelta(seconds=20)
+        )
+    except (ValueError, OSError):
+        pass
+    await asyncio.to_thread(
+        write_status,
+        status_file,
+        {"checked_at": stamp(), "background_collection": background, "connectors": maps},
+        allow_inplace=True,
+    )
     print(json.dumps(proof, indent=2))
     proof_directory = settings.database.parent / "run"
     proof_directory.mkdir(parents=True, exist_ok=True)
-    (proof_directory / "public-updates-verification.json").write_text(
-        json.dumps(proof, indent=2), encoding="utf-8"
-    )
+    await asyncio.to_thread(write_status, proof_directory / "public-updates-verification.json", proof)
+    return proof
+
+
+async def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", action="append", help="Collect only this source ID; repeat for more")
+    args = parser.parse_args()
+    await collect_once(args.source)
 
 
 if __name__ == "__main__":

@@ -95,7 +95,26 @@ class ThreatMetadata(BaseModel):
     attack_kind: str = Field(max_length=80)
     attribution_basis: str = Field(max_length=1000)
     victim_basis: str = Field(max_length=1000)
-    classification: Literal["reported_attack"] = "reported_attack"
+    classification: Literal["reported_attack", "observed_traffic", "detection"] = "reported_attack"
+    traffic_origin_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
+    traffic_target_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
+    detection_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
+    provider_time: str = Field(default="", max_length=100)
+    received_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def separate_traffic_attribution(self):
+        if self.classification != "reported_attack" and (
+            self.attacker_country or self.victim_countries or self.actor != "Unknown actor"
+        ):
+            raise ValueError("Traffic geography cannot establish actor or victim attribution")
+        if self.classification == "reported_attack" and (
+            self.traffic_origin_country or self.traffic_target_country or self.detection_country
+        ):
+            raise ValueError("Reported attribution cannot contain telemetry geography")
+        if self.received_at and self.received_at.tzinfo is None:
+            raise ValueError("Receipt timestamp requires a timezone")
+        return self
 
     @field_validator("victim_countries")
     @classmethod

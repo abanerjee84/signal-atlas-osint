@@ -8,7 +8,13 @@ from .config import ROOT
 
 @lru_cache(maxsize=1)
 def countries() -> dict:
-    return json.loads((ROOT / "public/countries.geojson").read_text(encoding="utf-8"))
+    world = json.loads((ROOT / "public/countries.geojson").read_text(encoding="utf-8"))
+    context = json.loads((ROOT / "public/country-context.geojson").read_text(encoding="utf-8"))
+    existing = {feature["properties"]["code"] for feature in world["features"]}
+    world["features"].extend(
+        feature for feature in context["features"] if feature["properties"]["code"] not in existing
+    )
+    return world
 
 
 def in_ring(x: float, y: float, ring: list) -> bool:
@@ -28,6 +34,8 @@ def polygons() -> list:
     result = []
     for feature in countries()["features"]:
         geometry = feature["geometry"]
+        if geometry["type"] not in {"Polygon", "MultiPolygon"}:
+            continue
         parts = geometry["coordinates"] if geometry["type"] == "MultiPolygon" else [geometry["coordinates"]]
         for rings in parts:
             xs, ys = zip(*[(point[0], point[1]) for point in rings[0]])
