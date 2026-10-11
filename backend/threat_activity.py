@@ -8,7 +8,7 @@ from .models import ThreatMetadata
 
 INCIDENT = re.compile(
     r"\b(?:cyberattacks?|cyber[- ]attacks?|ransomware|hackers?|hacking|hacked|breach(?:es|ed)?|"
-    r"espionage|malware|botnet|backdoor|DDoS|phishing|vishing|ClickFix|intrusion|extortion|exploitation|exploit(?:ed|ing)|APT\d+|UAT-\d{4,6}|UNC\d{3,6}|threat actors?)\b",
+    r"espionage|malware|botnet|backdoor|DDoS|phishing|vishing|ClickFix|intrusion|extortion|exploitation|exploit(?:ed|ing)|RCE|remote code execution|command injection|APT\d+|UAT-\d{4,6}|UNC\d{3,6}|threat actors?)\b",
     re.I,
 )
 ACTORS = re.compile(

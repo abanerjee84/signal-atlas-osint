@@ -17,6 +17,26 @@ THREAT_FEEDS = [
         "https://www.microsoft.com/en-us/security/blog/feed/",
         "US",
     ),
+    # Added because these publish the whole article inside their own feed via
+    # content:encoded, so actor and technique wording is actually present.
+    # Measured mean encoded length in brackets: watchTowr 33k, Check Point
+    # 33k, SentinelOne 18k, Krebs 17k, CyberScoop 6k, SANS ISC 3k.
+    ("watchtowr", "watchTowr Labs research", "https://labs.watchtowr.com/rss/", "SG"),
+    (
+        "checkpoint_research",
+        "Check Point Research",
+        "https://research.checkpoint.com/feed/",
+        "IL",
+    ),
+    (
+        "sentinelone_labs",
+        "SentinelOne Labs",
+        "https://www.sentinelone.com/labs/feed/",
+        "US",
+    ),
+    ("krebs", "Krebs on Security", "https://krebsonsecurity.com/feed/", "US"),
+    ("cyberscoop", "CyberScoop", "https://cyberscoop.com/feed/", "US"),
+    ("sans_isc", "SANS Internet Storm Center", "https://isc.sans.edu/rssfeed_full.xml", "US"),
 ]
 
 

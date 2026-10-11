@@ -63,6 +63,14 @@ APPROVED_HOSTS = {
     "www.cybersecuritydive.com",
     "www.welivesecurity.com",
     "www.microsoft.com",
+    # Publishers that ship the whole article inside their own feed, so actor
+    # and technique wording survives truncation.
+    "labs.watchtowr.com",
+    "research.checkpoint.com",
+    "www.sentinelone.com",
+    "krebsonsecurity.com",
+    "cyberscoop.com",
+    "isc.sans.edu",
     "mastodon.social",
     "lemmy.world",
     "t.me",
