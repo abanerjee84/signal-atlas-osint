@@ -1,4 +1,5 @@
 import time
+from collections import deque
 from datetime import datetime, timezone
 
 from ..models import AircraftMetadata, Report
@@ -21,32 +22,42 @@ class OpenSky(Connector):
     # the full global snapshot every cycle lets one feed dominate totals, storage
     # and query cost, so only this many positions are kept per collection. Cells
     # are still sampled round-robin so coverage stays worldwide.
-    per_cycle_cap = 400
-    limitation = "Worldwide network or configured region; classes 4 (Large) and 5 (High Vortex Large) with reported position and ground track only, capped at 400 current positions and sampled across geographic cells. Current snapshot refreshes every 30 seconds by default while a visible live Aviation layer requests it; provider quota backoff applies. Retained history every 30 minutes. Class 6 and unknown classes/tracks are excluded. Public ADS-B has coverage gaps. Map symbols rotate by reported ground track, not nose heading. Registration country is not departure origin; airports are not provided. Historical storage subject to your provider agreement."
+    per_cycle_cap = 1000
+    limitation = "Worldwide network or configured region; all reported classes with reported position and ground track only, capped at 1000 current positions and sampled across classes and geographic cells. Current snapshot refreshes every 30 seconds by default while a visible live Aviation layer requests it; provider quota backoff applies. Retained history every 30 minutes. Unknown ground tracks are excluded; class and registry military filters are applied in the dashboard. Public ADS-B has coverage gaps. Map symbols rotate by reported ground track, not nose heading. Registration country is not departure origin; airports are not provided. Historical storage subject to your provider agreement."
 
     def metadata(self):
         return {
             **super().metadata(),
             "coverage_scope": "world" if self.settings.opensky_bbox == "world" else "regional",
             "coverage_area": self.settings.opensky_bbox,
-            "record_selection": "classes_4_5_with_reported_track_geographic_sample",
-            "aircraft_categories": [4, 5],
+            "record_selection": "all_classes_with_reported_track_class_geographic_sample",
+            "aircraft_categories": list(range(21)),
             "per_cycle_cap": self.per_cycle_cap,
         }
 
     def select_records(self, records):
-        return spatial_sample(
-            [record for record in records if self.displayable(record)],
-            min(self.per_cycle_cap, self.settings.max_records),
-            lambda record: (record["state"][5], record["state"][6]),
-        )
+        limit = min(self.per_cycle_cap, self.settings.max_records)
+        classes = {}
+        for record in records:
+            if self.displayable(record):
+                classes.setdefault(record["state"][17], []).append(record)
+        groups = [deque(spatial_sample(group, limit, lambda record: (record["state"][5], record["state"][6])))
+                  for group in classes.values()]
+        selected = []
+        while groups and len(selected) < limit:
+            for group in groups:
+                selected.append(group.popleft())
+                if len(selected) == limit:
+                    break
+            groups = [group for group in groups if group]
+        return selected
 
     @staticmethod
     def displayable(record):
         state = record.get("state", [])
         return (
             len(state) > 17
-            and state[17] in (4, 5)
+            and (state[17] is None or isinstance(state[17], int) and 0 <= state[17] <= 20)
             and state[3] is not None
             and state[5] is not None
             and state[6] is not None

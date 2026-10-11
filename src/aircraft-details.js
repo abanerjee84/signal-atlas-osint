@@ -41,8 +41,7 @@ export function trustedAircraftPhoto(photo) {
 let snapshot = {},
   loadedAt = 0,
   pending = null;
-export async function loadAircraftDetails(event) {
-  if (!aircraftIdentity(event)) return null;
+export async function loadAircraftRegistry() {
   if (Date.now() - loadedAt > 20000) {
     pending ||= fetch("/aircraft-details.json", {
       cache: "no-store",
@@ -65,7 +64,12 @@ export async function loadAircraftDetails(event) {
       });
     await pending;
   }
-  return matchedAircraftDetails(event, snapshot[aircraftIdentity(event).hex]);
+  return snapshot;
+}
+export async function loadAircraftDetails(event) {
+  if (!aircraftIdentity(event)) return null;
+  const registry = await loadAircraftRegistry();
+  return matchedAircraftDetails(event, registry[aircraftIdentity(event).hex]);
 }
 
 export function aircraftDetailCard(event, details, interactive = false) {

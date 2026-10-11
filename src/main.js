@@ -14,8 +14,17 @@ import {
 } from "./layer-symbols.js";
 import { CONFLICT_TYPES, conflictType } from "./conflicts.js";
 import { createCountryRibbon } from "./country-ribbon.js";
-import { aircraftFacts } from "./aircraft.js";
-import { aircraftDetailCard, loadAircraftDetails } from "./aircraft-details.js";
+import {
+  aircraftFacts,
+  AIRCRAFT_FILTERS,
+  matchesAircraftFilter,
+  filterLiveAircraft,
+} from "./aircraft.js";
+import {
+  aircraftDetailCard,
+  loadAircraftDetails,
+  loadAircraftRegistry,
+} from "./aircraft-details.js";
 import {
   buildThreatNetwork,
   threatFacts,
@@ -125,6 +134,8 @@ const state = {
   analysisEventIds: null,
   aircraft: null,
   aircraftFilter: "",
+  aircraftClass: readSession("osint.aircraftClass", "military"),
+  aircraftRegistry: {},
   orbits: [],
   orbitalItems: [],
   orbitalLoaded: false,
@@ -152,6 +163,19 @@ const countryRibbon = createCountryRibbon({
   readSession,
   saveSession,
   selectThreatRoute: (edge) => worldMap?.focusThreatRoute(edge),
+});
+if (!AIRCRAFT_FILTERS.some(([value]) => value === state.aircraftClass))
+  state.aircraftClass = "military";
+for (const [value, label] of AIRCRAFT_FILTERS) {
+  const option = element("option", "", label);
+  option.value = value;
+  $("#aviation-class-filter").append(option);
+}
+$("#aviation-class-filter").value = state.aircraftClass;
+$("#aviation-class-filter").addEventListener("change", () => {
+  state.aircraftClass = $("#aviation-class-filter").value;
+  saveSession("osint.aircraftClass", state.aircraftClass);
+  renderEvents();
 });
 for (const [value, label] of [
   ["all", "All evidence · known vectors first"],
@@ -232,7 +256,7 @@ function filters({ sentiment = false } = {}) {
     end: end.toISOString(),
     bbox: $("#viewport-filter").checked ? worldMap?.bounds() : undefined,
     time_basis: $("#time-basis").value,
-    aircraft_categories: [4, 5],
+    aircraft_categories: [],
   };
 }
 function params(options = {}) {
@@ -268,7 +292,7 @@ function renderLayers() {
     count.dataset.count = id;
     count.title =
       id === "aviation"
-        ? "Matching observations for ADS-B classes 4 and 5 with a reported track; the map shows the latest loaded position per aircraft"
+        ? "Matching aircraft for the selected class or database military flag with a reported track; the map shows the latest loaded position per aircraft"
         : "All matching records in the selected period and geography";
     const copy = element("span", "layer-copy");
     const note = element("small", "layer-note");
@@ -569,7 +593,7 @@ function renderSources(status) {
         element(
           "p",
           "helper",
-          `${id === "opensky" ? "Aircraft" : "Thermal detections"}: ${source.coverage_scope === "world" ? "worldwide sample" : "regional coverage"}. ${source.truncated ? `${source.truncated.toLocaleString()} records outside ${id === "opensky" ? "the class/track selection or 400-observation limit" : "the collection bound"}.` : ""}`,
+          `${id === "opensky" ? "Aircraft" : "Thermal detections"}: ${source.coverage_scope === "world" ? "worldwide sample" : "regional coverage"}. ${source.truncated ? `${source.truncated.toLocaleString()} records outside ${id === "opensky" ? "the track selection or collection limit" : "the collection bound"}.` : ""}`,
         ),
       );
   }
@@ -741,6 +765,17 @@ function renderEvents() {
     );
     visible.push(...flights);
   }
+  const aviationCount = visible.filter(
+    (event) =>
+      event.category === "aviation" &&
+      matchesAircraftFilter(event, state.aircraftClass, state.aircraftRegistry),
+  ).length;
+  visible = visible.filter((event) =>
+    matchesAircraftFilter(event, state.aircraftClass, state.aircraftRegistry),
+  );
+  $("#aviation-class-controls").hidden = !state.layers.has("aviation");
+  $("#aviation-class-status").textContent =
+    `${aviationCount} aircraft${state.aircraftClass === "military" ? " · Registry flagged; unknown flags excluded" : ""}`;
   worldMap?.setEvents(visible);
   renderConflictKey(visible);
   updateOrbitalPositions();
@@ -895,14 +930,14 @@ function renderEvents() {
   for (const id of Object.keys(names)) {
     if (["sentiment", "analysis", "threat", "space"].includes(id)) continue;
     const count =
-      id === "aviation" && live
-        ? state.aircraft.items.length
+      id === "aviation"
+        ? aviationCount
         : (state.categoryCounts[id] || 0) +
           (id === "cyber" ? state.threatCount : 0);
     $(`[data-count="${id}"]`).textContent = count.toLocaleString();
     if (id === "aviation")
       $(`[data-count="${id}"]`).title = live
-        ? `${state.aircraft.items.length} current positions; ${(state.categoryCounts[id] || 0).toLocaleString()} retained observations in the selected period`
+        ? `${aviationCount} matching current positions; ${(state.categoryCounts[id] || 0).toLocaleString()} retained observations in the selected period`
         : "Retained observations in the selected period";
     if (id === "cyber")
       $(`[data-count="${id}"]`).title =
@@ -929,7 +964,7 @@ function renderEvents() {
       ? id === "cyber"
         ? "Advisories, attack reports & traffic detections"
         : id === "aviation"
-          ? `Classes 4 & 5 · ${live ? "current positions" : "stored observations"}`
+          ? `${AIRCRAFT_FILTERS.find(([value]) => value === state.aircraftClass)?.[1]} · ${live ? "current positions" : "stored observations"}`
           : id === "economic"
             ? "Business, energy, sanctions and official releases"
             : id === "threat"
@@ -2561,7 +2596,28 @@ async function refreshAircraft() {
     const query = params();
     query.set("viewer", aircraftViewer);
     aircraftDemandSent = true;
-    const result = await api(`aviation/live?${query}`);
+    const [result, registry, file] = await Promise.all([
+      api(`aviation/live?${query}`),
+      loadAircraftRegistry(),
+      fetch("/aircraft-live.json", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ]);
+    state.aircraftRegistry = registry;
+    if (
+      file?.available &&
+      Array.isArray(file.items) &&
+      file.collected_at >= (result.collected_at || "") &&
+      !["disabled", "access_required"].includes(result.source_state)
+    ) {
+      result.items = filterLiveAircraft(file.items, filters());
+      result.collected_at = file.collected_at;
+      result.available = true;
+      result.stale = Date.now() - Date.parse(file.collected_at) > 240000;
+    }
     if (!viewingAircraft() || key !== aircraftFilterKey()) return;
     state.aircraft = result;
     state.aircraftFilter = key;

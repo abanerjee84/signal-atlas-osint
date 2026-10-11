@@ -8,7 +8,7 @@ The generated schema is at `/api/openapi.json`; the interactive development refe
 | `GET /api/status`                                | Per-source access/error/staleness, counts, worker heartbeat and storage                       |
 | `GET /api/layers`                                | Nine SRS layers and associated sources                                                        |
 | `GET /api/events`                                | Filtered bounded event page or GeoJSON FeatureCollection                                      |
-| `GET /api/aviation/live`                         | Bounded current class 4/5 aircraft snapshot with measured altitude, speed, age and collection state |
+| `GET /api/aviation/live`                         | Bounded current all-class aircraft snapshot with measured altitude, speed, age and collection state |
 | `GET /api/events/{event_id}`                     | Event, source reports, review history and all time fields                                     |
 | `GET /api/reports/{report_id}`                   | Original retained metadata and raw payload if still retained                                  |
 | `GET /api/countries/{code}`                      | Country metadata, up to 50 matching events and news coverage sentiment                        |
@@ -30,11 +30,12 @@ The generated schema is at `/api/openapi.json`; the interactive development refe
 
 `categories` is a comma-separated list of layer category identifiers. `q` is a literal search string, at most 200 characters. `country` is an uppercase ISO alpha-2 code. `start` and `end` are timezone-qualified ISO 8601 values; reversed or timezone-less ranges are rejected. `bbox` is `west,south,east,north` in degrees and supports dateline crossing when west is greater than east. Missing coordinates do not match a bbox.
 
-`aircraft_categories=4,5` restricts aviation observations to those declared ADS-B classes with a valid reported ground track and location. It applies before pagination and to category totals and timeline queries; other categories are unaffected. The dashboard always sends this filter. Omitting it retains the raw historical API view. The map draws the latest loaded observation per transponder, so map symbols are aircraft rather than a count of every historical observation.
+`aircraft_categories=4,5` restricts aviation observations to those classes with a valid reported ground track and location. It applies before pagination and to category totals and timeline queries; other categories are unaffected. The collector samples every class OpenSky reports (0-20), so any subset may be requested. The dashboard does not send the filter and filters classes in the browser instead, so switching the Countries-panel selector does not re-query. Omitting it retains the raw historical API view. The map draws the latest loaded observation per transponder, so map symbols are aircraft rather than a count of every historical observation.
 
 The current Aviation view uses `/api/aviation/live` independently of the historical
-page. It applies search, country, period and viewport filters, always restricts
-aircraft to classes 4/5, and excludes positions older than ten minutes. Current
+page. It applies search, country, period and viewport filters, optionally restricts
+aircraft to the requested emitter categories, and excludes positions older than ten
+minutes. Current
 snapshot IDs are stable transponder identifiers, not retained event IDs. Their
 cards link to OpenSky; event analysis and evidence review require retained events.
 Custom dates and historical playback continue to use `/api/events`. See
@@ -101,8 +102,16 @@ Request bodies, including chunked bodies, are capped at 64 KiB. Per-peer applica
 `GET /api/events` returns aviation records with `aircraft_callsign`,
 `aircraft_track_deg` (reported ground track, degrees clockwise from north),
 `aircraft_category`, and `aircraft` measurement metadata when retained. The map
-draws only declared classes 4 (Large) and 5 (High Vortex Large) with a valid
-position and track as yellow aircraft symbols. Other aviation records are
-excluded from the dashboard map. Size class is transponder-declared and is not
-a military classification. See [SOCIAL_MILITARY.md](SOCIAL_MILITARY.md) for
+draws every class OpenSky reports that also has a valid position and track as
+yellow aircraft symbols; the Countries-panel selector narrows that set in the
+browser. `aircraft_category` is OpenSky's own weight and role classification of
+state vector index 17, not the ICAO ADS-B emitter category: 0 is no information,
+1 is no emitter category, 2 Light (<15,500 lb), 3 Small (15,500-75,000 lb), 4 Large
+(75,000-300,000 lb), 5 High Vortex Large (such as B-757), 6 Heavy (>300,000 lb),
+7 High Performance, 8 Rotorcraft, 9 Glider/sailplane, 10 Lighter-than-air,
+11 Parachutist/skydiver, 12 Ultralight/hang-glider/paraglider, 13 Reserved,
+14 Unmanned Aerial Vehicle, 15 Space/trans-atmospheric, 16-17 surface vehicles
+and 18-20 obstacles. Values above 20 are dropped. None of this is a military
+classification; the Military selector uses the separate aircraft registry flag.
+See [SOCIAL_MILITARY.md](SOCIAL_MILITARY.md) for
 coverage and live-access limits.

@@ -216,10 +216,13 @@ def collect_details(database, root=ROOT, photo_budget=12):
         return None
     try:
         with database.connect() as connection:
-            row = connection.execute("SELECT payload FROM aircraft_snapshot WHERE id=1").fetchone()
+            row = connection.execute("SELECT payload,collected_at FROM aircraft_snapshot WHERE id=1").fetchone()
         records = json.loads(row[0]) if row else []
+        target_live = root / "public/aircraft-live.json"
+        target_live.parent.mkdir(parents=True, exist_ok=True)
+        write_status(target_live, {"items": records, "collected_at": row[1] if row else None, "available": bool(row)})
         pairs = [(str(item.get("aircraft", {}).get("icao24", "")).lower(), callsign(item.get("aircraft_callsign")))
-                 for item in records[:400] if utcnow().timestamp() - datetime.fromisoformat(item["time_key"]).timestamp() < 600]
+                 for item in records[:1000] if utcnow().timestamp() - datetime.fromisoformat(item["time_key"]).timestamp() < 600]
         pairs = [(hex_id, name) for hex_id, name in pairs if HEX.fullmatch(hex_id)]
         client = AircraftLookup(root / "data/aircraft-details")
         # Remove obsolete photo/query caches, keeping growth bounded across flights.

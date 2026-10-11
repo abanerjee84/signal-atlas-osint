@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -161,7 +161,7 @@ class Report(BaseModel):
     news: NewsMetadata | None = None
     aircraft_track_deg: float | None = Field(default=None, ge=0, lt=360, allow_inf_nan=False)
     aircraft_callsign: str = Field(default="", max_length=20)
-    aircraft_category: int | None = Field(default=None, ge=0, le=17)
+    aircraft_category: int | None = Field(default=None, ge=0, le=20)
     aircraft: AircraftMetadata | None = None
     threat: ThreatMetadata | None = None
     raw: dict = Field(default_factory=dict)
@@ -209,7 +209,7 @@ class Report(BaseModel):
 
 class Filters(BaseModel):
     categories: list[Category] = Field(default_factory=list)
-    aircraft_categories: list[Literal[4, 5]] = Field(default_factory=list, max_length=2)
+    aircraft_categories: list[Annotated[int, Field(ge=0, le=20)]] = Field(default_factory=list, max_length=21)
     q: str = Field(default="", max_length=200)
     country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
     start: datetime | None = None

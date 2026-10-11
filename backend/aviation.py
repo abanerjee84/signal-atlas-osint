@@ -55,7 +55,7 @@ def current_aircraft(database, filters):
     visible = []
     cutoff = stamp(utcnow() - timedelta(minutes=10))
     for item in items:
-        if item["time_key"] < cutoff or item["aircraft_category"] not in (4, 5):
+        if item["time_key"] < cutoff or (filters.aircraft_categories and item["aircraft_category"] not in filters.aircraft_categories):
             continue
         if filters.country and item["country_code"] != filters.country:
             continue

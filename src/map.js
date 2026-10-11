@@ -62,8 +62,7 @@ function pulseColor(score) {
 const PULSE_DURATION = 1800;
 const PULSE_GAP = 380;
 const PULSE_LIMIT = 18;
-// ADS-B size class: 4 Large (75,000-300,000 lbs), 5 High Vortex. These are
-// the classes selected for this map, declared by the transponder.
+// Aircraft class selection is applied before supplying the map source.
 function aircraftIcon() {
   // Drawn nose-up: icon-rotation-alignment "map" then points it along the track.
   const size = 48;
@@ -1271,8 +1270,6 @@ export function createWorldMap(
       filter: [
         "all",
         ["==", ["get", "category"], "aviation"],
-        // ADS-B size class 4 Large (75,000-300,000 lbs) and 5 High Vortex.
-        ["in", ["get", "aircraft_category"], ["literal", [4, 5]]],
         // Null tracks are absent observations, not a heading of north.
         [">=", ["get", "aircraft_track_deg"], 0],
       ],

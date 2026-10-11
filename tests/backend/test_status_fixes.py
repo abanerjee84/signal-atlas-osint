@@ -200,7 +200,7 @@ async def test_actual_aircraft_selection_bound_and_zero_eligible_success(setting
     settings.opensky_client_id, settings.opensky_client_secret = "synthetic", "synthetic"
     now = int(utcnow().timestamp())
     provider = OpenSky(settings)
-    records = [{"state": [f"{i:06x}", *aircraft_state(now)[1:]], "time": now} for i in range(450)]
+    records = [{"state": [f"{i:06x}", *aircraft_state(now)[1:]], "time": now} for i in range(1050)]
     records += [
         {"state": aircraft_state(now, category=6), "time": now},
         {"state": aircraft_state(now, track=None), "time": now},
@@ -211,8 +211,8 @@ async def test_actual_aircraft_selection_bound_and_zero_eligible_success(setting
 
     provider.fetch = fetch
     result = await collect(provider, database, None)
-    assert result["stored"] == 400 and result["truncated"] == 52
-    records[:] = [{"state": aircraft_state(now, category=6), "time": now}]
+    assert result["stored"] == 1000 and result["truncated"] == 52
+    records[:] = [{"state": aircraft_state(now, track=None), "time": now}]
     result = await collect(provider, database, None)
     assert result["state"] == "ok" and result["stored"] == 0 and result["truncated"] == 1
 
@@ -236,4 +236,17 @@ def test_aircraft_filter_applies_before_pagination_and_to_counts(settings, repor
         result = client.get("/api/events?aircraft_categories=4,5&limit=1&order=balanced").json()
         assert result["total"] == 3 and result["category_counts"]["aviation"] == 2
         assert client.get("/api/events?categories=aviation&aircraft_categories=4,5").json()["total"] == 2
-        assert client.get("/api/events?aircraft_categories=6").status_code == 422
+        assert client.get("/api/events?categories=aviation&aircraft_categories=6").json()["total"] == 1
+        # OpenSky documents classes 0-20; only values outside that range are rejected.
+        assert client.get("/api/events?aircraft_categories=20").status_code == 200
+        assert client.get("/api/events?aircraft_categories=21").status_code == 422
+
+
+def test_collector_preserves_rare_classes_in_bounded_global_sample(settings):
+    provider = OpenSky(settings)
+    now = int(utcnow().timestamp())
+    records = [{"state": [f"{i:06x}", *aircraft_state(now, category=0)[1:]], "time": now} for i in range(1500)]
+    records += [{"state": aircraft_state(now, category=category), "time": now} for category in range(1, 7)]
+    selected = provider.select_records(records)
+    assert len(selected) == 1000
+    assert set(range(7)) == {record["state"][17] for record in selected}

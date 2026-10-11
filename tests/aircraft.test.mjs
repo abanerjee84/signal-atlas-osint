@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  AIRCRAFT_FILTERS,
   eligibleAircraft,
   latestAircraft,
   aircraftTransition,
   aircraftFacts,
+  matchesAircraftFilter,
+  filterLiveAircraft,
 } from "../src/aircraft.js";
 
 const observation = {
@@ -18,8 +21,14 @@ const observation = {
   time_key: "2026-10-10T12:00:00+00:00",
 };
 
-test("only classes 4 and 5 with actual tracks qualify, including true north", () => {
+test("any reported class with an actual track qualifies, including true north", () => {
   assert.equal(eligibleAircraft(observation), true);
+  for (const aircraft_category of [...Array(21).keys(), null])
+    assert.equal(
+      eligibleAircraft({ ...observation, aircraft_category }),
+      true,
+      `class ${aircraft_category} should qualify`,
+    );
   assert.equal(
     eligibleAircraft({
       ...observation,
@@ -28,11 +37,6 @@ test("only classes 4 and 5 with actual tracks qualify, including true north", ()
     }),
     true,
   );
-  for (const aircraft_category of [null, 0, 1, 2, 3, 6, 7, 8])
-    assert.equal(
-      eligibleAircraft({ ...observation, aircraft_category }),
-      false,
-    );
   for (const aircraft_track_deg of [null, undefined, NaN, Infinity, -1, 360])
     assert.equal(
       eligibleAircraft({ ...observation, aircraft_track_deg }),
@@ -99,4 +103,95 @@ test("history draws the latest loaded position per transponder without changing 
     observation,
     other,
   ]);
+});
+
+test("selector leads with the military flag, then all classes and every provider class", () => {
+  const values = AIRCRAFT_FILTERS.map(([value]) => value);
+  assert.equal(new Set(values).size, values.length);
+  assert.equal(values[0], "military");
+  assert.equal(values[1], "all");
+  for (const value of [...Array(21).keys()].map(String))
+    assert.ok(values.includes(value), `missing class ${value}`);
+  for (const [value] of AIRCRAFT_FILTERS)
+    assert.equal(
+      matchesAircraftFilter({ ...observation, aircraft_category: 12 }, value),
+      value === "all" || value === "12",
+      `class 12 against ${value}`,
+    );
+});
+
+test("class and military filters use measured class and explicit registry identity", () => {
+  const event = {
+    ...observation,
+    aircraft_category: 2,
+    aircraft: { icao24: "abcdef" },
+  };
+  assert.equal(eligibleAircraft(event, "all"), true);
+  assert.equal(matchesAircraftFilter(event, "2"), true);
+  assert.equal(matchesAircraftFilter(event, "3"), false);
+  assert.equal(
+    matchesAircraftFilter(event, "military", {
+      abcdef: { icao24: "abcdef", military: true },
+    }),
+    true,
+  );
+  for (const record of [
+    { military: true },
+    { icao24: "bbbbbb", military: true },
+    { icao24: "abcdef", military: false },
+  ])
+    assert.equal(
+      matchesAircraftFilter(event, "military", { abcdef: record }),
+      false,
+    );
+  assert.equal(
+    matchesAircraftFilter(
+      { ...event, title: "MILITARY US AIR FORCE" },
+      "military",
+    ),
+    false,
+  );
+  assert.equal(
+    matchesAircraftFilter({ ...event, category: "military" }, "2"),
+    true,
+  );
+});
+
+test("live file snapshots respect geographic focus, dates and dateline bounds", () => {
+  const event = {
+    ...observation,
+    aircraft_category: 1,
+    country_code: "IN",
+    title: "Aircraft TEST1",
+    description: "ICAO abcdef",
+  };
+  assert.deepEqual(filterLiveAircraft([event], { country: "IN", q: "test1" }), [
+    event,
+  ]);
+  assert.deepEqual(filterLiveAircraft([event], { country: "US" }), []);
+  assert.deepEqual(
+    filterLiveAircraft([event], { start: "2026-10-10T12:00:01Z" }),
+    [],
+  );
+  assert.deepEqual(
+    filterLiveAircraft([event], { end: "2026-10-10T11:59:59Z" }),
+    [],
+  );
+  assert.deepEqual(filterLiveAircraft([event], { bbox: [70, 10, 80, 30] }), [
+    event,
+  ]);
+  assert.deepEqual(
+    filterLiveAircraft([event], { bbox: [170, -30, -170, 30] }),
+    [],
+  );
+  assert.equal(
+    filterLiveAircraft([{ ...event, longitude: -179 }], {
+      bbox: [170, -30, -170, 30],
+    }).length,
+    1,
+  );
+  assert.deepEqual(
+    filterLiveAircraft([{ ...event, aircraft_track_deg: null }], {}),
+    [],
+  );
 });

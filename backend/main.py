@@ -37,7 +37,7 @@ def parse_filters(
     end: datetime | None = None,
     bbox: str | None = Query(None, max_length=100),
     time_basis: str = Query("event", pattern="^(event|published|ingested)$"),
-    aircraft_categories: str = Query("", max_length=3),
+    aircraft_categories: str = Query("", max_length=50),
 ) -> Filters:
     try:
         values = tuple(float(part) for part in bbox.split(",")) if bbox else None
