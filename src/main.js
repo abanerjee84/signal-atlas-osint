@@ -22,8 +22,11 @@ import {
 } from "./aircraft.js";
 import {
   aircraftDetailCard,
+  aircraftDetailsFor,
+  aircraftPhotoFigure,
   loadAircraftDetails,
   loadAircraftRegistry,
+  refreshAircraftRegistry,
 } from "./aircraft-details.js";
 import {
   buildThreatNetwork,
@@ -134,7 +137,7 @@ const state = {
   analysisEventIds: null,
   aircraft: null,
   aircraftFilter: "",
-  aircraftClass: readSession("osint.aircraftClass", "military"),
+  aircraftClass: readSession("osint.aircraftClass", "all"),
   aircraftRegistry: {},
   orbits: [],
   orbitalItems: [],
@@ -165,7 +168,7 @@ const countryRibbon = createCountryRibbon({
   selectThreatRoute: (edge) => worldMap?.focusThreatRoute(edge),
 });
 if (!AIRCRAFT_FILTERS.some(([value]) => value === state.aircraftClass))
-  state.aircraftClass = "military";
+  state.aircraftClass = "all";
 for (const [value, label] of AIRCRAFT_FILTERS) {
   const option = element("option", "", label);
   option.value = value;
@@ -308,7 +311,11 @@ function renderLayers() {
           ? state.layers.add("threat")
           : state.layers.delete("threat");
       saveSession("osint.layers", [...state.layers]);
-      if (id === "aviation") refreshAircraft();
+      if (id === "aviation") {
+        // Warm the aircraft registry so the first hover paints from cache.
+        if (input.checked) refreshAircraftRegistry();
+        refreshAircraft();
+      }
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
       if (id === "analysis") {
@@ -701,6 +708,25 @@ function renderSources(status) {
   }
 }
 
+function attachAircraftPhoto(event, button, anchor) {
+  const paint = (details) => {
+    const photo = aircraftPhotoFigure(event, details);
+    if (photo) {
+      photo.classList.add("aircraft-photo-feed");
+      anchor.after(photo);
+    }
+  };
+  const cached = aircraftDetailsFor(event);
+  if (cached) return paint(cached);
+  refreshAircraftRegistry().then(() => {
+    // The feed reconciles rows in place, so a row replaced since this lookup
+    // started must not gain a photograph resolved for a different event.
+    if (!button.isConnected || !anchor.isConnected) return;
+    if (button.dataset.eventId !== event.event_id) return;
+    paint(aircraftDetailsFor(event));
+  });
+}
+
 const eventRows = new Map();
 function renderEvents() {
   $("#radware-vector-panel").hidden = !state.layers.has("threat");
@@ -857,6 +883,7 @@ function renderEvents() {
           element("dd", "", facts[label]),
         );
       button.append(flight);
+      attachAircraftPhoto(event, button, flight);
     } else if (event.category === "threat") {
       const facts = threatFacts(event);
       button.append(element("p", "event-excerpt", threatCaption(facts)));

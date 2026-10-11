@@ -1572,6 +1572,15 @@ summary span {
   text-align: right;
   overflow-wrap: anywhere;
 }
+.aircraft-photo-feed {
+  margin: 6px 0 0;
+}
+.aircraft-photo-feed img {
+  height: 96px;
+}
+.aircraft-photo-feed figcaption {
+  font-size: 9px;
+}
 .aircraft-live-status {
   margin: 6px 0 0;
   max-width: 48ch;

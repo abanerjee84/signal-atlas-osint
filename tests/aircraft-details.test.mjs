@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  aircraftDetailsFor,
   matchedAircraftDetails,
   trustedAircraftPhoto,
 } from "../src/aircraft-details.js";
@@ -45,6 +46,23 @@ test("aircraft images permit only the credited photo provider", () => {
     null,
   );
   assert.equal(trustedAircraftPhoto({ ...photo, credit: "" }), null);
+});
+test("registry lookups resolve by hex and never by callsign alone", () => {
+  const event = {
+    aircraft: { icao24: "abcdef" },
+    aircraft_callsign: "TEST123",
+  };
+  const detail = { icao24: "abcdef", callsign: "TEST123" };
+  const registry = { abcdef: detail, 999999: { icao24: "999999" } };
+  assert.equal(aircraftDetailsFor(event, registry), detail);
+  assert.equal(aircraftDetailsFor({ aircraft: {} }, registry), null);
+  assert.equal(
+    aircraftDetailsFor(
+      { aircraft: { icao24: "abcdef" }, aircraft_callsign: "OTHER" },
+      registry,
+    ),
+    null,
+  );
 });
 test("observed position interpolation fills the 30 second cadence without extrapolation", () => {
   const previous = { time_key: "2026-10-11T15:00:00Z" };
