@@ -1,7 +1,6 @@
 import logging
 import secrets
 import sqlite3
-import ssl
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Annotated
@@ -73,7 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Repository(database).register(providers)
         async with httpx.AsyncClient(
             timeout=config.ai_timeout,
-            verify=ssl.create_default_context(),
+            verify=True,
             limits=httpx.Limits(max_connections=4),
         ) as client:
             app.state.ai = AIService(config, database, client)

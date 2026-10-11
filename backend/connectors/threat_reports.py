@@ -63,7 +63,9 @@ class ThreatFeed(RSS):
             # Where a publisher ships the whole article inside its own feed,
             # that text is used for actor and malware matching. Nothing is
             # fetched from the article page itself.
-            text_limit=12000,
+            # Bounded by the Report model's 10,000 character description
+            # limit; anything longer fails validation and the record is lost.
+            text_limit=9000,
         )
 
     def select_records(self, records):

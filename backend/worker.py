@@ -6,7 +6,6 @@ import json
 import logging
 import signal
 import sqlite3
-import ssl
 import time
 import uuid
 from contextlib import suppress
@@ -176,9 +175,12 @@ async def run(once: bool = False, source: str | None = None):
         except NotImplementedError:
             pass
     semaphore = asyncio.Semaphore(settings.connector_concurrency)
+    # httpx's bundled certificate store, not the platform store: on Windows
+    # the system context prefers expired cross-signed intermediates and
+    # rejects chains that verify fine everywhere else.
     async with httpx.AsyncClient(
         timeout=settings.http_timeout,
-        verify=ssl.create_default_context(),
+        verify=True,
         limits=httpx.Limits(max_connections=4),
         headers={"User-Agent": "GlobalOSINT/0.1 public-source-research"},
     ) as client:
