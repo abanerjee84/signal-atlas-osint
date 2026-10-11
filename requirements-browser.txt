@@ -1,0 +1,6 @@
+# Optional JS-rendered Bitdefender table gathering and existing-app visual tests.
+# Install Chromium explicitly (or supply --chromium); opens no server port.
+-r requirements.txt
+playwright==1.63.0
+pyee==13.0.1
+greenlet==3.5.6

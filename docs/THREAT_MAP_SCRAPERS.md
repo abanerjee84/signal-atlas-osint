@@ -1,50 +1,39 @@
-# Public threat map scrapers
+# Public threat-map collection
 
-Inspection date: 11 October 2026. The Python adapters in `backend/connectors/threat_maps.py` read the public transports used by the requested maps. They run bounded collection jobs in the existing collector, require no credentials and do not create a server.
+Verified on 11 October 2026 against the existing application. Collection requires no keys and opens no server port.
 
-| Site | Observed delivery | Result on this host |
-| --- | --- | --- |
-| [BunkerWeb threat map](https://www.bunkerweb.io/threatmap/) | Its public page configures `https://threatmap.bunkerweb.io`; its [map script](https://www.bunkerweb.io/wp-content/uploads/threatmap/js/datamap.main.js) subscribes to `/stream` using EventSource. | Ordinary HTTPS returned 200 and `text/event-stream`. Real country-pair detections were collected and stored. |
-| [Bitdefender threat map](https://threatmap.bitdefender.com/) | Its [public client](https://threatmap.bitdefender.com/js/ws.js) subscribes to 13 channels through Socket.IO. Browser requests use `/socket.io/?EIO=3&transport=polling`. | Browser and Python requests returned plain `ok` instead of the required Engine.IO handshake. The collector reports that failure. No live Bitdefender observations could be verified. |
+| Provider                                                    | Collection                                                                                                                                                                                                                                                                                                              | Timing and meaning                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Bitdefender](https://threatmap.bitdefender.com/)           | Python Playwright keeps the normal public page open and reads its five-column bottom table. Only **ATTACK** rows are accepted, with origin and target from the country columns. INFECTION, SPAM, N/A targets and unsupported countries are excluded.                                                                    | Read every 10 seconds. Stable row hashes deduplicate unchanged table snapshots. The displayed time omits the year, so occurrence remains unknown.                                                                                                                                           |
+| [BunkerWeb](https://www.bunkerweb.io/threatmap/)            | HTTPX reads the public SSE transport at `threatmap.bunkerweb.io/stream`. Origin, target, reason and provider time are retained.                                                                                                                                                                                         | Four-second bounded samples every 10 seconds. Events outside each window are missed. Its time-of-day text has no established date/timezone; receipt is the timeline fallback.                                                                                                               |
+| [Imperva](https://www.imperva.com/cyber-threat-attack-map/) | The normal page loads public compressed CSV under `/public/threat-map-data-v2/day=YYYY-MM-DD/data/HOUR.gz`. The optional renderer observes that response. Columns match the table: source, target, industry, category, attack, client, requests and hour. HTTPX remains available where ordinary public downloads work. | Checked every 15 minutes because its reporting period is daily. At most 100 rows are sampled round-robin across country pairs. Request counts are not distinct attacks. The reporting-period end controls publication/date filters: select Last 7 days to see datasets older than 24 hours. |
 
-The Bitdefender collector decodes Engine.IO v3 text framing, including JavaScript UTF-16 lengths, reads a valid session handshake, subscribes to the site's published channels and processes `ev` batches. This protocol path is covered by synthetic transport tests in temporary databases. It has not been verified against a working live feed because the provider transport was unavailable. No simulation functions from the provider's JavaScript are used.
+The direct Bitdefender polling transport returned an invalid handshake; its legacy HTTP adapter reports that failure. Imperva returned a 200 HTML “Pardon Our Interruption” page to the research HTTP client. Its normal rendered page loaded a public dataset successfully. No user-agent impersonation, cookie copying, CAPTCHA solving or challenge bypass is used. If normal page delivery fails, collection remains blocked and appears in source health.
 
-BunkerWeb sends `attacker`, `target`, `reason` and `date` fields. Its use of the word “attacker” does not establish human attribution: the adapter records **traffic origin country**, destination and the provider's blocking reason. Bitdefender's public rendering code distinguishes `from`/`to` geography from a single `loc` detection; the collector preserves that distinction when the stream works. Location-only detections create no directed route.
+## Gathering thread
 
-## Sampling and time
-
-Each job reads at most 20 seconds of stream traffic and stores at most 100 observations, also respecting the global record limit. The data-gathering thread fires every **120 seconds**, measured from the start of each cycle. Provider errors and throttling respect persisted backoff; a cycle can skip a source until its deadline. The window samples provider coverage; it misses events outside the collection window and cannot estimate worldwide attack volume. There is no fabricated replay or extrapolated packet timing.
-
-BunkerWeb's observed `date` is a time of day without an established date or timezone. It is retained as an opaque provider timestamp. Occurrence time remains unknown; the timeline uses the observation's receipt time, labelled in its details. Bitdefender numeric timestamps follow its `moment(evt.ts)` millisecond interpretation; invalid or future timestamps remain unknown. Receipt time remains separate.
-
-Observation IDs identify individual deliveries within a bounded collection, not unique verified attacks. The same attack can generate multiple requests, and upstream replay cannot be ruled out when no unique event ID is supplied. Routes aggregate observations by provider, reason and country pair. Identical report URLs are deduplicated separately from telemetry.
-
-## Location and attribution
-
-Country references use illustrative Natural Earth label coordinates. The bundled 1:110m polygons omit small countries including Singapore. A separate public-domain [reference point file](../public/country-context.geojson) supplies 64 omitted countries/territories from Natural Earth's 1:10m data; it adds no boundary polygons. [Source and downloaded-file checksum](../public/COUNTRY_CONTEXT_LICENSE.txt) are retained. Unsupported country codes remain unknown, and missing coordinates never become `(0, 0)`.
-
-Telemetry records have `actor="Unknown actor"`, no attributed attacker country and no confirmed victim-country role. Traffic geography, observed detections and published attribution remain separate model fields. No human identity is inferred from an IP, publisher, actor alias or infrastructure country.
-
-## Collection controls
-
-- Only approved public HTTPS destinations and ports are read. Robots policies are checked. Redirects in robots reads are bounded and every hop is validated; stream redirects are rejected.
-- Response bytes, line sizes, record count and sample duration are bounded. Streams close on cancellation or reaching the sampling bound. Denials and throttling stop collection and appear in source health.
-- Only whitelisted country, type/reason and timing fields are stored. Upstream IPs, URLs of attacked resources, socket session identifiers and arbitrary payload fields are discarded.
-- Per-source telemetry history is capped at 2,000 observations and seven days, independent of the published report retention. Deleting old observations cascades to their stored reports and raw records. Previously collected samples remain visible after a provider error.
-- TLS verification stays enabled. No login cookies, proxies, CAPTCHA solving, guarded endpoints or access-control bypass are used. Ordinary public access does not grant unrestricted republication rights; provider terms apply.
-
-To collect once against an already initialized application database:
+The database must already be initialized. Install the optional renderer deliberately:
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.collect_public_updates --source bunkerweb_threatmap --source bitdefender_threatmap
-```
-
-The command respects persisted deadlines and locks, writes only real observations and safe aggregate health, and exits. It does not start or stop any server.
-
-For the requested gathering thread against the existing database:
-
-```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-browser.txt
+.\.venv\Scripts\python.exe -m playwright install chromium
 .\.venv\Scripts\python.exe -m scripts.collect_threat_maps --watch
 ```
 
-This collector opens no listening port. A renewable database lease prevents duplicate gathering processes. Its local heartbeat is written to ignored `data/run/threat-map-thread.json`; the dashboard reads an ignored aggregate health bridge at `public/threatmap-status.json`. Status updates use atomic replacement with bounded retries for Windows reader locks. Only the disposable public bridge permits an in-place fallback if a persistent reader prevents deletion; the UI treats a concurrent JSON parse failure as unavailable. The background instance was launched hidden with `pythonw.exe` on this host at the user's request; it does not install a startup task or survive a machine restart. The normal application worker also uses the two-minute source interval after its next user-controlled reload. Existing servers were left untouched.
+An installed Chromium may be supplied with `--chromium "absolute-path-to-chrome"`. `--no-browser` uses legacy HTTP transports only. Playwright is a pinned optional dependency because the requested bottom table is generated by JavaScript; core server requirements are unchanged. One browser with two public pages fits within the 8 GB target. The gatherer does not install a startup task or survive a machine restart automatically.
+
+A single sequential thread fires every **10 seconds**, measured from each cycle's start. Initial page loads or slow networks can delay a cycle; overlapping jobs never launch. A 30-second cycle ceiling bounds stalled sources and shutdown. Persisted backoff applies independently, including Imperva's 900-second deadline. Robots policies are cached for ten minutes and evaluated for each destination.
+
+To stop only this gathering process gracefully, create `data/run/threat-map-thread.stop`. It finishes or cancels bounded collection, closes its browser, marks its heartbeat stopped and releases its renewable database lease. A new gathering process clears the stop file after obtaining that lease. This mechanism never starts, stops or restarts application servers.
+
+The ignored heartbeat is `data/run/threat-map-thread.json`. Older running APIs use the ignored aggregate health bridge `public/threatmap-status.json`; it contains status and counts, not private posts, IPs or credentials. Atomic status replacement retries Windows reader locks. Only the disposable public bridge permits an in-place fallback; the UI tolerates a partial JSON read.
+
+## Evidence and map behavior
+
+Traffic origin describes infrastructure geography, never human identity or nationality. Records retain `actor="Unknown actor"` and separate traffic-origin/target fields. Published actor attribution is another evidence class. Country centers are illustrative; the Natural Earth [supplement](../public/country-context.geojson) includes small countries absent from the bundled polygons.
+
+The top legend uses amber **A** for origin, cyan **V** for target and cyan arrows for observed traffic. Magenta identifies published attribution; gold highlights a selected route. These colors distinguish roles and evidence, not severity or sentiment. Small icons show source titles, country roles, counts, last-seen time and daily periods on hover. Clicking opens evidence. The Countries ribbon supplies equivalent routes and provider filters for keyboard users.
+
+Every displayed non-domestic route has arrows replaying over six seconds. Animation illustrates **direction**, not packet timing or newly occurring attacks. Same-country detections retain both endpoint roles without inventing a cross-country path. Motion is throttled and paused for hidden/offscreen maps and reduced-motion preferences. The dashboard refreshes telemetry every ten seconds without rerunning its entire query.
+
+Only whitelisted geography, type, timing, aggregate request counts, industry and client type are stored. IPs, attacked-resource URLs, cookies and arbitrary payloads are discarded. Imperva input is capped at 1 MiB compressed and 8 MiB expanded. Each provider retains at most 2,000 observations and seven days, independently of published reports. Repeated snapshots are deduplicated, but provider rows do not establish unique incidents or worldwide totals. Coverage and provider terms still apply.

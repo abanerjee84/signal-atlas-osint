@@ -21,7 +21,7 @@ from backend.worker import collect
 from scripts.collection_status import write_status
 
 
-async def collect_once(source_ids=None):
+async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None):
     settings = Settings()
     database = Database(settings.database)
     # Uses the already initialized running database; no migration or resident worker.
@@ -49,6 +49,8 @@ async def collect_once(source_ids=None):
         limits=httpx.Limits(max_connections=2),
     ) as client:
         http = SafeHTTP(settings, client)
+        http.threat_table_reader = table_reader
+        http.robots_cache = robots_cache if robots_cache is not None else {}
 
         async def run(provider):
             async with gate:

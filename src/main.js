@@ -288,7 +288,7 @@ function renderSources(status) {
           "p",
           "helper",
           source.background_collection
-            ? "Background feed thread · every 2 minutes"
+            ? "Background feed thread · every 10 seconds"
             : "Stored collection result. Scheduled updates begin after your next collector reload.",
         ),
       );
@@ -1160,7 +1160,7 @@ async function refresh() {
       api(`cross-category?${query}`, { signal }),
       api(`cyber/relations?${query}`, { signal }),
       api(`events?${threatQuery}&limit=500`, { signal }),
-      api(`events?${telemetryQuery}&limit=300`, { signal }),
+      loadThreatTelemetry(telemetryQuery, signal),
       fetch("/threatmap-status.json", { signal, cache: "no-store" })
         .then((response) => response.json())
         .catch(() => null),
@@ -1218,9 +1218,11 @@ async function refresh() {
         results[14].status === "fulfilled" ? results[14].value : null;
       for (const source of bridge?.connectors || []) {
         if (
-          !["bitdefender_threatmap", "bunkerweb_threatmap"].includes(
-            source.source_id,
-          ) ||
+          ![
+            "bitdefender_threatmap",
+            "bunkerweb_threatmap",
+            "imperva_threatmap",
+          ].includes(source.source_id) ||
           status.connectors.some((item) => item.source_id === source.source_id)
         )
           continue;
@@ -1230,7 +1232,7 @@ async function refresh() {
           compatibility_only: true,
           background_collection:
             bridge.background_collection === true &&
-            Date.now() - Date.parse(bridge.checked_at) < 240000,
+            Date.now() - Date.parse(bridge.checked_at) < 30000,
           stale:
             !Number.isFinite(last) ||
             Date.now() - last > (source.interval_seconds || 120) * 2000,
@@ -1240,15 +1242,17 @@ async function refresh() {
       renderSources(status);
       $("#threat-stream-health").replaceChildren();
       for (const source of status.connectors.filter((item) =>
-        ["bitdefender_threatmap", "bunkerweb_threatmap"].includes(
-          item.source_id,
-        ),
+        [
+          "bitdefender_threatmap",
+          "bunkerweb_threatmap",
+          "imperva_threatmap",
+        ].includes(item.source_id),
       )) {
         $("#threat-stream-health").append(
           element(
             "p",
             "helper",
-            `${source.name}: ${source.state === "ok" ? `${source.stored} sampled observations · received ${relativeTime(source.last_success)}${source.stale ? " · sample stale" : ""}` : source.error || source.state}.${source.compatibility_only ? (source.background_collection ? " Background collection every 2 minutes." : " Scheduled updates pending your next collector reload.") : ""}`,
+            `${source.name}: ${source.state === "ok" ? `${source.stored} sampled observations · received ${relativeTime(source.last_success)}${source.stale ? " · sample stale" : ""}` : source.error || source.state}.${source.compatibility_only ? (source.background_collection ? " Background collection every 10 seconds." : " Scheduled updates pending your next collector reload.") : ""}`,
           ),
         );
       }
@@ -1573,7 +1577,7 @@ function renderNetworkSummary() {
   const parts = [];
   if (state.layers.has("threat") && state.threatNetwork) {
     parts.push(
-      `Cyber detections: ${state.threatNetwork.report_count} published attack reports · ${state.threatNetwork.observation_count} sampled detections · ${state.threatNetwork.edges.filter((edge) => edge.kind === "reported_attacker_to_victim").length} attribution links · ${state.threatNetwork.edges.filter((edge) => edge.kind === "observed_traffic_to_target").length} traffic routes`,
+      `Cyber evidence: ${state.threatNetwork.report_count} published attack reports · ${state.threatNetwork.observation_count} sampled detections${state.threatNetwork.aggregate_count ? ` · ${state.threatNetwork.aggregate_count} daily aggregate rows` : ""} · ${state.threatNetwork.edges.filter((edge) => edge.kind === "reported_attacker_to_victim").length} attribution links · ${state.threatNetwork.edges.filter((edge) => edge.kind === "observed_traffic_to_target").length} traffic routes`,
     );
     const note = $('[data-layer-note="cyber"]');
     if (note) note.textContent = "Advisories, reports & traffic country routes";
@@ -1987,6 +1991,117 @@ async function refreshAircraft() {
   }
 }
 setInterval(refreshAircraft, 15000);
+const threatProviders = [
+  "bitdefender_threatmap",
+  "bunkerweb_threatmap",
+  "imperva_threatmap",
+];
+async function loadThreatTelemetry(query, signal) {
+  const results = await Promise.allSettled(
+    [
+      "Bitdefender detections:",
+      "BunkerWeb WAF:",
+      "Imperva daily attack requests:",
+    ].map((name) => {
+      const sourceQuery = new URLSearchParams(query);
+      sourceQuery.set("q", name);
+      return api(`events?${sourceQuery}&limit=100&order=balanced`, { signal });
+    }),
+  );
+  if (results.every((r) => r.status === "rejected")) throw results[0].reason;
+  return {
+    items: results.flatMap((r) =>
+      r.status === "fulfilled"
+        ? r.value.items.filter(
+            (e) =>
+              e.category === "threat" && threatProviders.includes(e.source_id),
+          )
+        : [],
+    ),
+    failed_sources: results.flatMap((r, i) =>
+      r.status === "rejected" ? [threatProviders[i]] : [],
+    ),
+  };
+}
+let threatBusy = false;
+async function refreshThreatFeeds() {
+  if (
+    threatBusy ||
+    document.hidden ||
+    !worldMap ||
+    !state.layers.has("threat") ||
+    $("#refresh").disabled ||
+    playbackTimer ||
+    Number($("#playhead").value) !== 100
+  )
+    return;
+  threatBusy = true;
+  const key = aircraftFilterKey(),
+    controller = refreshController;
+  try {
+    const query = new URLSearchParams(params());
+    for (const field of [
+      "categories",
+      "aircraft_categories",
+      "country",
+      "bbox",
+    ])
+      query.delete(field);
+    const [data, bridge] = await Promise.all([
+      loadThreatTelemetry(query),
+      fetch("/threatmap-status.json", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null),
+    ]);
+    if (
+      key !== aircraftFilterKey() ||
+      controller !== refreshController ||
+      !state.layers.has("threat")
+    )
+      return;
+    const oldCount = state.threatCount;
+    state.threatNetwork = buildThreatNetwork(
+      [
+        ...state.threatEvents.filter(
+          (e) =>
+            !e.tags?.includes("threat-telemetry") ||
+            data.failed_sources.includes(e.source_id),
+        ),
+        ...data.items,
+      ],
+      state.world.features.map((f) => f.properties),
+      {
+        country: state.country,
+        bbox: $("#viewport-filter").checked ? worldMap.bounds() : null,
+        q: state.q,
+      },
+    );
+    state.threatEvents = state.threatNetwork.events;
+    state.threatCount = state.threatEvents.length;
+    state.categoryCounts.threat = state.threatCount;
+    state.total = Math.max(0, state.total - oldCount + state.threatCount);
+    renderEvents();
+    renderCountryActivity();
+    if (bridge) {
+      $("#threat-stream-health").replaceChildren();
+      for (const source of bridge.connectors || []) {
+        if (!threatProviders.includes(source.source_id)) continue;
+        $("#threat-stream-health").append(
+          element(
+            "p",
+            "helper",
+            `${source.name}: ${source.state === "ok" ? `${source.stored} rows in latest sample · ${relativeTime(source.last_success)}` : source.error || source.state}. ${source.source_id === "imperva_threatmap" ? "Daily reporting period; choose Last 7 days to see older rows. Checked every 15 minutes." : "Gatherer checks every 10 seconds; empty samples are possible."}`,
+          ),
+        );
+      }
+    }
+  } catch {
+    /* Last successful evidence stays visible; provider health records collection failures. */
+  } finally {
+    threatBusy = false;
+  }
+}
+setInterval(refreshThreatFeeds, 10000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refreshAircraft();
 });

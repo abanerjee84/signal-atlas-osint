@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { connectionGeometry, pointAlong } from "../src/geo-lines.js";
+test("arrows keep advancing through the last segment instead of pausing", () => {
+  const route = connectionGeometry([0, 0], [32, 0]);
+  assert.notDeepEqual(pointAlong(route, 0.98), pointAlong(route, 0.99));
+  assert.ok(pointAlong(route, 0.99)[0] < pointAlong(route, 1)[0]);
+});
 
 test("dateline connections remain finite and do not cross the entire map", () => {
   const geometry = connectionGeometry([170, 30], [-170, 40]);

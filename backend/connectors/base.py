@@ -16,6 +16,7 @@ from ..config import Settings
 from ..models import Report
 
 APPROVED_HOSTS = {
+    "www.imperva.com",
     "threatmap.bitdefender.com",
     "threatmap.bunkerweb.io",
     "www.bunkerweb.io",

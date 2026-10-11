@@ -30,6 +30,8 @@ export function threatFacts(event) {
       null,
     detection_country:
       event.threat?.detection_country || value("detection-country:") || null,
+    reporting_period: value("reporting-period:") || "",
+    provider_requests: Number(value("provider-requests:")) || 0,
   };
 }
 
@@ -43,6 +45,8 @@ const roles = (facts) =>
       ].filter(Boolean);
 
 export function threatCaption(facts) {
+  if (facts.reporting_period)
+    return `Daily aggregate · ${facts.attack_kind}. ${facts.provider_requests.toLocaleString()} provider requests · ${facts.reporting_period}. Infrastructure: ${facts.traffic_origin_country || "unknown"} → ${facts.traffic_target_country || "unknown"}. Actor unknown.`;
   return facts.classification === "reported_attack"
     ? `${facts.actor} · ${facts.attack_kind}. Reported attribution: ${facts.attacker_country || "unknown"} → ${facts.victim_countries.join(", ") || "unknown targets"}.`
     : facts.classification === "detection"
@@ -100,7 +104,7 @@ export function buildThreatNetwork(events, places, selection = {}) {
         (origin === victim && !traffic)
       )
         continue;
-      const id = `${origin}:${victim}:${traffic ? event.source_id : facts.actor}:${traffic ? facts.attack_kind : "report"}`;
+      const id = `${origin}:${victim}:${traffic ? event.source_id : facts.actor}:${traffic ? facts.attack_kind : "report"}${facts.reporting_period ? ":" + facts.reporting_period : ""}`;
       const edge = groups.get(id) || {
         id,
         kind: traffic
@@ -112,6 +116,9 @@ export function buildThreatNetwork(events, places, selection = {}) {
         source_id: event.source_id,
         domestic: origin === victim,
         count: 0,
+        reporting_period: facts.reporting_period,
+        request_count: 0,
+        last_seen: "",
         from_coordinates: byCode.get(origin).center,
         to_coordinates: byCode.get(victim).center,
         titles: [],
@@ -129,6 +136,9 @@ export function buildThreatNetwork(events, places, selection = {}) {
       )
         continue;
       edge.count++;
+      edge.request_count += facts.provider_requests;
+      if ((event.updated_at || event.time_key || "") > edge.last_seen)
+        edge.last_seen = event.updated_at || event.time_key;
       edge.titles.push(event.title);
       edge.event_ids.push(event.event_id);
       edge.source_urls.push(event.source_url);
@@ -141,8 +151,12 @@ export function buildThreatNetwork(events, places, selection = {}) {
       (event) => threatFacts(event).classification === "reported_attack",
     ).length,
     observation_count: rows.filter(
-      (event) => threatFacts(event).classification !== "reported_attack",
+      (event) =>
+        threatFacts(event).classification !== "reported_attack" &&
+        !threatFacts(event).reporting_period,
     ).length,
+    aggregate_count: rows.filter((event) => threatFacts(event).reporting_period)
+      .length,
     unknown_origin_count: unknownOrigin,
     unknown_victim_count: unknownVictim,
     events: rows,

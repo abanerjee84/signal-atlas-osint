@@ -171,6 +171,23 @@
           aria-label="Interactive world map. Use the country selector or event list for keyboard access."
         ></div>
         <div class="map-toolbar">
+          <div
+            id="cyber-map-legend"
+            class="cyber-map-legend"
+            role="group"
+            aria-label="Cyber map legend"
+            hidden
+          >
+            <span class="cyber-legend-origin">A · Traffic origin</span>
+            <span class="cyber-legend-target">V · Target</span>
+            <span class="cyber-legend-traffic">→ Observed traffic</span>
+            <span class="cyber-legend-report">→ Reported attribution</span>
+            <span class="cyber-legend-selected">— Selected route</span>
+            <small
+              >Arrows show direction, replayed every 6s · hover for evidence ·
+              country centers</small
+            >
+          </div>
           <div class="map-toolbar-row">
             <div class="map-heading">
               <span class="eyebrow">GLOBAL OBSERVATIONS</span>
@@ -316,6 +333,9 @@
                 <option value="bitdefender_threatmap">
                   Bitdefender detections
                 </option>
+                <option value="imperva_threatmap">
+                  Imperva daily aggregates
+                </option>
                 <option value="reports">Published attribution reports</option>
               </select>
             </div>
@@ -401,7 +421,7 @@
                   rel="noopener noreferrer"
                   >Bitdefender</a
                 >
-                · public stream collector; availability shown above
+                · public ATTACK table, checked every 10 seconds
               </p>
               <p>
                 <a
@@ -440,9 +460,20 @@
                 · sampled public blocked-request stream connected
               </p>
               <p class="helper">
-                Samples are bounded to 20 seconds per collection and shown
-                separately from published reports. Detection counts are not
-                confirmed incidents or worldwide attack totals.
+                Bitdefender includes ATTACK rows only. BunkerWeb samples four
+                seconds of traffic every ten seconds. Arrows replay direction;
+                they do not represent packet timing. Counts are bounded provider
+                observations, not confirmed incidents or worldwide totals.
+              </p>
+              <p>
+                <a
+                  href="https://www.imperva.com/cyber-threat-attack-map/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Imperva</a
+                >
+                · daily country-pair request aggregates, checked every 15
+                minutes. Choose Last 7 days for older reporting periods.
               </p>
             </details>
             <div id="country-insight" class="country-insight" hidden></div>

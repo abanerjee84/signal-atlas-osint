@@ -2,7 +2,11 @@ import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { element } from "./api.js";
 import { connectionGeometry, pointAlong } from "./geo-lines.js";
-import { cyberRouteFeatures, routeBearing } from "./cyber-routes.js";
+import {
+  CYBER_PALETTE,
+  cyberRouteFeatures,
+  routeBearing,
+} from "./cyber-routes.js";
 import {
   latestAircraft,
   aircraftTransition,
@@ -287,6 +291,12 @@ export function createWorldMap(
   );
   map.addControl(new maplibregl.ScaleControl({ maxWidth: 80 }), "bottom-right");
   const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "270px" });
+  const hoverPopup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    maxWidth: "300px",
+    className: "map-hover-details",
+  });
   let selectedThreatRoute = null;
   const resetWorld = () =>
     map.fitBounds(
@@ -304,6 +314,8 @@ export function createWorldMap(
     if (layer) map.setPaintProperty(name, "heatmap-weight", fallback);
   };
   function visibility() {
+    document.querySelector("#cyber-map-legend").hidden = !threatVisible;
+    if (!threatVisible) hoverPopup.remove();
     if (!map.getLayer("event-density")) return;
     setAnalysisVisibility();
     for (const id of [
@@ -468,16 +480,24 @@ export function createWorldMap(
       context.stroke();
       return context.getImageData(0, 0, 48, 48);
     };
-    map.addImage("traffic-direction", arrowIcon("#69c8e5"), { pixelRatio: 2 });
-    map.addImage("report-direction", arrowIcon("#ef8ca2"), { pixelRatio: 2 });
-    map.addImage(
-      "threat-origin",
-      symbolImage("attacker", { color: "#ffbf75" }),
-      { pixelRatio: 2 },
-    );
-    map.addImage("threat-target", symbolImage("victim", { color: "#69c8e5" }), {
+    map.addImage("traffic-direction", arrowIcon(CYBER_PALETTE.traffic), {
       pixelRatio: 2,
     });
+    map.addImage("report-direction", arrowIcon(CYBER_PALETTE.reported), {
+      pixelRatio: 2,
+    });
+    map.addImage(
+      "threat-origin",
+      symbolImage("attacker", { color: CYBER_PALETTE.origin }),
+      { pixelRatio: 2 },
+    );
+    map.addImage(
+      "threat-target",
+      symbolImage("victim", { color: CYBER_PALETTE.target }),
+      {
+        pixelRatio: 2,
+      },
+    );
     for (const category of [...Object.keys(colors), "publisher"]) {
       for (const context of [false, true])
         map.addImage(
@@ -698,7 +718,7 @@ export function createWorldMap(
           "traffic-direction",
           "report-direction",
         ],
-        "icon-size": 0.75,
+        "icon-size": 0.4,
         "icon-rotate": ["get", "rotation"],
         "icon-rotation-alignment": "map",
         "icon-allow-overlap": true,
@@ -721,7 +741,7 @@ export function createWorldMap(
           ["literal", [-14, -14]],
           ["literal", [14, 14]],
         ],
-        "icon-size": 1.0,
+        "icon-size": 0.5,
         "icon-allow-overlap": true,
       },
     });
@@ -729,7 +749,11 @@ export function createWorldMap(
       id: "military-context",
       type: "symbol",
       source: "military-places",
-      layout: { "icon-image": "military-context", "icon-allow-overlap": true },
+      layout: {
+        "icon-image": "military-context",
+        "icon-size": 0.5,
+        "icon-allow-overlap": true,
+      },
     });
     map.addLayer({
       id: "publisher-points",
@@ -737,7 +761,7 @@ export function createWorldMap(
       source: "publishers",
       layout: {
         "icon-image": "publisher-reported",
-        "icon-size": 0.8,
+        "icon-size": 0.45,
         "icon-allow-overlap": true,
       },
     });
@@ -771,7 +795,7 @@ export function createWorldMap(
           "traffic-direction",
           "report-direction",
         ],
-        "icon-size": 0.9,
+        "icon-size": 0.4,
         "icon-rotate": ["get", "rotation"],
         "icon-rotation-alignment": "map",
         "icon-allow-overlap": true,
@@ -918,7 +942,7 @@ export function createWorldMap(
             "reported",
           ],
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 0, 0.85, 5, 1.1],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 0.65],
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
@@ -938,7 +962,7 @@ export function createWorldMap(
       ],
       layout: {
         "icon-image": "aircraft-plane",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 1, 8, 1.25],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.55, 8, 0.75],
         // Map alignment rotates the glyph along the reported track, so the
         // nose points where the aircraft is going at every zoom and bearing.
         "icon-rotate": ["get", "aircraft_track_deg"],
@@ -1078,6 +1102,74 @@ export function createWorldMap(
       );
       if (edge) focusThreatRoute(edge, false);
     });
+    for (const layer of [
+      "threat-endpoints",
+      "threat-directions",
+      "threat-connections",
+    ]) {
+      map.on("mousemove", layer, (event) => {
+        const p = event.features?.[0]?.properties;
+        if (!p) return;
+        const name = (code) =>
+          world.features.find((f) => f.properties.code === code)?.properties
+            .name || code;
+        const edges =
+          layer === "threat-endpoints"
+            ? (threatNetwork?.edges || []).filter(
+                (e) => (p.role === "origin" ? e.from : e.to) === p.country,
+              )
+            : (threatNetwork?.edges || []).filter((e) => e.id === p.id);
+        const card = element("div", "connection-popup");
+        card.append(
+          element(
+            "strong",
+            "",
+            layer === "threat-endpoints"
+              ? `${p.role === "origin" ? "A · Origin" : "V · Target"}: ${name(p.country)}`
+              : `${name(edges[0]?.from)} → ${name(edges[0]?.to)}`,
+          ),
+        );
+        for (const edge of edges.slice(0, 3)) {
+          card.append(
+            element(
+              "p",
+              "",
+              `${name(edge.from)} → ${name(edge.to)} · ${edge.count} observations / reports`,
+            ),
+            element("p", "helper", edge.titles[0]),
+          );
+          if (edge.reporting_period)
+            card.append(
+              element(
+                "p",
+                "helper",
+                `${edge.reporting_period} · ${edge.request_count.toLocaleString()} provider requests (daily aggregate)`,
+              ),
+            );
+          if (edge.last_seen)
+            card.append(
+              element(
+                "p",
+                "helper",
+                `Evidence last seen ${new Date(edge.last_seen).toLocaleString()}`,
+              ),
+            );
+        }
+        card.append(
+          element(
+            "p",
+            "helper",
+            "Country-level evidence. Hover previews; click opens source evidence. Traffic origin does not identify an actor.",
+          ),
+        );
+        hoverPopup.setLngLat(event.lngLat).setDOMContent(card).addTo(map);
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", layer, () => {
+        hoverPopup.remove();
+        map.getCanvas().style.cursor = "";
+      });
+    }
     map.on("click", "threat-endpoints", (event) => {
       const properties = event.features[0].properties;
       const place = world.features.find(
@@ -1284,9 +1376,24 @@ export function createWorldMap(
     map.getCanvas().dataset.threatDirections = String(
       map.queryRenderedFeatures({ layers: ["threat-directions"] }).length,
     );
-    map.getCanvas().dataset.threatEndpoints = String(
-      map.queryRenderedFeatures({ layers: ["threat-endpoints"] }).length,
-    );
+    const endpointFeatures = map.queryRenderedFeatures({
+      layers: ["threat-endpoints"],
+    });
+    map.getCanvas().dataset.threatEndpoints = String(endpointFeatures.length);
+    const hoverPoint = endpointFeatures
+      .map((f) => {
+        const p = map.project(f.geometry.coordinates),
+          delta = f.properties.role === "origin" ? -7 : 7;
+        return [p.x + delta, p.y + delta];
+      })
+      .find(
+        ([x, y]) =>
+          x > 330 &&
+          y > 180 &&
+          x < map.getCanvas().clientWidth - 35 &&
+          y < map.getCanvas().clientHeight - 35,
+      );
+    map.getCanvas().dataset.threatHoverPoint = JSON.stringify(hoverPoint || []);
   };
   map.on("render", sampleCanvas);
   map.on("idle", sampleCanvas);
@@ -1308,6 +1415,7 @@ export function createWorldMap(
         properties: {
           id: edge.id,
           kind: edge.kind,
+          domestic: Boolean(edge.domestic),
           count: edge.count,
           sentiment: edge.sentiment,
         },
@@ -1336,9 +1444,17 @@ export function createWorldMap(
       element(
         "p",
         "",
-        `${edge.count} ${edge.kind === "observed_traffic_to_target" ? "sampled provider detections" : "published reports"}${edge.domestic ? " · same-country detection" : ""}. ${edge.basis}`,
+        `${edge.count} ${edge.reporting_period ? "daily aggregate rows" : edge.kind === "observed_traffic_to_target" ? "sampled provider detections" : "published reports"}${edge.domestic ? " · same country" : ""}. ${edge.basis}`,
       ),
     );
+    if (edge.reporting_period)
+      card.append(
+        element(
+          "p",
+          "",
+          `${edge.reporting_period} · ${edge.request_count.toLocaleString()} provider requests. This is a daily aggregate.`,
+        ),
+      );
     const button = element("button", "", "Open source evidence");
     button.addEventListener("click", () => selectEvent(edge.event_ids[0]));
     card.append(button);
@@ -1384,7 +1500,9 @@ export function createWorldMap(
       [socialVisible, socialData],
     ])
       if (visible)
-        for (const feature of data.features)
+        for (const feature of data.features.filter(
+          (f) => !f.properties.domestic,
+        ))
           tracks.push({
             geometry: feature.geometry,
             color:
@@ -1406,6 +1524,10 @@ export function createWorldMap(
   }
 
   function runPulses(now) {
+    if (document.hidden || !aircraftInView) {
+      clearPulses();
+      return;
+    }
     if (!map.getSource("new-reports")) {
       pulseFrame = requestAnimationFrame(runPulses);
       return;
@@ -1414,6 +1536,21 @@ export function createWorldMap(
     if (reducedMotion() || !tracks.length) {
       if (pulses.length || pulseFrame) clearPulses();
       return;
+    }
+    if (now - lastPulsePaint < 50) {
+      pulseFrame = requestAnimationFrame(runPulses);
+      return;
+    }
+    lastPulsePaint = now;
+    if (threatVisible && threatNetwork?.edges.length) {
+      const arrows = cyberRouteFeatures(
+        threatNetwork,
+        (now % 6000) / 6000,
+      ).arrows;
+      map.getSource("threat-directions")?.setData(arrows);
+      map.getCanvas().dataset.threatArrowPosition = JSON.stringify(
+        arrows.features[0]?.geometry.coordinates || [],
+      );
     }
     if (now >= nextPulseAt && pulses.length < PULSE_LIMIT) {
       const track = tracks[pulseCursor % tracks.length];
@@ -1455,9 +1592,29 @@ export function createWorldMap(
   }
 
   function startPulses() {
-    if (pulseFrame || reducedMotion()) return;
+    if (pulseFrame || reducedMotion() || document.hidden || !aircraftInView)
+      return;
     pulseFrame = requestAnimationFrame(runPulses);
   }
+  let lastPulsePaint = -Infinity;
+  const pulseVisibilityChanged = () => {
+    if (document.hidden || aircraftMotion.matches) clearPulses();
+    else startPulses();
+  };
+  document.addEventListener("visibilitychange", pulseVisibilityChanged);
+  aircraftMotion.addEventListener("change", pulseVisibilityChanged);
+  const pulseObserver = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) startPulses();
+    else clearPulses();
+  });
+  pulseObserver.observe(map.getCanvas());
+  map.on("remove", () => {
+    clearPulses();
+    hoverPopup.remove();
+    pulseObserver.disconnect();
+    document.removeEventListener("visibilitychange", pulseVisibilityChanged);
+    aircraftMotion.removeEventListener("change", pulseVisibilityChanged);
+  });
 
   return {
     map,

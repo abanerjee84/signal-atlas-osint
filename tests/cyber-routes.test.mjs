@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 import { cyberRouteFeatures, routeBearing } from "../src/cyber-routes.js";
 import { buildThreatNetwork } from "../src/threats.js";
 
+test("every displayed route arrow advances between animation frames", () => {
+  const network = {
+    edges: [
+      {
+        id: "moving",
+        from: "DE",
+        to: "US",
+        from_coordinates: [10, 51],
+        to_coordinates: [-100, 40],
+        count: 1,
+        event_ids: ["one"],
+        kind: "observed_traffic_to_target",
+      },
+    ],
+  };
+  const first = cyberRouteFeatures(network, 0).arrows.features;
+  const next = cyberRouteFeatures(network, 0.1).arrows.features;
+  assert.equal(first.length, next.length);
+  for (let i = 0; i < first.length; i++)
+    assert.notDeepEqual(
+      first[i].geometry.coordinates,
+      next[i].geometry.coordinates,
+    );
+});
+
 test("direction bearings point towards the target, including the dateline", () => {
   for (const [from, to, expected] of [
     [[0, 0], [0, 10], 0],

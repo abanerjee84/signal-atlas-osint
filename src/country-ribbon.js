@@ -11,6 +11,7 @@ export function createCountryRibbon({
   const list = document.querySelector("#country-ranking");
   let data = null;
   let cyber = { enabled: false, network: null, places: [] };
+  let selectedCyberRoute = "";
   let mode = readSession("osint.countryRank", "cyber");
   if (!["mentions", "sentiment", "intelligence", "cyber"].includes(mode))
     mode = "mentions";
@@ -223,6 +224,7 @@ export function createCountryRibbon({
     .addEventListener("change", render);
 
   function renderCyberRoutes() {
+    const focusedRoute = document.activeElement?.dataset.threatRoute;
     const filter = document.querySelector("#cyber-route-source").value;
     const edges = (cyber.network?.edges || []).filter(
       (edge) =>
@@ -248,6 +250,10 @@ export function createCountryRibbon({
       const button = element("button", "country-route-row");
       button.dataset.threatRoute = edge.id;
       button.setAttribute(
+        "aria-pressed",
+        String(selectedCyberRoute === edge.id),
+      );
+      button.setAttribute(
         "aria-label",
         `Attacker or origin ${name(edge.from)} to victim or target ${name(edge.to)}; ${edge.count} ${edge.kind === "observed_traffic_to_target" ? "provider detections" : "published reports"}. Show route.`,
       );
@@ -266,14 +272,23 @@ export function createCountryRibbon({
         element(
           "small",
           "route-source",
-          `${edge.count} ${edge.kind === "observed_traffic_to_target" ? "detections" : "reports"} · ${edge.source_id
+          `${edge.count} ${edge.reporting_period ? "aggregate rows" : edge.kind === "observed_traffic_to_target" ? "detections" : "reports"} · ${edge.source_id
             .replace(/_threatmap$/, "")
             .replace(/^threat_/, "")
             .replaceAll("_", " ")}${edge.domestic ? " · same country" : ""}`,
         ),
       );
+      if (edge.reporting_period)
+        button.append(
+          element(
+            "small",
+            "route-source",
+            `${edge.reporting_period} · ${edge.request_count.toLocaleString()} requests`,
+          ),
+        );
       button.title = `${name(edge.from)} → ${name(edge.to)}. ${edge.basis}`;
       button.addEventListener("click", () => {
+        selectedCyberRoute = edge.id;
         for (const item of list.querySelectorAll("[data-threat-route]"))
           item.setAttribute("aria-pressed", String(item === button));
         selectThreatRoute(edge);
@@ -281,6 +296,10 @@ export function createCountryRibbon({
       row.append(button);
       list.append(row);
     }
+    if (focusedRoute)
+      [...list.querySelectorAll("[data-threat-route]")]
+        .find((button) => button.dataset.threatRoute === focusedRoute)
+        ?.focus({ preventScroll: true });
     if (!edges.length)
       list.append(
         element(

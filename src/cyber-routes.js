@@ -17,7 +17,15 @@ export function routeBearing(from, to) {
   );
 }
 
-export function cyberRouteFeatures(network) {
+export const CYBER_PALETTE = Object.freeze({
+  origin: "#ffbe68",
+  target: "#69c8e5",
+  traffic: "#69c8e5",
+  reported: "#ef8ca2",
+  selected: "#f9d48f",
+});
+const geometries = new WeakMap();
+export function cyberRouteFeatures(network, phase = 0) {
   const nodes = new Map(),
     arrows = [];
   for (const edge of network?.edges || []) {
@@ -35,11 +43,13 @@ export function cyberRouteFeatures(network) {
       nodes.set(key, node);
     }
     if (edge.domestic || edge.from === edge.to) continue;
-    const geometry = connectionGeometry(
-      edge.from_coordinates,
-      edge.to_coordinates,
-    );
-    for (const progress of [0.3, 0.6, 0.88]) {
+    let geometry = geometries.get(edge);
+    if (!geometry) {
+      geometry = connectionGeometry(edge.from_coordinates, edge.to_coordinates);
+      geometries.set(edge, geometry);
+    }
+    for (const offset of [0.12, 0.45, 0.78]) {
+      const progress = (((offset + phase) % 1) + 1) % 1;
       const coordinates = pointAlong(geometry, progress);
       const next = pointAlong(geometry, progress + 0.01);
       arrows.push({

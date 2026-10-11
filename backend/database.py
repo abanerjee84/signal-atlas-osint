@@ -512,7 +512,7 @@ class Database:
 
     def prune_threat_telemetry(self, source_id: str) -> int:
         """Bound vendor samples independently of published reports, in a short transaction."""
-        if source_id not in {"bitdefender_threatmap", "bunkerweb_threatmap"}:
+        if source_id not in {"bitdefender_threatmap", "bunkerweb_threatmap", "imperva_threatmap"}:
             raise ValueError("Unknown threat telemetry source")
         with self.connect() as db:
             return db.execute(

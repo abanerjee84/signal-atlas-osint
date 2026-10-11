@@ -731,6 +731,38 @@ summary span {
   background: linear-gradient(var(--surface) 55%, transparent);
   pointer-events: none;
 }
+.cyber-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  pointer-events: auto;
+}
+.cyber-map-legend[hidden] {
+  display: none;
+}
+.cyber-legend-origin {
+  color: #ffbe68;
+}
+.cyber-legend-target,
+.cyber-legend-traffic {
+  color: #69c8e5;
+}
+.cyber-legend-report {
+  color: #ef8ca2;
+}
+.cyber-legend-selected {
+  color: #f9d48f;
+}
+.cyber-map-legend small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.map-hover-details {
+  pointer-events: none;
+}
 .map-toolbar-row {
   display: flex;
   align-items: center;

@@ -61,25 +61,36 @@ def engine_payload(packets: list[str]) -> bytes:
 
 async def robots(http, url):
     parsed = urlsplit(url)
+    cache = getattr(http, "robots_cache", {})
+    if not isinstance(cache, dict):
+        cache = {}
+    key = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+    cached = cache.get(key)
+    if cached and cached[0] > asyncio.get_running_loop().time():
+        if cached[1] and not cached[1].can_fetch("SignalAtlas", url):
+            raise ProviderError("Public threat stream disallowed by robots policy")
+        return
     try:
         payload = await http.request(
             "GET", f"{parsed.scheme}://{parsed.netloc}/robots.txt", attempts=1, max_bytes=262144, redirects=3
         )
     except ProviderError as error:
         if error.status_code == 404:
+            cache[key] = (asyncio.get_running_loop().time() + 600, None)
             return
         raise
     policy = RobotFileParser()
     policy.parse(payload.decode("utf-8", errors="replace").splitlines())
+    cache[key] = (asyncio.get_running_loop().time() + 600, policy)
     if not policy.can_fetch("SignalAtlas", url):
         raise ProviderError("Public threat stream disallowed by robots policy")
 
 
 class ThreatMap(Connector):
     category = "threat"
-    interval = 120
+    interval = 10
     telemetry = True
-    sample_seconds = 20
+    sample_seconds = 4
     sample_limit = 100
     limitation = (
         "Bounded samples of provider detections, not global attack totals or confirmed incidents. "
@@ -109,7 +120,7 @@ class ThreatMap(Connector):
         origin, target, detection = None, None, None
         occurred = None
         provider_time = ""
-        if self.source_id == "bunkerweb_threatmap":
+        if self.source_id in {"bunkerweb_threatmap", "imperva_threatmap"}:
             origin, target = code(record.get("attacker")), code(record.get("target"))
             kind = clean(record.get("reason", "Blocked web request"), 80) or "Blocked web request"
             # The observed feed gives HH:MM:SS only. Neither its date nor timezone is established.
@@ -117,7 +128,7 @@ class ThreatMap(Connector):
             classification = "observed_traffic"
         else:
             channel = record.get("n")
-            if channel not in CHANNELS:
+            if channel not in CHANNELS and channel != "table_attack":
                 raise ValueError("Unknown Bitdefender event channel")
             kind = clean(record.get("detection") or channel, 80)
             if isinstance(record.get("loc"), dict):
@@ -127,6 +138,7 @@ class ThreatMap(Connector):
                 origin = code((record.get("from") or {}).get("c_iso"))
                 target = code((record.get("to") or {}).get("c_iso"))
                 classification = "observed_traffic"
+            provider_time = clean(record.get("table_time", ""), 100)
             timestamp = record.get("ts")
             if timestamp is not None:
                 provider_time = clean(timestamp, 100)
@@ -218,7 +230,7 @@ class BunkerWebMap(ThreatMap):
     name = "BunkerWeb WAF"
     homepage = "https://www.bunkerweb.io/threatmap/"
     stream_url = "https://threatmap.bunkerweb.io/stream"
-    delivery = "Public SSE used by the provider map; bounded 20-second sample every 2 minutes"
+    delivery = "Public SSE used by the provider map; bounded 4-second sample every 10 seconds"
 
     async def fetch(self, http):
         await robots(http, self.homepage)
@@ -253,9 +265,13 @@ class BitdefenderMap(ThreatMap):
     name = "Bitdefender detections"
     homepage = "https://threatmap.bitdefender.com/"
     polling_url = homepage + "socket.io/"
-    delivery = "Public Socket.IO / Engine.IO v3 polling used by the provider map; no authentication"
+    delivery = "Persistent public bottom-table scraper: ATTACK rows only; legacy HTTP transport when no renderer is supplied"
 
     async def fetch(self, http):
+        reader = getattr(http, "threat_table_reader", None)
+        if reader:
+            await robots(http, self.homepage)
+            return table_attacks(await reader.rows(self.homepage))
         await robots(http, self.polling_url)
         query = {"EIO": "3", "transport": "polling"}
         payload = await http.request("GET", self.polling_url, params=query, attempts=1, max_bytes=1_048_576)
@@ -269,7 +285,11 @@ class BitdefenderMap(ThreatMap):
         except (ValueError, TypeError, KeyError, StopIteration, UnicodeError):
             raise ProviderError("Bitdefender live feed unavailable: no valid Socket.IO handshake") from None
         query["sid"] = sid
-        subscriptions = ["42" + json.dumps(["subscribe", {"event_name": channel}]) for channel in CHANNELS]
+        subscriptions = [
+            "42" + json.dumps(["subscribe", {"event_name": channel}])
+            for channel in CHANNELS
+            if channel not in {"infections", "spam"}
+        ]
         records, collection = [], utcnow().isoformat()
         loop = asyncio.get_running_loop()
         next_ping = loop.time() + ping_seconds
@@ -311,6 +331,8 @@ class BitdefenderMap(ThreatMap):
                                 else []
                             )
                             for item in values:
+                                if not isinstance(item, dict) or item.get("n") in {"infections", "spam"}:
+                                    continue
                                 row = observation(item, collection, len(records))
                                 if row:
                                     records.append(row)
@@ -323,5 +345,45 @@ class BitdefenderMap(ThreatMap):
         return records
 
 
+def table_attacks(rows):
+    """Literal five-column ATTACK rows; repeated snapshots retain their identities."""
+    places = {f["properties"]["name"].casefold(): f["properties"]["code"] for f in countries()["features"]}
+    places.update(
+        {
+            "united states": "US",
+            "united kingdom": "GB",
+            "russia": "RU",
+            "south korea": "KR",
+            "turkey": "TR",
+            "vietnam": "VN",
+        }
+    )
+    records = []
+    received = utcnow().isoformat()
+    for row in rows[:500]:
+        if len(row) != 5 or clean(row[2]).casefold() != "attack":
+            continue
+        origin, target = (places.get(clean(row[i]).casefold()) for i in (3, 4))
+        if not origin or not target:
+            continue
+        canonical = [clean(v, 100) for v in row]
+        records.append(
+            {
+                "n": "table_attack",
+                "from": {"c_iso": origin},
+                "to": {"c_iso": target},
+                "detection": canonical[1] if canonical[1].casefold() != "n/a" else "Attack",
+                "table_time": canonical[0],
+                "received_at": received,
+                "observation_id": hashlib.sha256(
+                    json.dumps([utcnow().year, *canonical], ensure_ascii=False).encode()
+                ).hexdigest(),
+            }
+        )
+    return records[:100]
+
+
 def threat_maps(settings):
-    return [BitdefenderMap(settings), BunkerWebMap(settings)]
+    from .imperva_map import ImpervaMap
+
+    return [BitdefenderMap(settings), BunkerWebMap(settings), ImpervaMap(settings)]

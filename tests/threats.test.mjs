@@ -20,6 +20,37 @@ const report = {
   source_url: "https://example.org/report",
   tags: ["actor:APT28", "attributed-country:RU", "victim-country:UA"],
 };
+test("daily requests stay separate from incident counts and reporting periods", () => {
+  const sample = (id, period, requests) => ({
+    ...report,
+    event_id: id,
+    source_id: "imperva_threatmap",
+    tags: [
+      "threat-classification:observed_traffic",
+      "traffic-origin-country:US",
+      "traffic-target-country:RU",
+      "attack-kind:OWASP",
+      "daily-aggregate",
+      `reporting-period:${period}`,
+      `provider-requests:${requests}`,
+    ],
+  });
+  const first = sample("daily1", "2026-10-08 to 2026-10-09", 81);
+  const network = buildThreatNetwork(
+    [
+      first,
+      sample("daily2", "2026-10-08 to 2026-10-09", 200),
+      sample("daily3", "2026-10-09 to 2026-10-10", 10),
+    ],
+    places,
+  );
+  assert.equal(network.edges.length, 2);
+  assert.equal(network.edges[0].count, 2);
+  assert.equal(network.edges[0].request_count, 281);
+  assert.equal(network.observation_count, 0);
+  assert.equal(network.aggregate_count, 3);
+  assert.match(threatCaption(threatFacts(first)), /81 provider requests/);
+});
 
 test("traffic is directed separately, counted by observation ID, and not attributed to an actor", () => {
   const detection = {

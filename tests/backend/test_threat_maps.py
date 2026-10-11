@@ -108,8 +108,8 @@ async def test_bitdefender_subscribes_to_real_channels_and_preserves_direction(s
     provider.sample_limit = 1
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         records = await provider.fetch(SafeHTTP(settings, client))
-    assert len(posts) == 13 and '"subscribe"' in posts[0]
-    assert '"spam"' in posts[-1]
+    assert len(posts) == 11 and '"subscribe"' in posts[0]
+    assert all('"spam"' not in packet and '"infections"' not in packet for packet in posts)
     item = provider.normalize(records[0])
     assert (item.threat.traffic_origin_country, item.threat.traffic_target_country) == ("SG", "FR")
     assert "192.0.2.1" not in item.model_dump_json()

@@ -2,6 +2,7 @@
 const radians = (value) => (value * Math.PI) / 180;
 const degrees = (value) => (value * 180) / Math.PI;
 const normalize = (value) => ((value + 540) % 360) - 180;
+const routeSegments = new WeakMap();
 export function connectionGeometry(from, to) {
   const vector = ([lon, lat]) => [
     Math.cos(radians(lat)) * Math.cos(radians(lon)),
@@ -55,11 +56,15 @@ export function connectionGeometry(from, to) {
 }
 
 export function pointAlong(geometry, progress) {
-  const segments = geometry.coordinates.flatMap((line) =>
-    line.slice(1).map((point, i) => [line[i], point]),
-  );
+  let segments = routeSegments.get(geometry);
+  if (!segments) {
+    segments = geometry.coordinates.flatMap((line) =>
+      line.slice(1).map((point, i) => [line[i], point]),
+    );
+    routeSegments.set(geometry, segments);
+  }
   const position = Math.min(
-    segments.length - 1,
+    segments.length,
     Math.max(0, progress * segments.length),
   );
   const index = Math.min(segments.length - 1, Math.floor(position));

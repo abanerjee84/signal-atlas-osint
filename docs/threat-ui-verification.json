@@ -1,26 +1,8 @@
 {
-  "checked_at": "2026-10-10T19:31:01+00:00",
-  "backend_tests": 148,
-  "browser_tests": 7,
-  "production_csp_test": "passed",
-  "build": "passed",
-  "python_lint": "passed",
-  "formatting": "passed",
-  "startup_stress": {
-    "attempts": 50,
-    "before_failures": 27,
-    "after_failures": 0
-  },
-  "manual_ui": [
-    "MITRE Lazarus actor search and focused graph",
-    "keyboard catalog-edge selection and source citations",
-    "saved SANS public IP lookup and original URL",
-    "Cyber-only map: 53 dated reports, 11 contextual links, thirty-day period"
-  ],
-  "screenshots": [
-    "threat-actor-workspace.jpg",
-    "cyber-context-map.jpg"
-  ],
-  "services": "API, worker and frontend restarted; temporary preview stopped",
-  "environment": "private .env preserved"
+  "imperva_country_routes": 100,
+  "bitdefender_country_routes": 12,
+  "animated_arrows": true,
+  "reduced_motion": true,
+  "errors": [],
+  "server_lifecycle_actions": 0
 }

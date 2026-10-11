@@ -1,5 +1,13 @@
 # Test results and reproducibility
 
+## Ten-second gathering, moving routes and public tables — 11 October 2026
+
+The full backend suite passed **200 tests**, and all **16 Node tests** passed. The existing-server Python Playwright checks verified smaller map icons, the top cyber legend, moving direction arrows, hover source details, source filtering, explicit origin/target selection, and nine merged layer controls. There were no page errors. A focused check additionally verified **100 Imperva country-pair routes** with the provider's **2026-10-08 to 2026-10-09** reporting period and request counts, **12 Bitdefender ATTACK routes**, and arrows stopping and resuming with reduced-motion settings. Screenshots were visually inspected. Counts are bounded samples at verification time.
+
+The background gatherer is running with a **10-second** sequential schedule. Bitdefender's literal ATTACK table and BunkerWeb stream returned real records. Imperva's normal page supplied 100 aggregate rows covering **49 countries**, with zero rejected records; its separate schedule is 15 minutes. Direct Imperva HTTP requests returned an interruption page; normal page delivery worked without bypassing a challenge. A shared-browser startup lock prevents concurrent provider jobs launching competing browser instances. Startup and network overruns can delay a cycle; no jobs overlap.
+
+API **8000/PID 36744** and Vite **5173/PID 26148** stayed unchanged. Only the explicitly authorized gathering process was reloaded. The optional browser dependency pins and collection/evidence limits are documented in [THREAT_MAP_SCRAPERS.md](THREAT_MAP_SCRAPERS.md). Sections below record earlier checks.
+
 ## Public threat maps and country routes — 11 October 2026
 
 The backend suite passed **194 tests**, including live-lease ownership/expiry regression coverage. Three additional status-publication tests passed for transient and permanent Windows reader locks and the disposable bridge fallback, bringing backend coverage to 197 tests. All **13 Node tests** passed, including heading bearings across the dateline and same-country detections retaining both endpoint roles without false arrows. The production build and Python lint passed. Runtime dependencies were unchanged.

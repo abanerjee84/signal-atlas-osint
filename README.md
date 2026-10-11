@@ -20,7 +20,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Track eligible aircraft:** OpenSky classes 4 and 5, normally refreshed every two minutes, with short transitions between reported positions. Cards show registration country, altitude, speed, ground track and observation age.
 - **Study public narratives:** English lexical sentiment, topic groups, regional comparisons and separate news, public-discussion and official-statement datasets.
 - **Investigate cyber intelligence:** advisories, vulnerabilities, routing and outage observations, plus threat-actor, malware and technique relationships from reference catalogs.
-- **Follow threat actors:** a separate TA map layer with recent published attack reports, source-reported attacker-country → target-country connections and explicit unknown attribution. Eight public research/news feeds include Cisco Talos from awesome-osint's live-map resources.
+- **Follow cyber threats:** the merged Cyber: Threat Actors layer combines recent attack reporting with Bitdefender ATTACK rows, BunkerWeb traffic and Imperva daily request aggregates. Its country-pair sidebar, moving arrows, small origin/target markers and hover evidence show where each connection comes from. Infrastructure geography remains separate from human attribution.
 - **Collect public discussion without social API keys:** Reddit, Mastodon and Lemmy feeds plus timestamped public Telegram previews flow into the sentiment heatmap. Author origins remain unknown unless explicitly declared; country mentions describe discussion context.
 - **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
 - **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
@@ -30,7 +30,7 @@ The nine selectable map layers are **Geopolitical events**, **Military OSINT**, 
 <details>
 <summary>Preview the threat-actor workspace</summary>
 
-![Threat-actor workspace showing source-backed catalog relationships](docs/threat-actor-workspace.jpg)
+![Cyber workspace with a top legend, small markers, directed routes and Imperva reporting periods](docs/threat-actor-workspace.jpg)
 
 Catalog relationships describe published reference knowledge. A name match or shared mention does not establish responsibility for an incident.
 
@@ -103,7 +103,7 @@ The default registry contains [66 RSS/Atom feeds](docs/RSS_FEEDS.md), plus other
 | Economic and energy          | BBC Business, Guardian Business/Energy, CNA Business, US EIA, ECB, OFAC                                               | Public feeds and releases                                                                                                |
 | Cyber and threat references  | CISA, NCSC, SANS, MITRE ATT&CK, MISP galaxies, Malpedia, ETDA                                                         | Public feeds/catalogs; source-specific reuse terms                                                                       |
 | Published attack reports     | BleepingComputer, SecurityWeek, The Hacker News, The Record, Cybersecurity Dive, ESET, Microsoft, Cisco Talos         | Public RSS; unverified excerpt attribution, not live packet telemetry                                                    |
-| Sampled cyber detections     | BunkerWeb public blocked-request stream; Bitdefender public map transport                                           | No credentials. Bounded samples; Bitdefender returned an invalid handshake during the latest check                        |
+| Sampled cyber detections     | Bitdefender ATTACK table, BunkerWeb blocked-request stream, Imperva daily country-pair dataset                        | No keys. Ten-second live-feed checks; Imperva has a dated daily period and a separate 15-minute check.                   |
 | Public narratives            | Reddit feeds/archive deliveries and browser imports, Mastodon, Lemmy, public Telegram previews; YouTube channel feeds | No social API keys; selected samples. YouTube uploads are separate from comments. X has no automatic collector connected |
 | Environment and humanitarian | USGS, NASA FIRMS, ReliefWeb                                                                                           | USGS is keyless; FIRMS needs a map key; ReliefWeb needs an approved app name                                             |
 | Aviation                     | OpenSky state vectors                                                                                                 | Account client credentials and provider credits                                                                          |
@@ -123,7 +123,7 @@ Reported coordinates, country context and publisher origin have different meanin
 
 Cyber traffic routes are blue; reported attacker-to-victim attribution links are pink. An infrastructure country never establishes the attacker's nationality. Vendor samples are shown separately from published reports and are not global attack totals. Natural Earth reference points supplement countries omitted by the low-detail boundary file, without creating boundary polygons. See [the scraper analysis](docs/THREAT_MAP_SCRAPERS.md).
 
-With **Cyber: Threat Actors** active, the Countries ribbon offers an **Attacker → Victim** table with provider filters. Click a row to highlight the route; arrowheads and A/V markers show its direction. A separate data-gathering thread can sample both public maps every two minutes against an already running database, without opening a server port: `python -m scripts.collect_threat_maps --watch`. Provider backoff still applies.
+With **Cyber: Threat Actors** active, the Countries ribbon offers an **Attacker → Victim** table with provider filters. Small A/V markers, moving arrows, a top legend and hover evidence identify origins, targets and source reports. A separate gathering thread checks live feeds every ten seconds against the running database, without opening a server port: `python -m scripts.collect_threat_maps --watch`. Install the optional pinned `requirements-browser.txt` renderer and Chromium for the Bitdefender table and normal Imperva page. Imperva rows preserve their daily period and request counts; choose **Last 7 days** for older reports. Arrows illustrate direction rather than packet timing. See [collection details and graceful gatherer shutdown](docs/THREAT_MAP_SCRAPERS.md). Provider backoff still applies.
 
 Sentiment describes the wording of sampled English text. It does not measure national opinion, verify a claim or identify a person's stance. Unknown origins stay unknown. Non-English reports remain available without an English sentiment score.
 
