@@ -15,6 +15,7 @@ import httpx
 from ..config import Settings
 from ..models import Report
 
+USER_AGENT = "SignalAtlas/0.1 (+https://github.com/abanerjee84/signal-atlas-osint)"
 APPROVED_HOSTS = {
     "liveuamap.com",
     "israelpalestine.liveuamap.com",
@@ -110,6 +111,47 @@ APPROVED_HOSTS = {
     "defend.network",
     "malpedia.caad.fkie.fraunhofer.de",
     "apt.etda.or.th",
+    # Military depth: official commands and ministries, defence outlets and
+    # research institutes. Every URL was probed with the production User-Agent
+    # and the project's own feed parser before being registered here.
+    "www.defense.gov",
+    # defense.gov now redirects here; both hops are validated on every request.
+    "www.war.gov",
+    "www.northcom.mil",
+    "breakingdefense.com",
+    "www.militarytimes.com",
+    "jamestown.org",
+    "www.rand.org",
+    "www.stimson.org",
+    "www.atlanticcouncil.org",
+    "press.un.org",
+    "www.defenseone.com",
+    "taskandpurpose.com",
+    "www.armytimes.com",
+    "www.airforcetimes.com",
+    "www.19fortyfive.com",
+    "defensescoop.com",
+    "shephardmedia.com",
+    "www.army-technology.com",
+    "smallwarsjournal.com",
+    "theaviationist.com",
+    # Geopolitical depth: regional and diplomatic publishers, probed end to end
+    # on 12 October 2026 and confirmed to store records.
+    "www.cfr.org",
+    "thediplomat.com",
+    "restofworld.org",
+    "balkaninsight.com",
+    "www.kyivpost.com",
+    "civil.ge",
+    "www.japantimes.co.jp",
+    "www.thehindu.com",
+    "www.rappler.com",
+    "www.straitstimes.com",
+    "mexiconewsdaily.com",
+    "allafrica.com",
+    "www.theeastafrican.co.ke",
+    "nation.africa",
+    "theconversation.com",
 }
 
 
@@ -203,10 +245,15 @@ class SafeHTTP:
         self, method: str, url: str, *, attempts: int = 3, max_bytes=None, redirects=0, **kwargs
     ) -> bytes:
         await self.validate(url)
+        # Identify the collector rather than letting httpx send its default
+        # agent; several publishers reject unidentified clients outright.
+        headers = {"User-Agent": USER_AGENT, **kwargs.pop("headers", {})}
         bound = self.settings.max_feed_bytes if max_bytes is None else min(max_bytes, 100_663_296)
         for attempt in range(attempts):
             try:
-                async with self.client.stream(method, url, follow_redirects=False, **kwargs) as response:
+                async with self.client.stream(
+                    method, url, follow_redirects=False, headers=headers, **kwargs
+                ) as response:
                     if (
                         response.status_code in {301, 302, 303, 307, 308}
                         and method == "GET"

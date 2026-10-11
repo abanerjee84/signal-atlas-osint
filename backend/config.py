@@ -55,4 +55,74 @@ class Settings(BaseSettings):
         {"id": "UC16niRr50-MSBwiO3YDb3RA", "name": "BBC News", "country": "GB"},
         {"id": "UCknLrEdhRCp1aegoMqRaCZg", "name": "DW News", "country": "DE"},
         {"id": "UCNye-wNBqNL5ZzHSJj3l8Bg", "name": "Al Jazeera English", "country": "QA"},
+        # Official defence and security channels. NATO has no usable public RSS
+        # feed, so its uploads are the only reachable first-party NATO reporting;
+        # the combatant commands block automated website access but not uploads.
+        {
+            "id": "UC3z9S2WXr6BRZm5bAU3DS6Q",
+            "name": "NATO",
+            "country": None,
+            "category": "military",
+        },
+        {
+            "id": "UCNEEHeS9Y2yFVLbWGeHhbYA",
+            "name": "US Central Command",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCJjsCRh3ym2AVZY4_Yqd2PQ",
+            "name": "US European Command",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCch5n8gbHHXrgDjfU8BcfFA",
+            "name": "US Indo-Pacific Command",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCjdWZTMt_7O6Jue7gFbxj7w",
+            "name": "US Navy",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCv6J1XT-BsmAAw8QWjOpyOA",
+            "name": "US Army",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCPuDWLu1965eOYZaZHCjr8Q",
+            "name": "US Air Force",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCwvbiJEOraaER7z1DYWy1VA",
+            "name": "Israel Defense Forces",
+            "country": "IL",
+            "category": "military",
+        },
+        # Defence trade press and research institutes publishing as video.
+        {
+            "id": "UCIUg-gNzeWPEvt-GXQwPBdg",
+            "name": "The War Zone",
+            "country": "US",
+            "category": "military",
+        },
+        {
+            "id": "UCQlkl2_FLVkaS4e_R6IVIOw",
+            "name": "Naval News",
+            "country": "GB",
+            "category": "military",
+        },
+        {
+            "id": "UCw0y9zO1RXI6uEzoKbbnxTQ",
+            "name": "Atlantic Council",
+            "country": "US",
+            "category": "military",
+        },
     ]

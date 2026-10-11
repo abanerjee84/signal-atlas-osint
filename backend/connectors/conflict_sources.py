@@ -31,6 +31,9 @@ REGIONS = [
 ]
 
 # Publisher base is provenance, never the incident country. Explicitly dated feed excerpts only.
+# Every feed below was probed with the production User-Agent and the project's own
+# parse_feed before being added; dedicated defence outlets are unfiltered, and
+# mixed-institution feeds are marked topical so only conflict-relevant items are kept.
 FEEDS = [
     ("long_war_journal", "Long War Journal", "https://www.longwarjournal.org/feed", "military", "US", False),
     (
@@ -90,8 +93,109 @@ FEEDS = [
         "BR",
         True,
     ),
-    ("taipei_times", "Taipei Times", "https://www.taipeitimes.com/xml/index.rss", "geopolitical", "TW", True),
     ("middle_east_eye", "Middle East Eye", "https://www.middleeasteye.net/rss", "geopolitical", "GB", True),
+    # Official military sources: commands and ministries publishing their own
+    # reporting, which no press outlet can substitute for.
+    (
+        "us_dod",
+        "US defence department news",
+        "https://www.war.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945",
+        "military",
+        "US",
+        False,
+    ),
+    (
+        "northcom",
+        "US Northern Command news",
+        "https://www.northcom.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=1460",
+        "military",
+        "US",
+        False,
+    ),
+    # Dedicated defence outlets, alongside the established publishers above.
+    ("breaking_defense", "Breaking Defense", "https://breakingdefense.com/feed/", "military", "US", False),
+    (
+        "military_times",
+        "Military Times flashpoints",
+        "https://www.militarytimes.com/arc/outboundfeeds/rss/category/flashpoints/?outputType=xml",
+        "military",
+        "US",
+        False,
+    ),
+    (
+        "jamestown",
+        "Jamestown Foundation",
+        "https://jamestown.org/feed/",
+        "military",
+        "US",
+        False,
+    ),
+    # Mixed-institution publishers: these carry non-security material, so the
+    # conflict-type matcher keeps only defence-relevant items.
+    ("rand_press", "RAND Corporation", "https://www.rand.org/news/press.xml", "military", "US", True),
+    ("atlantic_council", "Atlantic Council", "https://www.atlanticcouncil.org/feed/", "military", "US", True),
+    ("stimson", "Stimson Center", "https://www.stimson.org/feed/", "military", "US", True),
+    # Defence trade press and service reporting, each probed end to end on
+    # 12 October 2026 and confirmed to store records.
+    ("defense_one", "Defense One", "https://www.defenseone.com/rss/all", "military", "US", False),
+    ("task_purpose", "Task & Purpose", "https://taskandpurpose.com/feed/", "military", "US", True),
+    ("army_times", "Army Times", "https://www.armytimes.com/arc/outboundfeeds/rss/?outputType=xml", "military", "US", False),
+    (
+        "air_force_times",
+        "Air Force Times",
+        "https://www.airforcetimes.com/arc/outboundfeeds/rss/?outputType=xml",
+        "military",
+        "US",
+        False,
+    ),
+    ("nineteen45", "1945", "https://www.19fortyfive.com/feed", "military", "US", True),
+    ("defensescoop", "DefenseScoop", "https://defensescoop.com/feed/", "military", "US", True),
+    ("shephard_media", "Shephard Media", "https://shephardmedia.com/news/feed", "military", "GB", False),
+    ("army_technology", "Army Technology", "https://www.army-technology.com/feed/", "military", "GB", True),
+    ("small_wars_journal", "Small Wars Journal", "https://smallwarsjournal.com/feed", "military", "US", True),
+    ("the_aviationist", "The Aviationist", "https://theaviationist.com/feed/", "military", "US", True),
+    # Geopolitical depth: regional and diplomatic reporting. All probed end to
+    # end on 12 October 2026 and confirmed to store records. Coverage added:
+    # Central and Eastern Europe, the Caucasus, South and Southeast Asia,
+    # East Africa, West Africa and Latin America.
+    ("cfr", "Council on Foreign Relations", "https://www.cfr.org/feed", "geopolitical", "US", True),
+    ("the_diplomat", "The Diplomat", "https://thediplomat.com/feed/", "geopolitical", "US", True),
+    ("rest_of_world", "Rest of World", "https://restofworld.org/feed/latest/", "geopolitical", None, True),
+    ("balkan_insight", "Balkan Insight", "https://balkaninsight.com/feed/", "geopolitical", "RS", True),
+    ("kyiv_post", "Kyiv Post", "https://www.kyivpost.com/feed", "geopolitical", "UA", True),
+    ("civil_ge", "Civil.ge", "https://civil.ge/feed", "geopolitical", "GE", True),
+    ("japan_times", "The Japan Times", "https://www.japantimes.co.jp/feed/", "geopolitical", "JP", True),
+    (
+        "the_hindu",
+        "The Hindu international",
+        "https://www.thehindu.com/news/international/feeder/default.rss",
+        "geopolitical",
+        "IN",
+        True,
+    ),
+    ("scroll_in", "Scroll.in", "https://feeds.feedburner.com/ScrollinArticles.rss", "geopolitical", "IN", True),
+    ("rappler", "Rappler", "https://www.rappler.com/feed/", "geopolitical", "PH", True),
+    ("straits_times", "The Straits Times Asia", "https://www.straitstimes.com/news/asia/rss.xml", "geopolitical", "SG", True),
+    ("mexico_news", "Mexico News Daily", "https://mexiconewsdaily.com/feed/", "geopolitical", "MX", True),
+    ("allafrica", "AllAfrica", "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "geopolitical", None, True),
+    ("east_african", "The EastAfrican", "https://www.theeastafrican.co.ke/rss.xml", "geopolitical", "KE", True),
+    ("nation_ke", "Daily Nation Kenya", "https://nation.africa/kenya/rss.xml", "geopolitical", "KE", True),
+    (
+        "conversation_africa",
+        "The Conversation Africa",
+        "https://theconversation.com/africa/articles.atom",
+        "geopolitical",
+        None,
+        True,
+    ),
+    (
+        "un_press",
+        "UN official press releases",
+        "https://press.un.org/en/rss.xml",
+        "geopolitical",
+        None,
+        True,
+    ),
 ]
 
 

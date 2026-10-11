@@ -46,14 +46,6 @@ def connectors(settings):
         ),
         RSS(
             settings,
-            source_id="nato",
-            name="NATO public announcements",
-            category="military",
-            url="https://www.nato.int/cps/en/natohq/news.rss",
-            kind="official",
-        ),
-        RSS(
-            settings,
             source_id="ecb",
             name="ECB releases and statements",
             category="economic",
@@ -274,7 +266,7 @@ def connectors(settings):
                     content_type=content_type,
                 )
             )
-    for channel in settings.youtube_channels[:6]:
+    for channel in settings.youtube_channels[:24]:
         if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", channel["id"]):
             raise ValueError("Invalid YouTube channel ID")
         providers.append(
@@ -286,6 +278,7 @@ def connectors(settings):
                 platform="youtube",
                 content_type="video",
                 publisher_country=channel.get("country"),
+                category=channel.get("category"),
             )
         )
     for definition in settings.social_feeds[:10]:

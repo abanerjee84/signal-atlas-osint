@@ -25,6 +25,7 @@ class SocialFeed(Connector):
         platform="reddit",
         content_type="post",
         publisher_country=None,
+        category=None,
     ):
         super().__init__(settings)
         if platform not in {
@@ -36,10 +37,16 @@ class SocialFeed(Connector):
             "telegram",
         } or content_type not in {"post", "comment", "video"}:
             raise ValueError("Invalid social feed definition")
+        if category is not None and category not in {"geopolitical", "military"}:
+            # Only uploads may be routed away from the default; discussions are
+            # pinned to public sentiment by Report validation.
+            raise ValueError("Invalid social feed category")
         self.source_id, self.name, self.url, self.platform = source_id, name, url, platform
         self.homepage, self.content_type, self.publisher_country = url, content_type, publisher_country
-        self.category = "geopolitical" if content_type == "video" else "sentiment"
         # Video upload wording belongs to media coverage, not viewer discourse.
+        # Defence and security channels publish first-party official reporting,
+        # so they may be routed to the military layer explicitly.
+        self.category = category or ("geopolitical" if content_type == "video" else "sentiment")
         self.snapshot = content_type != "video"
 
     async def fetch(self, http):
