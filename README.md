@@ -17,7 +17,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 - **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.
 - **Follow geopolitical and military reporting:** nine public Liveuamap regional maps, 18 additional publisher feeds, dated ISW assessments and existing worldwide/official reporting. Conflict symbols distinguish drones, missiles, airstrikes, artillery, bombs, sirens, deployments and other report types. Hover summaries show source wording, location, date and confidence; cards retain original citations.
 - **Compare countries:** a map-side leaderboard for report mentions, sampled sentiment and intelligence activity, with source and sample counts.
-- **Track eligible aircraft:** OpenSky classes 4 and 5, normally refreshed every two minutes, with short transitions between reported positions. Cards show registration country, altitude, speed, ground track and observation age.
+- **Track eligible aircraft:** OpenSky classes 4 and 5, refreshed every 30 seconds by default while a visible Aviation layer is selected. Movement interpolates between real observations. Hovers show registration, aircraft model, country, altitude, speed, track and credited photos where available.
 - **Follow military satellites and ISS:** public CelesTrak, AMSAT and observer elements cover military, navigation, civil spacecraft and crewed stations. Names precede operator-country flags; hover shows mission, origin, altitude, speed and tracking details. Faint ground tracks highlight on hover. Positions update locally every two seconds; no account or key is needed.
 - **Find layers by topic:** search above Display Overlays expands related concepts such as planes, hacking, oil prices and space station. It searches layer meanings locally and preserves your selected overlays.
 - **Study public narratives:** English lexical sentiment, topic groups, regional comparisons and separate news, public-discussion and official-statement datasets.
@@ -139,7 +139,7 @@ See [source configuration](docs/SOURCES.md) and the in-app source status for sch
 
 To enable protected analysis, imports and private investigations, set a strong random `OSINT_ADMIN_TOKEN` in `.env`, restart the services, and enter that token in dashboard **Settings** or the investigation workspace's connection form. This is an application access token, separate from Windows privileges and provider keys. The browser holds it in tab memory until reload. Keep `OSINT_ADVANCED_PUBLIC_READ=false` for private investigation records.
 
-Optional settings include `OSINT_OPENSKY_POLL_SECONDS` (120 to 1800), retention periods, collection bounds, approved outbound hosts and additional RSS definitions. AI defaults to `OSINT_AI_FREE_ONLY=true`; local budgets count requests, not currency, and provider quotas still apply.
+Optional settings include `OSINT_OPENSKY_POLL_SECONDS` (10 to 1800; default 30), retention periods, collection bounds, approved outbound hosts and additional RSS definitions. AI defaults to `OSINT_AI_FREE_ONLY=true`; local budgets count requests, not currency, and provider quotas still apply.
 
 ## Reading the map correctly
 
@@ -216,3 +216,19 @@ Contributions are welcome through issues and pull requests. For a new connector,
 Project code is licensed under the [MIT License](LICENSE), copyright 2026 Abhijit Banerjee.
 
 Third-party dependencies, provider content and reference data retain their own licenses and terms. Natural Earth country boundaries are public domain; see [map attribution](public/MAP_LICENSE.txt). MITRE ATT&CK material retains [MITRE's license and notice](docs/licenses/MITRE-ATTACK.txt). The project license does not grant redistribution rights to collected news, social posts, aircraft data or other provider content.
+
+### Aircraft details and collection
+
+OpenSky remains the source of aircraft positions and flight measurements. Its documented live API does not include photos. The aircraft detail helper accepts an ADS-B callsign and verifies the ICAO24 address before attaching a registration, type, model or photo. It uses Airplanes.live’s public callsign lookup and aircraft registry; credited photographs come from Planespotters.net, the same photo source supported by both providers’ map code. No additional key or browser scraper is required. If callsign lookup is blocked or ambiguous, an existing OpenSky ICAO address can still identify the registry record. Photos are optional: missing or failed images do not prevent flight details from displaying.
+
+```powershell
+.venv\Scripts\python.exe -m backend.aircraft_details --callsign BFLO76 --icao24 7cf9cd
+```
+
+The normal worker runs the helper independently of position collection. It publishes ignored runtime data in `public/aircraft-details.json`; registry records are cached for a day, photos for a week, and upstream rejections receive a shared backoff. A standalone `python -m backend.aircraft_details --watch` can fill this file without opening a server port. Do not run it alongside a worker unnecessarily; a shared database lease prevents overlapping batches. Production Nginx serves the runtime file directly and permits images only from `t.plnspttrs.net`; copy the updated Nginx configuration on deployment.
+
+A visible live Aviation layer renews a short per-tab collection lease every ten seconds. Deselecting the layer, hiding the tab or entering historical playback releases demand. Closing a disconnected tab expires its lease after 35 seconds. Multiple viewers share one collector, and one viewer closing does not stop another viewer’s updates. The default OpenSky collection interval is 30 seconds; retained history remains at 30-minute intervals. Provider errors and quota retry headers still take precedence. Worldwide queries consume four credits, so the documented standard daily 4,000-credit allowance supports approximately eight hours of continuous 30-second viewing.
+
+These demand controls require the updated API and worker code to be loaded. Changing files alone cannot activate them in a resident API launched without reload mode. A collector run with `--once` remains an explicit manual collection, independent of viewer leases.
+
+References: [OpenSky live fields and credit limits](https://openskynetwork.github.io/opensky-api/rest.html), [Airplanes.live callsign lookup](https://airplanes.live/api-docs/), [OpenSky map photo integration](https://github.com/openskynetwork/tar1090/blob/master/html/script.js).

@@ -79,7 +79,7 @@ def test_layer_health_matches_status_freshness_and_access(settings):
 
 
 def test_aircraft_collection_interval_is_suitable_for_visible_updates(settings):
-    assert 120 <= OpenSky(settings).interval <= 180
+    assert 10 <= OpenSky(settings).interval <= 30
 
 
 @pytest.mark.parametrize("provider", [NCSC, OFAC])

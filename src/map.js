@@ -21,6 +21,7 @@ import {
   latestAircraft,
   aircraftTransition,
   aircraftSummary,
+  aircraftMotionDuration,
 } from "./aircraft.js";
 import {
   colors,
@@ -32,6 +33,7 @@ import {
 import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
 import { orbitalFacts, orbitalLabel, orbitalCountry } from "./orbits.js";
 import { drawCountryFlag, countryFlagImage } from "./country-flags.js";
+import { aircraftDetailCard, loadAircraftDetails } from "./aircraft-details.js";
 export { colors, CATEGORY_NAMES } from "./layer-symbols.js";
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -277,6 +279,14 @@ export function createWorldMap(
       return;
     }
     const began = performance.now();
+    const duration = Math.max(
+      8000,
+      ...records.map((record, index) =>
+        transitions[index]
+          ? aircraftMotionDuration(previous.get(record.event_id), record)
+          : 0,
+      ),
+    );
     let last = -Infinity;
     map.getCanvas().dataset.aircraftMoving = String(
       transitions.filter(Boolean).length,
@@ -286,14 +296,14 @@ export function createWorldMap(
         document.hidden ||
         !aircraftInView ||
         aircraftMotion.matches ||
-        now - began >= 8000
+        now - began >= duration
       ) {
         finishAircraftMotion();
         return;
       }
       if (now - last >= 70) {
         last = now;
-        const fraction = Math.min(1, (now - began) / 8000);
+        const fraction = Math.min(1, (now - began) / duration);
         aircraftData = {
           type: "FeatureCollection",
           features: aircraftTarget.features.map((feature, index) => {
@@ -1837,20 +1847,18 @@ export function createWorldMap(
         eventHoverKey = hoverKey;
         let card;
         if (layer === "aircraft-track") {
-          card = element("div", "event-hover-card");
-          card.append(
-            element("div", "hover-kind", feature.properties.title),
-            element(
-              "p",
-              "hover-summary",
-              feature.properties.aircraft_summary || "Aircraft position",
-            ),
-            element(
-              "p",
-              "hover-meta",
-              `Position observed ${feature.properties.time_key}`,
-            ),
+          const record = aircraftRecords.find(
+            (item) => item.event_id === feature.properties.event_id,
           );
+          if (!record) return;
+          card = aircraftDetailCard(record, null);
+          hoverPopup
+            .setLngLat(feature.geometry.coordinates)
+            .setDOMContent(card)
+            .addTo(map);
+          const details = await loadAircraftDetails(record);
+          if (eventHoverKey !== hoverKey) return;
+          card = aircraftDetailCard(record, details);
         } else if (!feature.properties.point_count) {
           card = reportHoverCard(feature.properties);
         } else {
@@ -1887,6 +1895,26 @@ export function createWorldMap(
           .setLngLat(feature.geometry.coordinates)
           .setDOMContent(card)
           .addTo(map);
+        // Keep the photo and flight facts inside the visible map, including
+        // aircraft near its bottom edge. The popup tip is hidden when shifted.
+        const popupElement = hoverPopup.getElement();
+        popupElement.style.translate = "";
+        popupElement.classList.remove("aircraft-hover-shifted");
+        if (layer === "aircraft-track") {
+          const bounds = map.getContainer().getBoundingClientRect();
+          const rect = popupElement.getBoundingClientRect();
+          const dx =
+            Math.max(0, bounds.left + 8 - rect.left) -
+            Math.max(0, rect.right - bounds.right + 8);
+          const dy =
+            Math.max(0, bounds.top + 8 - rect.top) -
+            Math.max(0, rect.bottom - bounds.bottom + 8);
+          popupElement.style.translate = `${dx}px ${dy}px`;
+          popupElement.classList.toggle(
+            "aircraft-hover-shifted",
+            Boolean(dx || dy),
+          );
+        }
       });
       map.on("mouseleave", layer, () => {
         eventHoverKey = null;
@@ -1952,6 +1980,18 @@ export function createWorldMap(
     map.getCanvas().dataset.observations = String(observations);
     map.getCanvas().dataset.aircraft = String(
       samples({ layers: ["aircraft-track"] }).length,
+    );
+    map.getCanvas().dataset.aircraftHoverPoints = JSON.stringify(
+      samples({ layers: ["aircraft-track"] })
+        .slice(0, 12)
+        .map((feature) => {
+          const point = map.project(feature.geometry.coordinates);
+          return {
+            x: point.x,
+            y: point.y,
+            event_id: feature.properties.event_id,
+          };
+        }),
     );
     const symbols = samples({ layers: ["event-points"] });
     const clusters = samples({ layers: ["clusters"] });

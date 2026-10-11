@@ -104,3 +104,10 @@ export function aircraftTransition(previous, current) {
       (previous.aircraft_track_deg + trackDelta * fraction + 360) % 360,
   });
 }
+
+export function aircraftMotionDuration(previous, current) {
+  const elapsed = Date.parse(current.time_key) - Date.parse(previous?.time_key);
+  return Number.isFinite(elapsed)
+    ? Math.min(30000, Math.max(8000, elapsed))
+    : 8000;
+}

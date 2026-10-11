@@ -106,7 +106,7 @@ def test_live_api_and_historical_cards_expose_measured_metadata(settings):
         )
         save_snapshot(database, [report])
         result = client.get("/api/aviation/live").json()
-        assert result["available"] and result["poll_seconds"] == 120 and len(result["items"]) == 1
+        assert result["available"] and result["poll_seconds"] == 30 and len(result["items"]) == 1
         historical = client.get("/api/events?categories=aviation&aircraft_categories=4,5").json()["items"][0]
         assert historical["aircraft"]["speed_mps"] == 250
         assert (

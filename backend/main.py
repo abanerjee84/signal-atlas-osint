@@ -310,8 +310,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return result
 
     @app.get("/api/aviation/live")
-    def aviation_live(filters: FilterDependency):
+    def aviation_live(
+        filters: FilterDependency,
+        viewer: Annotated[str | None, Query(pattern=r"^[a-f0-9]{32}$")] = None,
+        active: bool = True,
+    ):
         from .aviation import current_aircraft
+        from .aviation_demand import set_demand
+
+        if viewer:
+            set_demand(database, viewer, active)
 
         result = current_aircraft(database, filters)
         source = next(item for item in source_statuses() if item["source_id"] == "opensky")

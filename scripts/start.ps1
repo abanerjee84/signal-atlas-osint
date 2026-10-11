@@ -75,7 +75,7 @@ function Stop-ExistingServices {
     foreach ($process in $allProcesses) {
         $command = [string]$process.CommandLine
         if ($command.Replace('/', '\').IndexOf($workspace + '\', [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-            $command -match 'backend\.main:app|\bbackend\.worker\b|vite[\\/]bin[\\/]vite\.js|scripts[\\/]start\.ps1') {
+            $command -match 'backend\.main:app|\bbackend\.worker\b|\bbackend\.aircraft_details\b|vite[\\/]bin[\\/]vite\.js|scripts[\\/]start\.ps1') {
             $targets += Get-ProcessIdentity $process
         }
     }

@@ -11,6 +11,8 @@ public/threatmap-status.json.tmp
 public/threatmap-status.*.tmp
 public/orbital-elements.json
 public/orbital-elements.*.tmp
+public/aircraft-details.json
+public/aircraft-details.*.tmp
 .env
 .env.*
 !.env.example

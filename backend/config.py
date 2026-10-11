@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     opensky_client_id: str = ""
     opensky_client_secret: str = ""
     opensky_bbox: str = "world"
-    opensky_poll_seconds: int = Field(120, ge=120, le=1800)
+    opensky_poll_seconds: int = Field(30, ge=10, le=1800)
     maritime_url: str = ""
     maritime_token: str = ""
     extra_allowed_hosts: list[str] = []

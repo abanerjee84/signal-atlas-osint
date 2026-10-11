@@ -8,7 +8,7 @@ from .base import Connector, SafeHTTP, box, spatial_sample
 class OpenSky(Connector):
     source_id, name, category = "opensky", "OpenSky aircraft observations", "aviation"
     homepage = "https://opensky-network.org/about/faq"
-    interval = 120
+    interval = 30
     live_aircraft = True
 
     def __init__(self, settings):
@@ -22,7 +22,7 @@ class OpenSky(Connector):
     # and query cost, so only this many positions are kept per collection. Cells
     # are still sampled round-robin so coverage stays worldwide.
     per_cycle_cap = 400
-    limitation = "Worldwide network or configured region; classes 4 (Large) and 5 (High Vortex Large) with reported position and ground track only, capped at 400 current positions and sampled across geographic cells. Current snapshot refreshes about every two minutes; retained history every 30 minutes. Class 6 and unknown classes/tracks are excluded. Public ADS-B has coverage gaps. Map symbols rotate by reported ground track, not nose heading. Registration country is not departure origin; airports are not provided. Historical storage subject to your provider agreement."
+    limitation = "Worldwide network or configured region; classes 4 (Large) and 5 (High Vortex Large) with reported position and ground track only, capped at 400 current positions and sampled across geographic cells. Current snapshot refreshes every 30 seconds by default while a visible live Aviation layer requests it; provider quota backoff applies. Retained history every 30 minutes. Class 6 and unknown classes/tracks are excluded. Public ADS-B has coverage gaps. Map symbols rotate by reported ground track, not nose heading. Registration country is not departure origin; airports are not provided. Historical storage subject to your provider agreement."
 
     def metadata(self):
         return {

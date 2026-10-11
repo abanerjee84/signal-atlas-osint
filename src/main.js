@@ -15,6 +15,7 @@ import {
 import { CONFLICT_TYPES, conflictType } from "./conflicts.js";
 import { createCountryRibbon } from "./country-ribbon.js";
 import { aircraftFacts } from "./aircraft.js";
+import { aircraftDetailCard, loadAircraftDetails } from "./aircraft-details.js";
 import {
   buildThreatNetwork,
   threatFacts,
@@ -283,6 +284,7 @@ function renderLayers() {
           ? state.layers.add("threat")
           : state.layers.delete("threat");
       saveSession("osint.layers", [...state.layers]);
+      if (id === "aviation") refreshAircraft();
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
       if (id === "analysis") {
@@ -978,12 +980,9 @@ async function selectEvent(id, locate = false) {
       $("#event-detail").hidden = true;
       state.selectedEvent = null;
     });
-    card.append(
-      close,
-      badge(event.confidence),
-      element("h3", "", event.title),
-      element("p", "", event.description),
-    );
+    card.append(close, badge(event.confidence), element("h3", "", event.title));
+    if (event.category !== "aviation")
+      card.append(element("p", "", event.description));
     const fields = element("dl");
     if (event.category === "threat") {
       event.threat ||= event.reports?.[0]?.metadata?.threat;
@@ -1053,8 +1052,18 @@ async function selectEvent(id, locate = false) {
       }
     }
     if (event.category === "aviation") {
+      const enriched = aircraftDetailCard(event, null, true);
+      card.append(enriched);
+      loadAircraftDetails(event).then((details) => {
+        if (
+          state.selectedEvent?.event_id === event.event_id &&
+          enriched.isConnected
+        )
+          enriched.replaceWith(aircraftDetailCard(event, details, true));
+      });
       for (const [label, value] of Object.entries(aircraftFacts(event)))
-        fields.append(element("dt", "", label), element("dd", "", value));
+        if (["Geometric altitude", "Status"].includes(label))
+          fields.append(element("dt", "", label), element("dd", "", value));
       fields.append(
         element("dt", "", "Departure / destination"),
         element(
@@ -2522,21 +2531,38 @@ function aircraftFilterKey() {
   });
 }
 let aircraftBusy = false;
+const aircraftViewer = crypto.randomUUID().replaceAll("-", "");
+let aircraftDemandSent = false;
+function viewingAircraft() {
+  return (
+    !document.hidden &&
+    worldMap &&
+    state.layers.has("aviation") &&
+    state.period !== "custom" &&
+    Number($("#playhead").value) === 100
+  );
+}
+function releaseAircraftDemand() {
+  if (!aircraftDemandSent) return;
+  aircraftDemandSent = false;
+  fetch(`/api/aviation/live?viewer=${aircraftViewer}&active=false`, {
+    keepalive: true,
+  }).catch(() => {});
+}
 async function refreshAircraft() {
-  if (
-    aircraftBusy ||
-    document.hidden ||
-    !worldMap ||
-    !state.layers.has("aviation") ||
-    state.period === "custom" ||
-    Number($("#playhead").value) !== 100
-  )
+  if (!viewingAircraft()) {
+    releaseAircraftDemand();
     return;
+  }
+  if (aircraftBusy) return;
   aircraftBusy = true;
   const key = aircraftFilterKey();
   try {
-    const result = await api(`aviation/live?${params()}`);
-    if (key !== aircraftFilterKey()) return;
+    const query = params();
+    query.set("viewer", aircraftViewer);
+    aircraftDemandSent = true;
+    const result = await api(`aviation/live?${query}`);
+    if (!viewingAircraft() || key !== aircraftFilterKey()) return;
     state.aircraft = result;
     state.aircraftFilter = key;
     renderEvents();
@@ -2545,9 +2571,11 @@ async function refreshAircraft() {
     renderEvents();
   } finally {
     aircraftBusy = false;
+    if (!viewingAircraft()) releaseAircraftDemand();
   }
 }
-setInterval(refreshAircraft, 15000);
+setInterval(refreshAircraft, 10000);
+window.addEventListener("pagehide", releaseAircraftDemand);
 
 async function loadThreatTelemetry(query, signal) {
   const results = await Promise.allSettled(
@@ -2664,7 +2692,7 @@ async function refreshThreatFeeds() {
 }
 setInterval(refreshThreatFeeds, 10000);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshAircraft();
+  refreshAircraft();
 });
 initialize();
 setInterval(() => {

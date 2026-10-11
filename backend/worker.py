@@ -211,6 +211,10 @@ async def run(once: bool = False, source: str | None = None):
         # Frequent aircraft reads have their own bounded lane, so long RSS or
         # archive jobs cannot delay them behind an entire collection cycle.
         async def aircraft_poll(provider):
+            from .aviation_demand import aviation_requested
+
+            if not await database_call(aviation_requested, database):
+                return
             if local_deadlines.get(provider.source_id, 0) > time.monotonic():
                 return
             rows = {item["source_id"]: item for item in await database_call(database.statuses)}
@@ -262,6 +266,10 @@ async def run(once: bool = False, source: str | None = None):
         if not once:
             if not source:
                 aircraft_tasks.append(asyncio.create_task(orbital_updates()))
+            if not source or source == "opensky":
+                from .aircraft_details import details_loop
+
+                aircraft_tasks.append(asyncio.create_task(details_loop(database, stopped, require_viewer=True)))
             for provider in providers:
                 if getattr(provider, "live_aircraft", False):
                     current = next(
