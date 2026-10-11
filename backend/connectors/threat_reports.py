@@ -46,7 +46,7 @@ class ThreatFeed(RSS):
 
     def normalize(self, record):
         report = super().normalize(record)
-        threat = extract_threat(report.title + ". " + report.description)
+        threat = extract_threat(record.get("analysis_text") or report.title + ". " + report.description)
         if not threat:
             raise ValueError("No attack/campaign wording")
         report.threat = threat
@@ -62,6 +62,11 @@ class ThreatFeed(RSS):
         )
         # Tags also support older running APIs without requiring a service restart.
         report.tags += ["threat-report", "actor:" + threat.actor, "attack-kind:" + threat.attack_kind]
+        report.tags += ["attack-vector:" + value for value in threat.attack_vectors]
+        report.tags.append("vector-status:" + ("known" if threat.attack_vectors else "unspecified"))
+        if threat.vector_evidence:
+            report.tags.append("vector-evidence:" + threat.vector_evidence)
+        report.tags += ["cve:" + value for value in threat.cves]
         if threat.attacker_country:
             report.tags.append("attributed-country:" + threat.attacker_country)
         report.tags += ["victim-country:" + code for code in threat.victim_countries]
@@ -72,4 +77,6 @@ class ThreatFeed(RSS):
 
 
 def threat_feeds(settings):
-    return [ThreatFeed(settings, *definition) for definition in THREAT_FEEDS]
+    from .threat_research import research_scrapers
+
+    return [ThreatFeed(settings, *definition) for definition in THREAT_FEEDS] + research_scrapers(settings)

@@ -1,0 +1,102 @@
+[
+  {
+    "label": "SQL injection",
+    "pattern": "\\b(?:SQL injection|SQLi)\\b"
+  },
+  {
+    "label": "Cross-site scripting (XSS)",
+    "pattern": "\\b(?:cross[- ]site scripting|XSS)\\b"
+  },
+  {
+    "label": "Remote code execution (RCE)",
+    "pattern": "\\b(?:remote code execution|RCE|RCE/RFI)\\b"
+  },
+  {
+    "label": "Remote file inclusion (RFI)",
+    "pattern": "\\b(?:remote file inclusion|RFI)\\b"
+  },
+  {
+    "label": "Local file inclusion (LFI)",
+    "pattern": "\\b(?:local file inclusion|LFI)\\b"
+  },
+  {
+    "label": "Path traversal",
+    "pattern": "\\b(?:path traversal|directory traversal)\\b"
+  },
+  {
+    "label": "Command injection",
+    "pattern": "\\b(?:command injection|OS command injection)\\b"
+  },
+  {
+    "label": "Server-side request forgery (SSRF)",
+    "pattern": "\\b(?:server[- ]side request forgery|SSRF)\\b"
+  },
+  {
+    "label": "XML external entities (XXE)",
+    "pattern": "\\b(?:XML external entit(?:y|ies)|XXE)\\b"
+  },
+  {
+    "label": "Deserialization exploitation",
+    "pattern": "\\b(?:insecure deserialization|deserialization exploit(?:ation|s)?)\\b"
+  },
+  {
+    "label": "Phishing",
+    "pattern": "\\b(?:phishing|spear[- ]phishing)\\b"
+  },
+  {
+    "label": "Voice phishing (vishing)",
+    "pattern": "\\b(?:vishing|voice phishing)\\b"
+  },
+  {
+    "label": "Credential stuffing",
+    "pattern": "\\bcredential stuffing\\b"
+  },
+  {
+    "label": "Password spraying",
+    "pattern": "\\bpassword spraying\\b"
+  },
+  {
+    "label": "Brute force",
+    "pattern": "\\bbrute[- ]force\\b"
+  },
+  {
+    "label": "Supply-chain compromise",
+    "pattern": "\\bsupply[- ]chain (?:attacks?|compromis(?:e|ed))\\b"
+  },
+  {
+    "label": "ClickFix / fake CAPTCHA",
+    "pattern": "\\b(?:ClickFix|fake CAPTCHA)\\b"
+  },
+  {
+    "label": "TCP flood",
+    "pattern": "\\bTCP (?:SYN )?flood\\b"
+  },
+  {
+    "label": "UDP flood",
+    "pattern": "\\bUDP flood\\b"
+  },
+  {
+    "label": "HTTP flood",
+    "pattern": "\\bHTTP(?:/2)? flood\\b"
+  },
+  {
+    "label": "IP flood",
+    "pattern": "\\bIP flood\\b"
+  },
+  {
+    "label": "HTTPS flood",
+    "pattern": "\\bHTTPS flood\\b"
+  },
+  {
+    "label": "DNS amplification",
+    "pattern": "\\bDNS amplification\\b"
+  },
+  {
+    "label": "Low-and-slow attack",
+    "pattern": "\\b(?:low[- ]and[- ]slow|Slowloris)\\b"
+  },
+  {
+    "label": "Vulnerability exploitation",
+    "pattern": "\\b(?:vulnerability exploitation|exploiting (?:a |an |the )?(?:vulnerabilit|CVE-)|exploitation of (?:CVE-|a |an |the )|actively exploit(?:ed|ing)|active exploitation|zero[- ]day exploit(?:ation|s)?|exploit(?:ed|ing) CVE-)"
+  }
+]

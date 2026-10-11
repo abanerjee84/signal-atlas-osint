@@ -343,8 +343,16 @@
                 <option value="imperva_threatmap">
                   Imperva daily aggregates
                 </option>
+                <option value="radware_threatmap">Radware public map</option>
                 <option value="reports">Published attribution reports</option>
               </select>
+              <label class="sr-only" for="cyber-vector-filter"
+                >Attack vector filter</label
+              >
+              <select
+                id="cyber-vector-filter"
+                aria-label="Attack vector filter"
+              ></select>
             </div>
             <p id="country-ranking-scope" class="country-ranking-scope">
               Country references in reports
@@ -404,6 +412,10 @@
             ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
           </div>
           <section id="feed-view">
+            <details id="radware-vector-panel" open hidden>
+              <summary>Observed attack methods · Radware</summary>
+              <div id="radware-vector-body"></div>
+            </details>
             <details id="threat-map-references" hidden>
               <summary>
                 Cyber reports, traffic samples and source health

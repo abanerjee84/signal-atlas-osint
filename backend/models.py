@@ -93,6 +93,9 @@ class ThreatMetadata(BaseModel):
     attacker_country: str | None = Field(default=None, pattern="^[A-Z]{2}$")
     victim_countries: list[str] = Field(default_factory=list, max_length=20)
     attack_kind: str = Field(max_length=80)
+    attack_vectors: list[str] = Field(default_factory=list, max_length=12)
+    vector_evidence: str = Field(default="", max_length=1000)
+    cves: list[str] = Field(default_factory=list, max_length=20)
     attribution_basis: str = Field(max_length=1000)
     victim_basis: str = Field(max_length=1000)
     classification: Literal["reported_attack", "observed_traffic", "detection"] = "reported_attack"

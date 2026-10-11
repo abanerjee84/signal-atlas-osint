@@ -458,6 +458,52 @@ summary span {
   font-size: 10px;
   padding: 5px;
 }
+#cyber-vector-filter {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 5px;
+  font-size: 10px;
+}
+#radware-vector-panel {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+}
+#radware-vector-panel summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+#radware-vector-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+#radware-vector-body h4,
+#radware-vector-body p {
+  margin: 0;
+}
+.vector-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.vector-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vector-breakdown strong {
+  color: #f9d48f;
+  font-variant-numeric: tabular-nums;
+}
+.light .vector-breakdown strong {
+  color: #735209;
+}
 #cyber-route-headings {
   display: grid;
   grid-template-columns: 1fr 1fr;

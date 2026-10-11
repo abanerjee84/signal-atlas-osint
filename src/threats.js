@@ -1,8 +1,26 @@
+import { knownVectors, reputationReason } from "./threat-vectors.js";
+
 // Tags preserve the same explicit report roles on both current and older APIs.
 export function threatFacts(event) {
   const tags = event.tags || [];
   const value = (prefix) =>
     tags.find((tag) => tag.startsWith(prefix))?.slice(prefix.length);
+  const kind =
+    event.threat?.attack_kind ||
+    value("attack-kind:") ||
+    "Reported cyber activity";
+  const tagged = tags
+    .filter((tag) => tag.startsWith("attack-vector:"))
+    .map((tag) => tag.slice(14));
+  const vectors = knownVectors(
+    event.threat?.attack_vectors?.length
+      ? event.threat.attack_vectors
+      : tagged.length
+        ? tagged
+        : value("vector-status:")
+          ? []
+          : [kind],
+  );
   return {
     actor: event.threat?.actor || value("actor:") || "Unknown actor",
     attacker_country:
@@ -12,10 +30,17 @@ export function threatFacts(event) {
       tags
         .filter((tag) => tag.startsWith("victim-country:"))
         .map((tag) => tag.slice(15)),
-    attack_kind:
-      event.threat?.attack_kind ||
-      value("attack-kind:") ||
-      "Reported cyber activity",
+    attack_kind: kind,
+    attack_vectors: vectors,
+    vector_evidence:
+      event.threat?.vector_evidence ||
+      value("vector-evidence:") ||
+      (vectors.length ? `Provider category: ${kind}` : ""),
+    reputation:
+      value("vector-status:") === "reputation" || reputationReason(kind),
+    cves:
+      event.threat?.cves ||
+      tags.filter((tag) => tag.startsWith("cve:")).map((tag) => tag.slice(4)),
     classification:
       event.threat?.classification ||
       value("threat-classification:") ||
@@ -45,23 +70,46 @@ const roles = (facts) =>
       ].filter(Boolean);
 
 export function threatCaption(facts) {
+  const vector = facts.attack_vectors?.length
+    ? `Vector: ${facts.attack_vectors.join(" · ")}. `
+    : facts.reputation
+      ? "Reputation / blocking signal; attack vector unknown. "
+      : "Attack vector not supplied. ";
   if (facts.reporting_period)
-    return `Daily aggregate · ${facts.attack_kind}. ${facts.provider_requests.toLocaleString()} provider requests · ${facts.reporting_period}. Infrastructure: ${facts.traffic_origin_country || "unknown"} → ${facts.traffic_target_country || "unknown"}. Actor unknown.`;
+    return `${vector}Daily aggregate · ${facts.attack_kind}. ${facts.provider_requests.toLocaleString()} provider requests · ${facts.reporting_period}. Infrastructure: ${facts.traffic_origin_country || "unknown"} → ${facts.traffic_target_country || "unknown"}. Actor unknown.`;
   return facts.classification === "reported_attack"
-    ? `${facts.actor} · ${facts.attack_kind}. Reported attribution: ${facts.attacker_country || "unknown"} → ${facts.victim_countries.join(", ") || "unknown targets"}.`
+    ? `${vector}${facts.actor} · ${facts.attack_kind}. Reported attribution: ${facts.attacker_country || "unknown"} → ${facts.victim_countries.join(", ") || "unknown targets"}.`
     : facts.classification === "detection"
-      ? `Provider detection · ${facts.attack_kind} · ${facts.detection_country || "unknown country"}. Actor unknown.`
-      : `Sampled traffic · ${facts.attack_kind}. Infrastructure: ${facts.traffic_origin_country || "unknown origin"} → ${facts.traffic_target_country || "unknown target"}. Actor unknown.`;
+      ? `${vector}Provider detection · ${facts.attack_kind} · ${facts.detection_country || "unknown country"}. Actor unknown.`
+      : `${vector}Sampled traffic · ${facts.attack_kind}. Infrastructure: ${facts.traffic_origin_country || "unknown origin"} → ${facts.traffic_target_country || "unknown target"}. Actor unknown.`;
 }
 
 // A traffic category is not necessarily a technique. Keep the provider's wording
 // and explicitly distinguish a generic ATTACK row from a supplied vector.
 export function attackVectorLabel(edge) {
-  const kinds = (edge.attack_kinds || []).filter(
-    (kind) =>
-      !/^(?:attack|n\/a|unknown|reported cyber activity)$/i.test(kind.trim()),
-  );
+  const kinds = edge.attack_vectors ?? knownVectors(edge.attack_kinds || []);
   return kinds.length ? kinds.join(" · ") : "Not specified by provider";
+}
+
+export function matchesThreatVector(event, mode) {
+  const facts = threatFacts(event);
+  return (
+    mode === "all" ||
+    (mode === "known"
+      ? facts.attack_vectors.length > 0
+      : mode === "reputation"
+        ? facts.reputation
+        : facts.attack_vectors.includes(mode))
+  );
+}
+
+export function filterThreatNetwork(network, places, mode = "all") {
+  return !network || mode === "all"
+    ? network
+    : buildThreatNetwork(
+        network.events.filter((event) => matchesThreatVector(event, mode)),
+        places,
+      );
 }
 
 export function buildThreatNetwork(events, places, selection = {}) {
@@ -133,6 +181,10 @@ export function buildThreatNetwork(events, places, selection = {}) {
         to_coordinates: byCode.get(victim).center,
         titles: [],
         attack_kinds: [],
+        attack_vectors: [],
+        vector_evidence: [],
+        cves: [],
+        reputation: false,
         event_ids: [],
         source_urls: [],
         basis: traffic
@@ -147,6 +199,17 @@ export function buildThreatNetwork(events, places, selection = {}) {
       )
         continue;
       edge.count++;
+      for (const vector of facts.attack_vectors)
+        if (!edge.attack_vectors.includes(vector))
+          edge.attack_vectors.push(vector);
+      if (
+        facts.vector_evidence &&
+        !edge.vector_evidence.includes(facts.vector_evidence)
+      )
+        edge.vector_evidence.push(facts.vector_evidence);
+      for (const cve of facts.cves)
+        if (!edge.cves.includes(cve)) edge.cves.push(cve);
+      edge.reputation ||= facts.reputation;
       if (!edge.attack_kinds.includes(facts.attack_kind))
         edge.attack_kinds.push(facts.attack_kind);
       edge.request_count += facts.provider_requests;

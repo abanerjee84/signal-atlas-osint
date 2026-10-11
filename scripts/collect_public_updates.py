@@ -42,6 +42,10 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
         providers = [provider for provider in providers if provider.source_id in source_ids]
         if set(source_ids) != {provider.source_id for provider in providers}:
             raise ValueError("Unknown source ID")
+    # Register new scraper metadata without initializing or touching any server.
+    from backend.advanced.repository import Repository
+
+    await asyncio.to_thread(Repository(database).register, providers)
     async with httpx.AsyncClient(
         timeout=settings.http_timeout,
         verify=ssl.create_default_context(),
@@ -87,7 +91,9 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
     # Public aggregate health bridge for an older, already-running API. No event payloads.
     statuses = {row["source_id"]: row for row in database.statuses()}
     maps = []
-    for provider in threat_maps(settings):
+    from backend.connectors.threat_research import research_scrapers
+
+    for provider in threat_maps(settings) + research_scrapers(settings):
         current = statuses.get(provider.source_id, {"state": "never_run"})
         maps.append(
             {
@@ -110,7 +116,12 @@ async def collect_once(source_ids=None, *, table_reader=None, robots_cache=None)
     await asyncio.to_thread(
         write_status,
         status_file,
-        {"checked_at": stamp(), "background_collection": background, "connectors": maps},
+        {
+            "checked_at": stamp(),
+            "background_collection": background,
+            "connectors": maps,
+            "vector_summary": getattr(table_reader, "radware_summary", None),
+        },
         allow_inplace=True,
     )
     print(json.dumps(proof, indent=2))

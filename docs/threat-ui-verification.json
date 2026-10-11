@@ -75,5 +75,80 @@
     "threat_seven_day_cards": 374,
     "bunkerweb_cards": 100,
     "threat_seven_day_edges": "183"
-  }
+  },
+  "checked_at": "2026-10-11T05:20:56+00:00",
+  "attack_vectors": {
+    "initial_routes": 243,
+    "known_routes": 20,
+    "specific_vectors_filter": true,
+    "research_evidence_details": true,
+    "global_radware_methods_separate": true,
+    "errors": [],
+    "server_lifecycle_actions": 0
+  },
+  "running_app": {
+    "url": "http://127.0.0.1:5173",
+    "server_lifecycle_actions": 0,
+    "initial": {
+      "layers": 9,
+      "threat_cards": 305,
+      "threat_edges": "148"
+    },
+    "social_posts": 100,
+    "errors": [],
+    "cyber_country_routes": 60,
+    "direction_arrows": "377",
+    "country_endpoints": "65",
+    "animated_arrows": true,
+    "reduced_motion_respected": true,
+    "threat_seven_day_cards": 476,
+    "bunkerweb_cards": 100,
+    "threat_seven_day_edges": "237"
+  },
+  "validation": {
+    "backend_tests_passed": 207,
+    "frontend_tests_passed": 18,
+    "build_passed": true,
+    "lint_passed": true,
+    "server_lifecycle_actions": 0
+  },
+  "new_scraper_collection": [
+    {
+      "source_id": "radware_threatmap",
+      "state": "ok",
+      "stored": 100,
+      "rejected": 0,
+      "last_success": "2026-10-11T05:20:53+00:00",
+      "error": null
+    },
+    {
+      "source_id": "threat_research_mandiant",
+      "state": "ok",
+      "stored": 6,
+      "rejected": 0,
+      "last_success": "2026-10-11T05:05:52+00:00",
+      "error": null
+    },
+    {
+      "source_id": "threat_research_securelist",
+      "state": "ok",
+      "stored": 5,
+      "rejected": 0,
+      "last_success": "2026-10-11T05:05:43+00:00",
+      "error": null
+    },
+    {
+      "source_id": "threat_research_unit42",
+      "state": "ok",
+      "stored": 6,
+      "rejected": 0,
+      "last_success": "2026-10-11T05:19:57+00:00",
+      "error": null
+    }
+  ],
+  "collection_limitations": [
+    "Radware specific method percentages are global, separate from country-pair categories.",
+    "Imperva normal-page delivery failed during this check; retained daily evidence remains available.",
+    "Published research preserves dates and does not establish live compromise or actor nationality."
+  ]
 }

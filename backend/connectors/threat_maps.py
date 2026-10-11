@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 
+from ..attack_vectors import extract_vectors, reputation_reason
 from ..geo import countries
 from ..models import Report, ThreatMetadata, stamp, utcnow
 from .base import Connector, ProviderError, clean, parse_time
@@ -120,7 +121,7 @@ class ThreatMap(Connector):
         origin, target, detection = None, None, None
         occurred = None
         provider_time = ""
-        if self.source_id in {"bunkerweb_threatmap", "imperva_threatmap"}:
+        if self.source_id in {"bunkerweb_threatmap", "imperva_threatmap", "radware_threatmap"}:
             origin, target = code(record.get("attacker")), code(record.get("target"))
             kind = clean(record.get("reason", "Blocked web request"), 80) or "Blocked web request"
             # The observed feed gives HH:MM:SS only. Neither its date nor timezone is established.
@@ -172,13 +173,21 @@ class ThreatMap(Connector):
         path = f"{origin or 'Unknown origin'} → {target or 'Unknown target'}"
         title = f"{self.name}: {kind} · {detection if detection else path}"
         basis = "Provider traffic geolocation; infrastructure country does not identify an actor"
+        vectors, _ = extract_vectors(kind, contextual=False)
         threat = ThreatMetadata(
             **facts,
             received_at=received,
             attribution_basis=basis,
             victim_basis="Provider destination country; a blocked request does not establish compromise",
+            attack_vectors=vectors,
+            vector_evidence="Provider category: " + kind if vectors else "",
         )
         tags = ["threat-telemetry", "threat-classification:" + classification, "attack-kind:" + kind]
+        tags += ["attack-vector:" + value for value in vectors]
+        tags.append(
+            "vector-status:"
+            + ("known" if vectors else "reputation" if reputation_reason(kind) else "unspecified")
+        )
         for prefix, value in [
             ("traffic-origin-country:", origin),
             ("traffic-target-country:", target),
@@ -385,5 +394,6 @@ def table_attacks(rows):
 
 def threat_maps(settings):
     from .imperva_map import ImpervaMap
+    from .radware_map import RadwareMap
 
-    return [BitdefenderMap(settings), BunkerWebMap(settings), ImpervaMap(settings)]
+    return [BitdefenderMap(settings), BunkerWebMap(settings), ImpervaMap(settings), RadwareMap(settings)]

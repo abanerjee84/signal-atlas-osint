@@ -15,6 +15,11 @@ class ThreatTableReader:
         self.imperva_ready = asyncio.Event()
         self.imperva_loaded_at = 0
         self.start_lock = asyncio.Lock()
+        self.radware_page = None
+        self.radware_sample = []
+        self.radware_ready = asyncio.Event()
+        self.radware_delivered_at = 0
+        self.radware_summary = None
 
     async def start(self):
         async with self.start_lock:
@@ -23,7 +28,8 @@ class ThreatTableReader:
 
                 self.runtime = await async_playwright().start()
                 self.browser = await self.runtime.chromium.launch(
-                    headless=True, executable_path=self.chromium
+                    headless=True,
+                    executable_path=self.chromium,
                 )
 
     async def rows(self, homepage):
@@ -97,6 +103,94 @@ class ThreatTableReader:
                 retry_after=900,
             ) from None
 
+    async def radware_rows(self):
+        # Scrape the normal rendered website. Its own ten-second polling loads
+        # the map sample; no direct API requests, page injections or credentials.
+        async def delivered(response):
+            if (
+                response.url.startswith("https://ltm-prod-api.radware.com/map/attacks?")
+                and response.status == 200
+            ):
+                try:
+                    body = await response.body()
+                    if len(body) > 2_097_152:
+                        return
+                    import json
+
+                    payload = json.loads(body)
+                    if not isinstance(payload, list) or len(payload) > 200:
+                        return
+                    # Only the six fields actually exposed by the public map.
+                    allowed = {
+                        "sourceCountry",
+                        "destinationCountry",
+                        "type",
+                        "attackTime",
+                        "weight",
+                        "millisecond",
+                    }
+                    self.radware_sample = [
+                        [
+                            {k: row[k] for k in allowed if k in row}
+                            for row in batch[:2000]
+                            if isinstance(row, dict)
+                        ]
+                        for batch in payload
+                        if isinstance(batch, list)
+                    ]
+                    self.radware_delivered_at = asyncio.get_running_loop().time()
+                    self.radware_ready.set()
+                except Exception:
+                    return
+
+        try:
+            await self.start()
+            if self.radware_page is None or self.radware_page.is_closed():
+                self.radware_ready.clear()
+                self.radware_page = await self.browser.new_page(
+                    viewport={"width": 1600, "height": 1000}, timezone_id="UTC"
+                )
+                self.radware_page.on("response", delivered)
+                await self.radware_page.goto(
+                    "https://livethreatmap.radware.com/", wait_until="domcontentloaded", timeout=15000
+                )
+            await asyncio.wait_for(self.radware_ready.wait(), timeout=15)
+            if asyncio.get_running_loop().time() - self.radware_delivered_at > 35:
+                raise ValueError("Public map sample stopped updating")
+            summary = await self.radware_page.locator('[class*="section__wrap"]').evaluate_all("""sections => {
+              const result = {network: [], application: []};
+              for (const section of sections) {
+                const title = section.querySelector('[class*="title__wrap"]')?.textContent.toLowerCase().replace(/\\s+/g, ' ') || '';
+                const key = title.includes('network attack') ? 'network' : title.includes('application violations') ? 'application' : null;
+                if (!key) continue;
+                result[key] = [...section.querySelectorAll('li')].slice(0,20).map(row => ({name: row.querySelector('[class*="Top__name"]')?.textContent.trim(), percent: Number(row.querySelector('[class*="Top__value"]')?.textContent.replace('%','').trim())})).filter(row => row.name && Number.isFinite(row.percent) && row.percent >= 0 && row.percent <= 100);
+              }
+              return result;
+            }""")
+            if summary["network"] or summary["application"]:
+                from backend.models import stamp
+
+                interval = await self.radware_page.locator('[data-testid="interval"]').inner_text(
+                    timeout=2000
+                )
+                self.radware_summary = {
+                    **summary,
+                    "source_id": "radware_threatmap",
+                    "source_url": "https://livethreatmap.radware.com/",
+                    "interval": interval.strip(),
+                    "observed_at": stamp(),
+                    "scope": "Global provider statistics. Detailed methods are not linked to individual country pairs.",
+                }
+            return self.radware_sample
+        except Exception as error:
+            if self.radware_page:
+                await self.radware_page.close()
+            self.radware_page = None
+            self.radware_ready.clear()
+            raise ProviderError(
+                "Radware public page unavailable (" + type(error).__name__ + ")", retry_after=60
+            ) from None
+
     async def close(self):
         if self.browser:
             await self.browser.close()
@@ -104,3 +198,4 @@ class ThreatTableReader:
             await self.runtime.stop()
         self.runtime = self.browser = self.page = None
         self.imperva_page = self.imperva_sample = None
+        self.radware_page = None

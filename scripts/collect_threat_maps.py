@@ -14,7 +14,8 @@ from scripts.collect_public_updates import collect_once
 from scripts.collection_status import write_status
 from scripts.threat_table_reader import ThreatTableReader
 
-SOURCE_IDS = ("bitdefender_threatmap", "bunkerweb_threatmap", "imperva_threatmap")
+SOURCE_IDS = ("bitdefender_threatmap", "bunkerweb_threatmap", "imperva_threatmap", "radware_threatmap")
+RESEARCH_IDS = ("threat_research_unit42", "threat_research_securelist", "threat_research_mandiant")
 INTERVAL = 10
 
 
@@ -50,6 +51,25 @@ def run_thread(database, chromium=None, rendered_table=True):
         reader = ThreatTableReader(chromium) if rendered_table else None
         policy_cache = {}
         loop = asyncio.get_running_loop()
+
+        async def research_loop():
+            while not stopped.is_set():
+                try:
+                    async with asyncio.timeout(90):
+                        result = await collect_once(
+                            RESEARCH_IDS, table_reader=reader, robots_cache=policy_cache
+                        )
+                    with guard:
+                        state["research_results"] = [
+                            {"source_id": row["source_id"], "state": row["state"]}
+                            for row in result["results"]
+                        ]
+                except Exception as error:
+                    with guard:
+                        state["research_error"] = "Research scrape failed (" + type(error).__name__ + ")"
+                await asyncio.to_thread(stopped.wait, 60)
+
+        research = asyncio.create_task(research_loop())
         try:
             while not stopped.is_set():
                 began = loop.time()
@@ -77,6 +97,8 @@ def run_thread(database, chromium=None, rendered_table=True):
                 # One sequential loop: overruns never launch overlapping collectors.
                 await asyncio.to_thread(stopped.wait, max(0, INTERVAL - (loop.time() - began)))
         finally:
+            research.cancel()
+            await asyncio.gather(research, return_exceptions=True)
             if reader:
                 await reader.close()
 

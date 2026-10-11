@@ -7,6 +7,8 @@ import {
   threatFacts,
   threatCaption,
   attackVectorLabel,
+  filterThreatNetwork,
+  matchesThreatVector,
 } from "../src/threats.js";
 
 const places = [
@@ -21,6 +23,35 @@ const report = {
   source_url: "https://example.org/report",
   tags: ["actor:APT28", "attributed-country:RU", "victim-country:UA"],
 };
+test("vector filter excludes reputation blocks and preserves only supported route techniques", () => {
+  const known = {
+    ...report,
+    tags: [
+      ...report.tags,
+      "attack-vector:SQL injection",
+      "vector-status:known",
+      "vector-evidence:Provider category: SQL injection",
+    ],
+  };
+  const blocked = {
+    ...report,
+    event_id: "blocked",
+    source_url: "https://example.org/blocked",
+    tags: [...report.tags, "attack-kind:BLACKLIST"],
+  };
+  assert.equal(matchesThreatVector(blocked, "known"), false);
+  assert.equal(matchesThreatVector(blocked, "reputation"), true);
+  const network = filterThreatNetwork(
+    buildThreatNetwork([known, blocked], places),
+    places,
+    "SQL injection",
+  );
+  assert.equal(network.events.length, 1);
+  assert.deepEqual(network.edges[0].attack_vectors, ["SQL injection"]);
+  assert.deepEqual(network.edges[0].vector_evidence, [
+    "Provider category: SQL injection",
+  ]);
+});
 test("route vectors retain distinct report types without inventing a technique", () => {
   const rows = [
     { ...report, tags: [...report.tags, "attack-kind:Phishing"] },
@@ -39,7 +70,7 @@ test("route vectors retain distinct report types without inventing a technique",
   ];
   const edge = buildThreatNetwork(rows, places).edges[0];
   assert.deepEqual(edge.attack_kinds, ["Phishing", "Ransomware"]);
-  assert.equal(attackVectorLabel(edge), "Phishing · Ransomware");
+  assert.equal(attackVectorLabel(edge), "Phishing");
   assert.equal(
     attackVectorLabel(buildThreatNetwork([report], places).edges[0]),
     "Not specified by provider",
@@ -50,7 +81,7 @@ test("route vectors retain distinct report types without inventing a technique",
   );
   assert.equal(
     attackVectorLabel({ attack_kinds: ["OWASP - RCE/RFI"] }),
-    "OWASP - RCE/RFI",
+    "Remote code execution (RCE) · Remote file inclusion (RFI)",
   );
 });
 test("daily requests stay separate from incident counts and reporting periods", () => {

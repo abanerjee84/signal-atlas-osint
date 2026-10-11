@@ -234,7 +234,13 @@ export function createCountryRibbon({
           ? edge.kind === "reported_attacker_to_victim"
           : edge.source_id === filter),
     );
-    edges.sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+    edges.sort(
+      (a, b) =>
+        Number(Boolean(b.attack_vectors?.length)) -
+          Number(Boolean(a.attack_vectors?.length)) ||
+        b.count - a.count ||
+        a.id.localeCompare(b.id),
+    );
     const name = (code) =>
       cyber.places.find((place) => place.code === code)?.name || code;
     document.querySelector("#country-ranking-scope").textContent =
@@ -274,6 +280,13 @@ export function createCountryRibbon({
           "span",
           "route-vector",
           `Vector / type: ${attackVectorLabel(edge)}`,
+        ),
+      );
+      button.append(
+        element(
+          "small",
+          "route-source",
+          `${edge.reputation ? "Reputation / blocking reason" : "Source activity"}: ${edge.attack_kinds.join(" · ")}`,
         ),
       );
       button.append(

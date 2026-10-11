@@ -16,6 +16,10 @@ from ..config import Settings
 from ..models import Report
 
 APPROVED_HOSTS = {
+    "livethreatmap.radware.com",
+    "unit42.paloaltonetworks.com",
+    "securelist.com",
+    "cloud.google.com",
     "www.imperva.com",
     "threatmap.bitdefender.com",
     "threatmap.bunkerweb.io",

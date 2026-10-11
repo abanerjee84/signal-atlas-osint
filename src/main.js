@@ -12,9 +12,20 @@ import {
   threatCaption,
   threatCountryActivity,
   threatTimeline,
+  filterThreatNetwork,
+  matchesThreatVector,
 } from "./threats.js";
+import { VECTOR_LABELS, renderVectorBreakdown } from "./threat-vectors.js";
 
 const $ = (selector) => document.querySelector(selector);
+const threatProviders = [
+  "bitdefender_threatmap",
+  "bunkerweb_threatmap",
+  "imperva_threatmap",
+  "radware_threatmap",
+];
+const backgroundSources = (id) =>
+  threatProviders.includes(id) || id.startsWith("threat_research_");
 const names = {
   geopolitical: "Geopolitical events",
   military: "Military OSINT",
@@ -80,6 +91,9 @@ const state = {
   threatEvents: [],
   threatCount: 0,
   threatNetwork: null,
+  threatVector: readSession("osint.threatVector", "all"),
+  vectorSummary: null,
+  timelineResult: null,
   countryActivity: null,
   military: null,
   militaryTopic: "",
@@ -105,6 +119,46 @@ const countryRibbon = createCountryRibbon({
   saveSession,
   selectThreatRoute: (edge) => worldMap?.focusThreatRoute(edge),
 });
+for (const [value, label] of [
+  ["all", "All evidence · known vectors first"],
+  ["known", "Known attack vectors only"],
+  ["reputation", "Reputation / blocking signals"],
+  ...VECTOR_LABELS.map((label) => [label, label]),
+]) {
+  const option = element("option", "", label);
+  option.value = value;
+  $("#cyber-vector-filter").append(option);
+}
+if (
+  !["all", "known", "reputation", ...VECTOR_LABELS].includes(state.threatVector)
+)
+  state.threatVector = "all";
+$("#cyber-vector-filter").value = state.threatVector;
+$("#cyber-vector-filter").addEventListener("change", () => {
+  state.threatVector = $("#cyber-vector-filter").value;
+  saveSession("osint.threatVector", state.threatVector);
+  renderEvents();
+  renderCountryActivity();
+  renderNetworkSummary();
+  if (state.timelineResult && chart)
+    renderTimeline(
+      threatTimeline(
+        state.timelineResult,
+        displayThreatNetwork(),
+        state.layers,
+        Number(state.period) > 168 || state.period === "custom"
+          ? "day"
+          : "hour",
+      ),
+    );
+});
+function displayThreatNetwork() {
+  return filterThreatNetwork(
+    state.threatNetwork,
+    state.world?.features.map((f) => f.properties) || [],
+    state.threatVector,
+  );
+}
 for (const [category, name] of Object.entries(names)) {
   if (category === "threat") continue;
   const key = element("span");
@@ -211,10 +265,16 @@ function renderSources(status) {
     `${active}/${status.connectors.length} current`;
   $("#system-status").textContent = status.worker_alive
     ? `${active} sources current`
-    : "Collector inactive";
+    : status.public_gatherer_alive
+      ? "Cyber gatherer active"
+      : "Collector inactive";
+  $("#system-status").title =
+    !status.worker_alive && status.public_gatherer_alive
+      ? "The dedicated cyber gatherer is active. The main collector for other sources is inactive."
+      : "Collection status";
   $("#system-status").classList.toggle(
     "offline",
-    !status.worker_alive || active === 0,
+    (!status.worker_alive && !status.public_gatherer_alive) || active === 0,
   );
   const coverage = $("#coverage-summary");
   coverage.replaceChildren();
@@ -334,6 +394,8 @@ function renderSources(status) {
 }
 
 function renderEvents() {
+  $("#radware-vector-panel").hidden = !state.layers.has("threat");
+  renderVectorBreakdown(state.vectorSummary);
   $("#threat-map-references").hidden = !state.layers.has("threat");
   $("#event-list").replaceChildren();
   const playhead = Number($("#playhead").value);
@@ -348,18 +410,27 @@ function renderEvents() {
     ...state.events.filter((event) => state.layers.has(event.category)),
     ...(state.layers.has("threat") ? state.threatEvents : []),
   ].filter(
-    (event) => playhead === 100 || new Date(event[timeColumn]) <= cutoff,
+    (event) =>
+      (playhead === 100 || new Date(event[timeColumn]) <= cutoff) &&
+      (!["threat", "cyber"].includes(event.category) ||
+        matchesThreatVector(event, state.threatVector)),
   );
   if (state.threatNetwork) {
     const network =
       playhead === 100
-        ? state.threatNetwork
+        ? displayThreatNetwork()
         : buildThreatNetwork(
             visible.filter((event) => event.category === "threat"),
             state.world.features.map((feature) => feature.properties),
           );
     worldMap?.setThreatNetwork(network, state.layers.has("threat"));
   }
+  worldMap?.setCyberNetwork(
+    state.cyberNetwork,
+    state.layers.has("cyber") &&
+      $("#cyber-connections").checked &&
+      state.threatVector === "all",
+  );
   const live =
     playhead === 100 &&
     state.period !== "custom" &&
@@ -385,7 +456,16 @@ function renderEvents() {
     visible.push(...flights);
   }
   worldMap?.setEvents(visible);
-  $("#matched-count").textContent = state.total.toLocaleString();
+  $("#matched-count").textContent = Math.max(
+    0,
+    state.total -
+      (state.layers.has("cyber") && state.threatVector !== "all"
+        ? state.categoryCounts.cyber || 0
+        : 0) -
+      (state.layers.has("threat")
+        ? state.threatCount - (displayThreatNetwork()?.events.length || 0)
+        : 0),
+  ).toLocaleString();
   $("#mapped-count").textContent = visible
     .filter((event) => event.latitude !== null)
     .length.toLocaleString();
@@ -561,6 +641,15 @@ async function selectEvent(id, locate = false) {
       const telemetry = facts.classification !== "reported_attack";
       for (const [label, value] of [
         ["Named actor", facts.actor],
+        [
+          "Known attack vectors",
+          facts.attack_vectors.join(" · ") || "Not specified by source",
+        ],
+        [
+          "Vector evidence",
+          facts.vector_evidence || "No specific technique supplied",
+        ],
+        ["CVE references", facts.cves.join(", ") || "None supplied"],
         [
           telemetry ? "Provider detection" : "Attack reporting",
           facts.attack_kind,
@@ -1216,13 +1305,14 @@ async function refresh() {
       };
       const bridge =
         results[14].status === "fulfilled" ? results[14].value : null;
+      state.vectorSummary = bridge?.vector_summary || state.vectorSummary;
+      status.public_gatherer_alive =
+        bridge?.background_collection &&
+        Date.now() - Date.parse(bridge.checked_at) < 30000;
+      renderVectorBreakdown(state.vectorSummary);
       for (const source of bridge?.connectors || []) {
         if (
-          ![
-            "bitdefender_threatmap",
-            "bunkerweb_threatmap",
-            "imperva_threatmap",
-          ].includes(source.source_id) ||
+          !backgroundSources(source.source_id) ||
           status.connectors.some((item) => item.source_id === source.source_id)
         )
           continue;
@@ -1242,11 +1332,7 @@ async function refresh() {
       renderSources(status);
       $("#threat-stream-health").replaceChildren();
       for (const source of status.connectors.filter((item) =>
-        [
-          "bitdefender_threatmap",
-          "bunkerweb_threatmap",
-          "imperva_threatmap",
-        ].includes(item.source_id),
+        backgroundSources(item.source_id),
       )) {
         $("#threat-stream-health").append(
           element(
@@ -1257,15 +1343,17 @@ async function refresh() {
         );
       }
     }
-    if (results[2].status === "fulfilled")
+    if (results[2].status === "fulfilled") {
+      state.timelineResult = results[2].value;
       renderTimeline(
         threatTimeline(
           results[2].value,
-          state.threatNetwork,
+          displayThreatNetwork(),
           state.layers,
           interval,
         ),
       );
+    }
     if (results[3].status === "fulfilled") renderSentiment(results[3].value);
     if (results[6].status === "fulfilled") {
       state.newsNetwork = results[6].value;
@@ -1287,7 +1375,9 @@ async function refresh() {
       state.cyberNetwork = results[11].value;
       worldMap.setCyberNetwork(
         state.cyberNetwork,
-        state.layers.has("cyber") && $("#cyber-connections").checked,
+        state.layers.has("cyber") &&
+          $("#cyber-connections").checked &&
+          state.threatVector === "all",
       );
     }
     renderNetworkSummary();
@@ -1558,7 +1648,7 @@ function showTopic(name = "") {
 }
 function renderCountryActivity() {
   countryRibbon.setCyberData(
-    state.threatNetwork,
+    displayThreatNetwork(),
     state.layers.has("cyber"),
     state.world?.features.map((feature) => feature.properties) || [],
   );
@@ -1566,9 +1656,11 @@ function renderCountryActivity() {
   countryRibbon.setData({
     ...threatCountryActivity(
       state.countryActivity,
-      state.threatNetwork,
+      displayThreatNetwork(),
       state.world.features.map((feature) => feature.properties),
-      state.layers,
+      state.threatVector === "all"
+        ? state.layers
+        : new Set([...state.layers].filter((id) => id !== "cyber")),
     ),
     selected_country: state.country,
   });
@@ -1576,8 +1668,9 @@ function renderCountryActivity() {
 function renderNetworkSummary() {
   const parts = [];
   if (state.layers.has("threat") && state.threatNetwork) {
+    const network = displayThreatNetwork();
     parts.push(
-      `Cyber evidence: ${state.threatNetwork.report_count} published attack reports · ${state.threatNetwork.observation_count} sampled detections${state.threatNetwork.aggregate_count ? ` · ${state.threatNetwork.aggregate_count} daily aggregate rows` : ""} · ${state.threatNetwork.edges.filter((edge) => edge.kind === "reported_attacker_to_victim").length} attribution links · ${state.threatNetwork.edges.filter((edge) => edge.kind === "observed_traffic_to_target").length} traffic routes`,
+      `Cyber evidence: ${network.report_count} published attack reports · ${network.observation_count} sampled detections${network.aggregate_count ? ` · ${network.aggregate_count} daily aggregate rows` : ""} · ${network.edges.filter((edge) => edge.kind === "reported_attacker_to_victim").length} attribution links · ${network.edges.filter((edge) => edge.kind === "observed_traffic_to_target").length} traffic routes`,
     );
     const note = $('[data-layer-note="cyber"]');
     if (note) note.textContent = "Advisories, reports & traffic country routes";
@@ -1850,7 +1943,9 @@ $("#news-connections").addEventListener("change", () => {
 $("#cyber-connections").addEventListener("change", () => {
   worldMap.setCyberNetwork(
     state.cyberNetwork,
-    state.layers.has("cyber") && $("#cyber-connections").checked,
+    state.layers.has("cyber") &&
+      $("#cyber-connections").checked &&
+      state.threatVector === "all",
   );
   renderNetworkSummary();
 });
@@ -1991,17 +2086,14 @@ async function refreshAircraft() {
   }
 }
 setInterval(refreshAircraft, 15000);
-const threatProviders = [
-  "bitdefender_threatmap",
-  "bunkerweb_threatmap",
-  "imperva_threatmap",
-];
+
 async function loadThreatTelemetry(query, signal) {
   const results = await Promise.allSettled(
     [
       "Bitdefender detections:",
       "BunkerWeb WAF:",
       "Imperva daily attack requests:",
+      "Radware detections:",
     ].map((name) => {
       const sourceQuery = new URLSearchParams(query);
       sourceQuery.set("q", name);
@@ -2083,14 +2175,16 @@ async function refreshThreatFeeds() {
     renderEvents();
     renderCountryActivity();
     if (bridge) {
+      state.vectorSummary = bridge.vector_summary || state.vectorSummary;
+      renderVectorBreakdown(state.vectorSummary);
       $("#threat-stream-health").replaceChildren();
       for (const source of bridge.connectors || []) {
-        if (!threatProviders.includes(source.source_id)) continue;
+        if (!backgroundSources(source.source_id)) continue;
         $("#threat-stream-health").append(
           element(
             "p",
             "helper",
-            `${source.name}: ${source.state === "ok" ? `${source.stored} rows in latest sample · ${relativeTime(source.last_success)}` : source.error || source.state}. ${source.source_id === "imperva_threatmap" ? "Daily reporting period; choose Last 7 days to see older rows. Checked every 15 minutes." : "Gatherer checks every 10 seconds; empty samples are possible."}`,
+            `${source.name}: ${source.state === "ok" ? `${source.stored} rows in latest sample · ${relativeTime(source.last_success)}` : source.error || source.state}. ${source.source_id.startsWith("threat_research_") ? "Public research articles; checked every 15 minutes. Publication dates stay intact." : source.source_id === "imperva_threatmap" ? "Daily reporting period; choose Last 7 days to see older rows. Checked every 15 minutes." : "Gatherer checks every 10 seconds; empty samples are possible."}`,
           ),
         );
       }

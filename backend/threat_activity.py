@@ -2,12 +2,13 @@
 
 import re
 
+from .attack_vectors import extract_vectors
 from .geo import country_matchers, mentioned_countries
 from .models import ThreatMetadata
 
 INCIDENT = re.compile(
     r"\b(?:cyberattacks?|cyber[- ]attacks?|ransomware|hackers?|hacking|hacked|breach(?:es|ed)?|"
-    r"espionage|malware|botnet|backdoor|DDoS|phishing|intrusion|extortion|APT\d+|UAT-\d{4,6}|threat actors?)\b",
+    r"espionage|malware|botnet|backdoor|DDoS|phishing|vishing|ClickFix|intrusion|extortion|exploitation|exploit(?:ed|ing)|APT\d+|UAT-\d{4,6}|UNC\d{3,6}|threat actors?)\b",
     re.I,
 )
 ACTORS = re.compile(
@@ -69,6 +70,7 @@ def extract_threat(text):
             victims.update(codes)
             victim_evidence.append(match.group(0)[:250])
     name = ACTORS.search(text)
+    vectors, vector_evidence = extract_vectors(text)
     kind = next(
         (
             label
@@ -89,6 +91,9 @@ def extract_threat(text):
         attacker_country=attacker_country,
         victim_countries=sorted(victims)[:20],
         attack_kind=kind,
+        attack_vectors=vectors,
+        vector_evidence=vector_evidence,
+        cves=sorted(set(re.findall(r"\bCVE-\d{4}-\d{4,8}\b", text, re.I)))[:20],
         attribution_basis=("Source text reports country attribution: " + " | ".join(evidence))[:1000]
         if attacker_country
         else "Attacker country unknown or ambiguous; actor names and infrastructure do not establish nationality",

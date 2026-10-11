@@ -8,6 +8,7 @@ import zlib
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
+from ..attack_vectors import extract_vectors
 from ..models import stamp, utcnow
 from .base import ProviderError, clean
 from .threat_maps import ThreatMap, robots
@@ -43,6 +44,20 @@ def dataset_rows(payload, end_day, hour, limit=100):
             }
         )
     records = []
+    # Retain country diversity but take explicit techniques before generic bot
+    # and business-logic rows, which otherwise dominate each country's queue.
+    for pair, rows in groups.items():
+        groups[pair] = deque(
+            sorted(rows, key=lambda row: not bool(extract_vectors(row["reason"], contextual=False)[0]))
+        )
+    # A small sample must not be exhausted by generic categories before reaching
+    # country pairs for which the provider actually supplies a technique.
+    groups = dict(
+        sorted(
+            groups.items(),
+            key=lambda item: not bool(extract_vectors(item[1][0]["reason"], contextual=False)[0]),
+        )
+    )
     while groups and len(records) < limit:
         for pair in list(groups):
             records.append(groups[pair].popleft())

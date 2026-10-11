@@ -237,16 +237,20 @@ class Repository:
             for provider in providers:
                 metadata = provider.metadata()
                 feed = metadata.get("delivery") == "RSS/Atom"
+                scraper = any(
+                    word in metadata.get("delivery", "").lower()
+                    for word in ("scrap", "renderer", "html", "public compressed csv")
+                )
                 access = "registration_required" if provider.access() else "free"
                 db.execute(
-                    "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET name=excluded.name,details=excluded.details,official_url=excluded.official_url",
+                    "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET name=excluded.name,details=excluded.details,official_url=excluded.official_url,integration=excluded.integration",
                     (
                         provider.source_id,
                         provider.name,
                         provider.name,
                         str(provider.category),
                         provider.homepage,
-                        "feed" if feed else "api",
+                        "feed" if feed else "scraper" if scraper else "api",
                         access,
                         "source_terms",
                         "existing_connector",
@@ -263,7 +267,11 @@ class Repository:
                             {
                                 "collection": True,
                                 "frequency_seconds": provider.interval,
-                                "format": "RSS/Atom" if feed else "provider structured data",
+                                "format": "RSS/Atom"
+                                if feed
+                                else "public website scrape"
+                                if scraper
+                                else "provider structured data",
                                 "limitations": provider.limitation,
                                 "automation": "existing dashboard adapter",
                             }
