@@ -110,6 +110,10 @@ Open [the dashboard](http://127.0.0.1:5173/), [the investigation workspace](http
 
 For a single collection pass, use `python -m backend.worker --once` with the virtual environment's Python executable. Add `--source usgs` to collect only that provider.
 
+If local aircraft disappear while the deployed dashboard works, check that the local collector is still running. The API serves stored data and does not download aircraft on its own. For aviation-only collection alongside an existing API/frontend, run `python -m backend.worker --source opensky` from the project directory; it opens no server port. Avoid running a duplicate collector when the normal worker is already active.
+
+Temporary SQLite write contention is retried without repeating the upstream download. Persistent contention pauses the affected collector lane instead of terminating it; an in-memory deadline preserves the provider's polling interval when the database cannot save the next scheduled run. Non-contention database errors still surface for diagnosis.
+
 ## Sources and configuration
 
 The public-feed dashboard works without social-media API keys. Copy `.env.example` to `.env` once during setup, then edit the local file. Provider credentials stay on the backend. `.env`, databases, evidence, logs and backups are excluded from Git.
