@@ -310,6 +310,49 @@ export function createWorldMap(
   let aircraftInView = true;
   let selectedAircraftId = "";
   let followedAircraftId = "";
+  // The events source is clustered, so below zoom 7 a selected point exists
+  // only inside a cluster feature and cannot be highlighted there. The
+  // selection therefore gets its own unclustered single-feature source, the
+  // same reason aircraft have a source of their own. It must be built by the
+  // same helper the main source uses, so the enlarged copy of the icon is
+  // identical to the one the event would otherwise have drawn.
+  const features = (records) => ({
+    type: "FeatureCollection",
+    features: records
+      .filter((event) => event.latitude !== null)
+      .map((event) => {
+        const kind = conflictType(event);
+        return {
+          type: "Feature",
+          id: event.event_id,
+          geometry: {
+            type: "Point",
+            coordinates: [event.longitude, event.latitude],
+          },
+          properties: {
+            ...event,
+            marker_type: kind
+              ? `conflict-${event.category}-${kind.id}`
+              : event.category,
+            conflict_label: kind?.label || "",
+            conflict_kind: kind?.id || "",
+            hover_summary: conflictSummary(event),
+            hover_source: (() => {
+              try {
+                return new URL(event.source_url).hostname;
+              } catch {
+                return event.source_id;
+              }
+            })(),
+          },
+        };
+      }),
+  });
+  function eventSelectionData(event) {
+    return event && event.latitude !== null && event.longitude !== null
+      ? features([event])
+      : empty();
+  }
   // Following reads the interpolated collection, so the camera tracks the
   // aircraft between observations instead of jumping once per report.
   function recentreFollowedAircraft() {
@@ -379,7 +422,7 @@ export function createWorldMap(
     aircraftMotion.removeEventListener("change", aircraftVisibilityChanged);
     aircraftObserver.disconnect();
   });
-  function updateAircraft(records, features) {
+  function updateAircraft(records) {
     const signature = JSON.stringify(
       records.map((r) => [
         r.event_id,
@@ -991,6 +1034,7 @@ export function createWorldMap(
     });
     map.addSource("density", { type: "geojson", data: eventData });
     map.addSource("aircraft", { type: "geojson", data: aircraftData });
+    map.addSource("event-selection", { type: "geojson", data: empty() });
     map.addSource("aircraft-trail", { type: "geojson", data: empty() });
     map.addSource("sentiment", { type: "geojson", data: sentimentData });
     map.addSource("military-places", { type: "geojson", data: militaryPlaces });
@@ -1405,6 +1449,50 @@ export function createWorldMap(
           ["case", ["==", ["get", "category"], "military"], 0.68, 0.45],
           5,
           ["case", ["==", ["get", "category"], "military"], 0.85, 0.65],
+        ],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+    });
+    map.addLayer({
+      id: "event-selected-halo",
+      type: "circle",
+      source: "event-selection",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 9, 5, 18],
+        "circle-stroke-width": 2.5,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-opacity": 0.95,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0.14,
+      },
+    });
+    map.addLayer({
+      id: "event-selected",
+      type: "symbol",
+      source: "event-selection",
+      layout: {
+        // The same icon expression as event-points, so the enlarged copy matches
+        // whatever marker the selected event would otherwise have drawn.
+        "icon-image": [
+          "concat",
+          ["coalesce", ["get", "marker_type"], ["get", "category"]],
+          "-",
+          [
+            "case",
+            ["==", ["get", "location_precision"], "regional"],
+            "context",
+            "reported",
+          ],
+        ],
+        "icon-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          ["case", ["==", ["get", "category"], "military"], 1.35, 1.0],
+          5,
+          ["case", ["==", ["get", "category"], "military"], 1.65, 1.3],
         ],
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
@@ -2526,6 +2614,14 @@ export function createWorldMap(
   return {
     map,
     focusThreatRoute,
+    setSelectedEvent(event) {
+      // Takes the whole event, not an id: the highlight is a standalone
+      // unclustered feature, so it has to be rebuilt from the record and
+      // re-applied whenever the style reloads.
+      const id = String(event?.event_id || "");
+      map.getSource("event-selection")?.setData(eventSelectionData(event));
+      map.getCanvas().dataset.selectedEvent = id;
+    },
     setSelectedAircraft(eventId) {
       const next = String(eventId || "");
       if (next === selectedAircraftId) return;
@@ -2629,45 +2725,13 @@ export function createWorldMap(
       previewEvents = events;
       const reports = events.filter((event) => event.category !== "aviation");
       const signature = JSON.stringify(reports);
-      const features = (records) => ({
-        type: "FeatureCollection",
-        features: records
-          .filter((event) => event.latitude !== null)
-          .map((event) => {
-            const kind = conflictType(event);
-            return {
-              type: "Feature",
-              id: event.event_id,
-              geometry: {
-                type: "Point",
-                coordinates: [event.longitude, event.latitude],
-              },
-              properties: {
-                ...event,
-                marker_type: kind
-                  ? `conflict-${event.category}-${kind.id}`
-                  : event.category,
-                conflict_label: kind?.label || "",
-                conflict_kind: kind?.id || "",
-                hover_summary: conflictSummary(event),
-                hover_source: (() => {
-                  try {
-                    return new URL(event.source_url).hostname;
-                  } catch {
-                    return event.source_id;
-                  }
-                })(),
-              },
-            };
-          }),
-      });
       const reportsChanged = signature !== reportSignature;
       if (reportsChanged) {
         reportSignature = signature;
         eventData = features(reports);
         map.getSource("events")?.setData(eventData);
       }
-      updateAircraft(latestAircraft(events), features);
+      updateAircraft(latestAircraft(events));
       map.getSource("density")?.setData({
         type: "FeatureCollection",
         features: [...eventData.features, ...aircraftData.features],
@@ -2786,9 +2850,9 @@ export function createWorldMap(
       threatVisible = enabled;
       threatData = networkFeatures(network);
       map.getSource("threat-network")?.setData(threatData);
-      const features = cyberRouteFeatures(network);
-      map.getSource("threat-directions")?.setData(features.arrows);
-      map.getSource("threat-endpoints")?.setData(features.endpoints);
+      const routeFeatures = cyberRouteFeatures(network);
+      map.getSource("threat-directions")?.setData(routeFeatures.arrows);
+      map.getSource("threat-endpoints")?.setData(routeFeatures.endpoints);
       if (
         selectedThreatRoute &&
         !network?.edges.some((edge) => edge.id === selectedThreatRoute)

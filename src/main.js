@@ -811,6 +811,9 @@ function applyEventSelection(event, reveal = false) {
   state.selectedEvent = event;
   const aviation = event?.category === "aviation";
   worldMap?.setSelectedAircraft?.(aviation ? event.event_id : "");
+  // Aircraft carry their own ringed, enlarged glyph; every other layer reuses
+  // the marker it would have drawn, ringed in white.
+  worldMap?.setSelectedEvent?.(aviation ? null : event);
   if (aviation) loadAircraftTrail(event);
   else {
     trailKey = "";
