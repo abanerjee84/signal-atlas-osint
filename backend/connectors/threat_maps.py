@@ -56,6 +56,49 @@ def engine_packets(payload: bytes) -> list[str]:
     return result
 
 
+def socketio_packets(payload: bytes) -> list[str]:
+    """Engine.IO packets, tolerating the framing the provider actually sends.
+
+    The documented v3 scheme prefixes each packet with its length counted in
+    UTF-16 code units. Bitdefender now answers with a four byte binary
+    preamble ahead of an otherwise ordinary "0{...}" packet, which that scheme
+    cannot decode. When strict parsing fails, fall back to splitting on the
+    Engine.IO record separator and stripping a leading packet-type digit,
+    which is valid for both v3 and v4 payloads. Strict parsing stays first so a
+    genuinely malformed frame is still reported rather than half-parsed.
+    """
+    try:
+        return engine_packets(payload)
+    except (ValueError, UnicodeError):
+        pass
+    text = payload.decode("utf-8", "replace")
+    decoder = json.JSONDecoder()
+    result, index = [], 0
+    while index < len(text) and len(result) < 1000:
+        following = text[index + 1 : index + 2]
+        if not (text[index].isdigit() and following and following in "{[\""):
+            # Engine.IO control packets (open, close, ping, pong) carry no
+            # JSON body, so they are a digit on its own. Skipping them would
+            # report an idle-but-healthy stream as a malformed one.
+            if (
+                text[index] in "0123456"
+                and (not following or not following.isdigit())
+            ):
+                result.append(text[index])
+            index += 1
+            continue
+        try:
+            _, end = decoder.raw_decode(text, index + 1)
+        except ValueError:
+            index += 1
+            continue
+        result.append(text[index:end])
+        index = end
+    if not result:
+        raise ValueError("No Engine.IO packets in response")
+    return result
+
+
 def engine_payload(packets: list[str]) -> bytes:
     return "".join(f"{len(p.encode('utf-16-le')) // 2}:{p}" for p in packets).encode("utf-8")
 
@@ -285,7 +328,7 @@ class BitdefenderMap(ThreatMap):
         query = {"EIO": "3", "transport": "polling"}
         payload = await http.request("GET", self.polling_url, params=query, attempts=1, max_bytes=1_048_576)
         try:
-            packets = engine_packets(payload)
+            packets = socketio_packets(payload)
             hello = json.loads(next(p[1:] for p in packets if p.startswith("0")))
             sid = hello["sid"]
             if not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", sid):
@@ -322,11 +365,16 @@ class BitdefenderMap(ThreatMap):
                         "GET", self.polling_url, params=query, attempts=1, max_bytes=1_048_576
                     )
                     try:
-                        frames = engine_packets(payload)
+                        frames = socketio_packets(payload)
                         for frame in frames:
                             if frame == "1":
                                 raise ProviderError("Bitdefender closed the public stream")
-                            if not frame.startswith("42"):
+                            # A Socket.IO event packet is "42" when framed for
+                            # websocket transport and "2" followed by the same
+                            # JSON array when carried on the polling transport
+                            # the provider answers. Both carry an identical
+                            # payload after two characters, so both are read.
+                            if not (frame.startswith("42") or frame.startswith("2[")):
                                 continue
                             message = json.loads(frame[2:])
                             if not isinstance(message, list) or len(message) != 2 or message[0] != "ev":
