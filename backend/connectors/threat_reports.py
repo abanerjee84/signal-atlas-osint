@@ -22,7 +22,7 @@ THREAT_FEEDS = [
 
 class ThreatFeed(RSS):
     interval = 900
-    limitation = "Recent published attack and campaign reports, not live packet telemetry. Country attribution and targets are deterministic role extraction from the feed excerpt, unverified and incomplete. No origin is inferred from actor aliases, IPs or publisher countries."
+    limitation = "Recent published attack and campaign reports, not live packet telemetry. Publisher feed text only; no article page is retrieved. Country attribution and targets are deterministic role extraction from that text, unverified and incomplete. No origin is inferred from actor aliases, IPs or publisher countries."
 
     def __init__(self, settings, identifier, name, url, country):
         super().__init__(
@@ -32,7 +32,11 @@ class ThreatFeed(RSS):
             url=url,
             category="threat",
             publisher_country=country,
-            usage_notes="Linked headline and bounded feed excerpt only; publisher terms apply",
+            usage_notes="Linked headline and bounded feed text; publisher terms apply",
+            # Where a publisher ships the whole article inside its own feed,
+            # that text is used for actor and malware matching. Nothing is
+            # fetched from the article page itself.
+            text_limit=12000,
         )
 
     def select_records(self, records):

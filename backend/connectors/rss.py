@@ -23,6 +23,7 @@ class RSS(Connector):
         coverage: str = "Worldwide",
         usage_notes: str = "Publisher terms; headline and feed excerpt only",
         topical: bool = False,
+        text_limit: int = 2000,
     ):
         super().__init__(settings)
         self.source_id, self.name, self.category = source_id, name, category
@@ -30,6 +31,7 @@ class RSS(Connector):
         self.publisher_country = publisher_country
         self.coverage, self.usage_notes = coverage, usage_notes
         self.topical = topical
+        self.text_limit = text_limit
 
     async def fetch(self, http: SafeHTTP) -> list[dict]:
         payload = await http.request("GET", self.url)
@@ -63,8 +65,16 @@ class RSS(Connector):
         if not date:
             raise ValueError("Feed item has no publication date")
         description = clean(
-            record.get("description") or record.get("summary") or record.get("content") or "", 2000
+            record.get("description") or record.get("summary") or record.get("content") or "",
+            self.text_limit,
         )
+        # Publishers that ship the whole article in their own feed put it in
+        # content:encoded, which parse_feed exposes as "encoded". Preferring it
+        # uses text the publisher volunteered, so it stays within the stated
+        # no-scraping terms, while a feed that sends only an excerpt is
+        # unaffected.
+        if len(record.get("encoded") or "") > len(description):
+            description = clean(record["encoded"], self.text_limit)
         if not country and self.category == "economic":
             country = unique_country_context(title + " " + description)
 

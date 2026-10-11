@@ -102,6 +102,53 @@ def names(values):
     )[:100]
 
 
+# Actor identifiers must not be ordinary words. APT41 is also tracked as
+# "Lead" and Earth Lusca as "Chromium", so those aliases appear constantly in
+# unrelated reporting and would otherwise merge distinct groups and confirm
+# false matches. This list is deliberately short and evidence-led: it holds
+# only vocabulary observed to collide, and every hit is surfaced rather than
+# silently dropped, so it can be extended from real collisions.
+ORDINARY_ALIASES = frozenset(
+    {
+        "lead",
+        "leads",
+        "leader",
+        "chromium",
+        "chrome",
+        "water",
+        "sand",
+        "iron",
+        "steel",
+        "gold",
+        "silver",
+        "copper",
+        "acid",
+        "miner",
+        "operator",
+        "system",
+        "target",
+        "threat",
+        "actor",
+        "group",
+        "report",
+        "update",
+    }
+)
+
+
+def distinctive(alias):
+    """Whether an alias may identify an actor on its own."""
+    folded = clean(alias, 200).casefold()
+    return len(folded) >= 4 and folded not in ORDINARY_ALIASES
+
+
+# The two catalogs that publish identical object identifiers, and so already
+# agree on identity. Everything else reconciles onto them.
+CANONICAL_ACTOR_SOURCES = ("misp_galaxy", "malpedia_actors")
+# Sources that resolve identity by their own explicit rules instead.
+MITRE_SOURCES = frozenset({"mitre_attack"})
+
+
 def urls(values):
     result = []
     for value in values or []:
@@ -278,6 +325,29 @@ def store_catalog(repo, sid, data, checksum=""):
                 group_map[next(iter(ids))].add(row["entity_id"])
         db.execute("UPDATE threat_catalog_objects SET active=0 WHERE source_id=?", (sid,))
         db.execute("UPDATE threat_catalog_relations SET active=0 WHERE source_id=?", (sid,))
+        # Reconcile an incoming actor against the canonical catalog pair only.
+        # Those two share object identifiers already, so they form the base set
+        # of distinct groups. Including etda or MITRE here would be circular:
+        # the duplicates being reconciled are exactly what makes an alias look
+        # ambiguous, so the candidate set would never fall to one.
+        alias_index = defaultdict(set)
+        # MITRE is excluded by policy, not by omission: a broad group reference
+        # is deliberately never allowed to collapse distinct intrusion sets, so
+        # it resolves only through its own cited group identifiers.
+        if sid not in MITRE_SOURCES:
+            placeholders = ",".join("?" for _ in CANONICAL_ACTOR_SOURCES)
+            for row in db.execute(
+                "SELECT entity_id,name,aliases FROM threat_catalog_objects "
+                f"WHERE active=1 AND type='threat_actor' AND source_id IN ({placeholders})",
+                CANONICAL_ACTOR_SOURCES,
+            ):
+                try:
+                    prior = json.loads(row["aliases"] or "[]")
+                except ValueError:
+                    prior = []
+                for alias in names([row["name"], *prior]):
+                    if distinctive(alias):
+                        alias_index[alias.casefold()].add(row["entity_id"])
         id_map = {}
         for obj in objects:
             existing = db.execute(
@@ -285,13 +355,26 @@ def store_catalog(repo, sid, data, checksum=""):
                 (sid, obj["id"]),
             ).fetchone()
             eid = existing[0] if existing else stable("threat-reference", obj["uuid"])
-            # Never merge identities on a similar name or a shared informal alias.
-            if sid == "mitre_attack" and obj["type"] == "threat_actor":
+            # Resolve against the canonical catalogs by a distinctive shared alias.
+            # Never merge identities on a similar name or a shared informal
+            # alias; a single candidate is a merge and several stay separate.
+            def alias_candidate(obj):
+                if not alias_index:
+                    return None
+                mapped = set()
+                for alias in names([obj["name"], *obj["aliases"]]):
+                    if distinctive(alias):
+                        mapped |= alias_index.get(alias.casefold(), set())
+                return next(iter(mapped)) if len(mapped) == 1 else None
+
+            if sid in MITRE_SOURCES and obj["type"] == "threat_actor":
                 # Reconcile earlier broad groupings as well as first imports.
                 eid = stable("threat-reference", obj["uuid"])
                 mapped = set().union(*(group_map[gid] for gid in mitre_group_ids(obj["profile"])))
                 if len(mapped) == 1:
                     eid = mapped.pop()
+            elif obj["type"] == "threat_actor":
+                eid = alias_candidate(obj) or eid
             id_map[obj["id"]] = eid
             db.execute(
                 "INSERT OR IGNORE INTO entities VALUES(?,?,?,?,?,?)",
@@ -446,19 +529,26 @@ def match_reports(repo, limit=200):
     )
     if not signatures:
         return 0
-    signature = stable("literal-alias-v2-single-mitre-id", packed(signatures))
+    signature = stable("literal-alias-v4-distinctive-actor-malware-campaign", packed(signatures))
     rows = repo.rows(
-        "SELECT r.* FROM external_records r LEFT JOIN threat_match_state m USING(record_id) WHERE r.category='cyber' AND (m.record_id IS NULL OR m.catalog_signature<>? OR m.content_hash<>COALESCE(r.content_hash,'')) ORDER BY r.ingested_at DESC LIMIT ?",
+        "SELECT r.* FROM external_records r LEFT JOIN threat_match_state m USING(record_id) WHERE r.category IN ('cyber','threat') AND (m.record_id IS NULL OR m.catalog_signature<>? OR m.content_hash<>COALESCE(r.content_hash,'')) ORDER BY r.ingested_at DESC LIMIT ?",
         (signature, limit),
     )
     key = (str(repo.database.path), signature)
     if _MATCH_CACHE.get("key") != key:
         alias_ids = defaultdict(set)
+        # Malware, tools and campaigns are proper nouns and can be matched by
+        # name. ATT&CK techniques are deliberately excluded: their names are
+        # ordinary English ("Cloud Accounts", "Virtual Private Server") and a
+        # literal match would attribute technique reports to nothing and
+        # technique articles to whatever they happen to discuss. A report
+        # names its malware or its campaign, not its technique.
         for profile in repo.rows(
-            "SELECT entity_id,name,aliases FROM threat_catalog_objects WHERE active=1 AND type='threat_actor'"
+            "SELECT entity_id,name,aliases FROM threat_catalog_objects "
+            "WHERE active=1 AND type IN ('threat_actor','malware','tool','campaign')"
         ):
             for alias in names([profile["name"], *profile["aliases"]]):
-                if len(alias) >= 4:
+                if distinctive(alias):
                     alias_ids[alias.casefold()].add(profile["entity_id"])
         pattern = (
             re.compile(
@@ -472,6 +562,13 @@ def match_reports(repo, limit=200):
         )
         _MATCH_CACHE.update(key=key, ids=alias_ids, pattern=pattern)
     alias_ids, pattern = _MATCH_CACHE["ids"], _MATCH_CACHE["pattern"]
+    # Collect first, then decide. An alias appearing across a large share of
+    # the corpus is not an identifier: ATT&CK calls a tool "route", and that
+    # single word matched two thousand unrelated reports. Such aliases are
+    # demoted rather than trusted, which is evidence about the alias rather
+    # than an assumption about a fixed list of words.
+    resolved = []
+    alias_documents = defaultdict(int)
     for record in rows:
         text = record["title"] + " " + record["text"]
         matched = {}
@@ -482,6 +579,11 @@ def match_reports(repo, limit=200):
                 state = "explicit_name_mention" if len(ids) == 1 else "ambiguous_alias"
                 if eid not in matched or state == "explicit_name_mention":
                     matched[eid] = (alias, state)
+        for alias, _ in matched.values():
+            alias_documents[alias] += 1
+        resolved.append((record, matched))
+    ceiling = max(3, len(rows) // 50)
+    for record, matched in resolved:
         with repo.database.connect() as db:
             db.execute("DELETE FROM threat_report_matches WHERE record_id=?", (record["record_id"],))
             db.execute(
@@ -489,6 +591,8 @@ def match_reports(repo, limit=200):
                 (record["record_id"],),
             )
             for eid, (alias, status) in matched.items():
+                if status == "explicit_name_mention" and alias_documents[alias] > ceiling:
+                    status = "ambiguous_alias"
                 db.execute(
                     "INSERT INTO threat_report_matches VALUES(?,?,?,?)",
                     (record["record_id"], eid, alias, status),
