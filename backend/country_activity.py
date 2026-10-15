@@ -13,6 +13,7 @@ INTELLIGENCE_CATEGORIES = {
     "military",
     "maritime",
     "cyber",
+    "infrastructure",
     "threat",
     "economic",
     "environment",

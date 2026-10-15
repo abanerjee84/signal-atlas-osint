@@ -17,6 +17,10 @@ from ..models import Report
 
 USER_AGENT = "SignalAtlas/0.1 (+https://github.com/abanerjee84/signal-atlas-osint)"
 APPROVED_HOSTS = {
+    "ipwho.is",
+    "threatfox-api.abuse.ch",
+    "api.greynoise.io",
+    "api.cloudflare.com",
     "liveuamap.com",
     "israelpalestine.liveuamap.com",
     "sudan.liveuamap.com",

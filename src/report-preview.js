@@ -1,7 +1,13 @@
 import { element } from "./api.js";
 import { conflictType } from "./conflicts.js";
+import {
+  infrastructureFacts,
+  infrastructureSummary,
+} from "./infrastructure.js";
 
 export function reportSummary(record, limit = 280) {
+  if (record.category === "infrastructure")
+    return `${record.title || "Provider observation"} · ${infrastructureSummary(record)}`;
   const text = (
     [
       record.excerpt,
@@ -95,6 +101,7 @@ export function reportHoverCard(record) {
       geopolitical: "Geopolitical report",
       threat: "Cyber evidence",
       cyber: "Cyber report",
+      infrastructure: "Cyber infrastructure observation",
       economic: "Economy & energy",
       environment: "Environment",
       maritime: "Maritime report",
@@ -102,6 +109,20 @@ export function reportHoverCard(record) {
     "Source report";
   card.append(element("div", "hover-kind", kind));
   appendReportPreview(card, record);
+  if (record.category === "infrastructure") {
+    const facts = element("dl", "orbital-hover-card");
+    for (const [label, value] of infrastructureFacts(record))
+      facts.append(element("dt", "", label), element("dd", "", value));
+    card.append(
+      facts,
+      element(
+        "p",
+        "hover-location",
+        "Illustrative IP infrastructure country centre; not actor or victim attribution",
+      ),
+    );
+    return card;
+  }
   const regional =
     record.location_precision === "regional" ||
     record.location_precision === "unknown";

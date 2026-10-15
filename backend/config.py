@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     advanced_lookup_daily_budget: int = Field(100, ge=0, le=1000)
     threat_catalogs_enabled: bool = True
     sans_contact: str = ""
+    dshield_enabled: bool = True
+    dshield_limit: int = Field(50, ge=1, le=100)
+    isc_honeypots_enabled: bool = False
+    isc_honeypots_user_agent: str = Field("jndi:ldap", min_length=1, max_length=120)
+    cyber_observation_retention_days: int = Field(30, ge=1, le=180)
+    threatfox_auth_key: str = ""
+    greynoise_api_key: str = ""
+    cloudflare_radar_token: str = ""
+    infrastructure_geo_enabled: bool = True
+    infrastructure_geo_daily_budget: int = Field(250, ge=0, le=750)
     admin_token: str = ""
     http_timeout: float = Field(25, ge=1, le=120)
     connector_concurrency: int = Field(2, ge=1, le=4)

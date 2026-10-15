@@ -106,6 +106,12 @@ class Database:
         with nullcontext(connection) if connection is not None else self.connect() as db:
             if connection is None:
                 db.execute("BEGIN IMMEDIATE")
+            if report.cyber_observation:
+                from .infrastructure_geo import apply_cached_location
+
+                apply_cached_location(db, report)
+                country = report.country_code
+                metadata = report.model_dump(mode="json", exclude={"raw", "title", "description"})
             existing = db.execute("SELECT event_id FROM reports WHERE report_id=?", (report_id,)).fetchone()
             event_id = existing[0] if existing else None
             if not event_id:
@@ -113,7 +119,15 @@ class Database:
                 same_url = (
                     None
                     if report.category
-                    in {"environment", "aviation", "maritime", "cyber", "sentiment", "threat"}
+                    in {
+                        "environment",
+                        "aviation",
+                        "maritime",
+                        "cyber",
+                        "infrastructure",
+                        "sentiment",
+                        "threat",
+                    }
                     else db.execute(
                         "SELECT r.event_id FROM reports r JOIN events e ON e.event_id=r.event_id WHERE r.source_url=? AND e.category=? LIMIT 1",
                         (source_url, report.category),
@@ -220,6 +234,12 @@ class Database:
                 (report_id, json.dumps(report.raw), now),
             )
             db.execute("UPDATE events SET updated_at=? WHERE event_id=?", (now, event_id))
+            if report.cyber_observation:
+                from .cyber_observations import index_observation
+
+                index_observation(
+                    db, report_id, report.source_id, report.cyber_observation, report.confidence
+                )
             review = db.execute(
                 "SELECT confidence,basis FROM evidence_reviews WHERE event_id=? ORDER BY id DESC LIMIT 1",
                 (event_id,),
@@ -241,7 +261,15 @@ class Database:
 
     def _cluster(self, db, report: Report, country: str | None) -> str | None:
         # Position observations and measured hazards remain separate observations.
-        if report.category in {"aviation", "maritime", "environment", "cyber", "sentiment", "threat"}:
+        if report.category in {
+            "aviation",
+            "maritime",
+            "environment",
+            "cyber",
+            "infrastructure",
+            "sentiment",
+            "threat",
+        }:
             return None
         instant = report.occurred_at or report.published_at
         candidates = db.execute(
@@ -287,6 +315,9 @@ class Database:
                 f"AND {prefix}latitude IS NOT NULL AND {prefix}longitude IS NOT NULL))"
             )
             values.extend(filters.aircraft_categories)
+        if filters.infrastructure_provider:
+            terms.append(f"({prefix}category!='infrastructure' OR {prefix}source_id=?)")
+            values.append(filters.infrastructure_provider)
         if filters.q:
             query = filters.q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             terms.append(
@@ -394,11 +425,16 @@ class Database:
             result["aircraft"] = result["reports"][0]["metadata"].get("aircraft")
         if result["category"] == "threat" and result["reports"]:
             result["threat"] = result["reports"][0]["metadata"].get("threat")
+        if result["category"] == "infrastructure" and result["reports"]:
+            for field in ("cyber_observation", "infrastructure_geo"):
+                result[field] = result["reports"][0]["metadata"].get(field)
         return result
 
     def with_aircraft_metadata(self, rows):
         items = [self.event_dict(row) for row in rows]
-        ids = [item["event_id"] for item in items if item["category"] in {"aviation", "threat"}]
+        ids = [
+            item["event_id"] for item in items if item["category"] in {"aviation", "threat", "infrastructure"}
+        ]
         metadata = {}
         if ids:
             with self.connect() as db:
@@ -414,6 +450,9 @@ class Database:
                 item["aircraft"] = metadata.get(item["event_id"], {}).get("aircraft")
             if item["category"] == "threat":
                 item["threat"] = metadata.get(item["event_id"], {}).get("threat")
+            if item["category"] == "infrastructure":
+                for field in ("cyber_observation", "infrastructure_geo"):
+                    item[field] = metadata.get(item["event_id"], {}).get(field)
         return items
 
     def statuses(self) -> list[dict]:
@@ -470,7 +509,13 @@ class Database:
             db.execute("DELETE FROM job_locks WHERE name=? AND owner=?", (name, owner))
 
     def maintenance(self, settings: Settings) -> dict:
+        from .cyber_observations import prune_observations
+
+        prune_observations(self, settings.cyber_observation_retention_days)
         with self.connect() as db:
+            db.execute(
+                "DELETE FROM cyber_ddos_series WHERE start_at<?", (stamp(utcnow() - timedelta(days=30)),)
+            )
             db.execute(
                 "DELETE FROM events WHERE category='sentiment' AND ingested_at<?",
                 (stamp(utcnow() - timedelta(hours=24)),),

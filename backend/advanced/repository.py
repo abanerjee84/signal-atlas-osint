@@ -243,7 +243,7 @@ class Repository:
                 )
                 access = "registration_required" if provider.access() else "free"
                 db.execute(
-                    "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET name=excluded.name,details=excluded.details,official_url=excluded.official_url,integration=excluded.integration",
+                    "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET name=excluded.name,details=excluded.details,official_url=excluded.official_url,integration=excluded.integration,category=excluded.category",
                     (
                         provider.source_id,
                         provider.name,
@@ -252,9 +252,9 @@ class Repository:
                         provider.homepage,
                         "feed" if feed else "scraper" if scraper else "api",
                         access,
-                        "source_terms",
+                        metadata.get("license", "source_terms"),
                         "existing_connector",
-                        1,
+                        int(getattr(provider, "initial_enabled", True)),
                         None,
                         packed(metadata),
                     ),

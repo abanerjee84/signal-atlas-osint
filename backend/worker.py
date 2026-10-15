@@ -18,6 +18,7 @@ from .connectors.base import Connector, ProviderError, SafeHTTP
 from .connectors.registry import connectors
 from .database import Database
 from .models import stamp, utcnow
+from .tls import outbound_tls
 
 log = logging.getLogger("osint.worker")
 
@@ -88,12 +89,19 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 if (
                     len(pending) == 100
                     and not provider.snapshot
+                    and not getattr(provider, "ddos_aggregate", False)
                     and not getattr(provider, "live_aircraft", False)
                 ):
                     await database_call(database.ingest_many, pending)
                     stored += len(pending)
                     pending = []
-            if getattr(provider, "live_aircraft", False):
+            if getattr(provider, "ddos_aggregate", False):
+                from .cyber_observations import save_ddos_series
+
+                if selected and not pending:
+                    raise ProviderError("All provider aggregate records failed validation")
+                stored = await database_call(save_ddos_series, database, pending)
+            elif getattr(provider, "live_aircraft", False):
                 from .aviation import save_snapshot
 
                 if selected and not pending:
@@ -110,6 +118,12 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 raise ProviderError("All provider records failed validation")
             if getattr(provider, "telemetry", False):
                 await database_call(database.prune_threat_telemetry, provider.source_id)
+            if getattr(provider, "observation_feed", False):
+                from .cyber_observations import prune_observations
+
+                await database_call(
+                    prune_observations, database, provider.settings.cyber_observation_retention_days
+                )
             result = {
                 "state": "ok",
                 "last_success": stamp(),
@@ -175,12 +189,10 @@ async def run(once: bool = False, source: str | None = None):
         except NotImplementedError:
             pass
     semaphore = asyncio.Semaphore(settings.connector_concurrency)
-    # httpx's bundled certificate store, not the platform store: on Windows
-    # the system context prefers expired cross-signed intermediates and
-    # rejects chains that verify fine everywhere else.
+    # Preserve public trust roots and include locally installed enterprise CAs.
     async with httpx.AsyncClient(
         timeout=settings.http_timeout,
-        verify=True,
+        verify=outbound_tls(),
         limits=httpx.Limits(max_connections=4),
         headers={"User-Agent": "GlobalOSINT/0.1 public-source-research"},
     ) as client:
@@ -268,10 +280,18 @@ async def run(once: bool = False, source: str | None = None):
         if not once:
             if not source:
                 aircraft_tasks.append(asyncio.create_task(orbital_updates()))
+                from .infrastructure_geo import enrich_locations
+
+                async def infrastructure_geolocation():
+                    await repeat_job(lambda: enrich_locations(database, settings, client), stopped, 60)
+
+                aircraft_tasks.append(asyncio.create_task(infrastructure_geolocation()))
             if not source or source == "opensky":
                 from .aircraft_details import details_loop
 
-                aircraft_tasks.append(asyncio.create_task(details_loop(database, stopped, require_viewer=True)))
+                aircraft_tasks.append(
+                    asyncio.create_task(details_loop(database, stopped, require_viewer=True))
+                )
             for provider in providers:
                 if getattr(provider, "live_aircraft", False):
                     current = next(

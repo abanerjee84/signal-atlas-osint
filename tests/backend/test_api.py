@@ -40,7 +40,7 @@ def test_api_contract(client, report):
     source = client.get("/api/reports/" + detail["reports"][0]["report_id"]).json()
     assert source["raw"] == {"test": True}
     layers = client.get("/api/layers").json()
-    assert len(layers) == 9
+    assert len(layers) == 10
     cyber = next(layer for layer in layers if layer["id"] == "cyber")
     assert cyber["categories"] == ["cyber", "threat"]
     assert {"bitdefender_threatmap", "bunkerweb_threatmap", "cisa"} <= set(cyber["sources"])

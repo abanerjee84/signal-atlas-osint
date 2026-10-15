@@ -537,7 +537,9 @@ export function createWorldMap(
     pulses = [],
     nextPulseAt = 0,
     pulseCursor = 0;
-  map.on("styleimagemissing", ({ id }) => {
+  // MapLibre 6 awaits this resolver; styleimagemissing is notification-only.
+  map.setMissingStyleImageResolver((id) => {
+    if (map.hasImage(id)) return;
     if (id.startsWith("orbit-label-")) {
       const item = orbitalData.features.find(
         (feature) => feature.properties.name_icon === id,
@@ -2184,7 +2186,10 @@ export function createWorldMap(
             element(
               "div",
               "hover-kind",
-              `${feature.properties.point_count} reports nearby`,
+              feature.properties.infrastructure ===
+                feature.properties.point_count
+                ? `${feature.properties.point_count} infrastructure observations nearby`
+                : `${feature.properties.point_count} reports nearby`,
             ),
           );
           try {
@@ -2207,6 +2212,14 @@ export function createWorldMap(
           card.append(
             element("p", "hover-hint", "Select to expand these reports"),
           );
+          if (feature.properties.infrastructure > 0)
+            card.append(
+              element(
+                "p",
+                "hover-location",
+                "Illustrative IP infrastructure country centres; not actor or victim attribution",
+              ),
+            );
         }
         hoverPopup
           .setLngLat(feature.geometry.coordinates)
@@ -2312,6 +2325,18 @@ export function createWorldMap(
     );
     const symbols = samples({ layers: ["event-points"] });
     const clusters = samples({ layers: ["clusters"] });
+    map.getCanvas().dataset.infrastructureHoverPoints = JSON.stringify(
+      [...symbols, ...clusters]
+        .filter(
+          (feature) =>
+            feature.properties.category === "infrastructure" ||
+            feature.properties.infrastructure > 0,
+        )
+        .map((feature) => {
+          const point = map.project(feature.geometry.coordinates);
+          return { x: point.x, y: point.y, layer: feature.layer.id };
+        }),
+    );
     map.getCanvas().dataset.layerSymbols = String(symbols.length);
     map.getCanvas().dataset.symbolCategories = [
       ...new Set(symbols.map((feature) => feature.properties.category)),

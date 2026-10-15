@@ -428,7 +428,7 @@ def test_concurrent_first_start_migrations_are_serialized(tmp_path):
             path = tmp_path / f"concurrent-{attempt}.sqlite3"
             list(pool.map(lambda _: Database(path).initialize(), range(2)))
             with sqlite3.connect(path) as db:
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 6
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 8
                 assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
 

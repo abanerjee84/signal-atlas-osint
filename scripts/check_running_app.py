@@ -86,7 +86,7 @@ def main():
             "social_posts": page.locator("#social-posts article.social-post").count(),
             "errors": errors,
         }
-        assert initial["layers"] == 9
+        assert initial["layers"] == 10
         assert summary["social_posts"] > 0, "No real public-discussion records displayed"
         page.locator("#social-posts article.social-post").first.scroll_into_view_if_needed()
         page.screenshot(path=str(output / "posts.png"), full_page=False)

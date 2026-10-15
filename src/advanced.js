@@ -14,6 +14,8 @@ const state = {
   graphStatus: "",
   threatKind: "threat_actor",
   threatSource: "",
+  cyberView: "indicators",
+  observationProvider: "",
   cases: [],
   selected: new Set(),
   chart: null,
@@ -349,6 +351,168 @@ function ipActivityDetail(payload) {
       ),
     );
 }
+function indicatorDetail(data) {
+  detail(data);
+  const root = $("detail");
+  root.append(
+    el(
+      "p",
+      "Provider observations describe infrastructure. They do not identify an actor or establish compromise.",
+      "muted",
+    ),
+  );
+  if (data.source_families?.length)
+    root.append(
+      el(
+        "p",
+        `Provider families: ${data.source_families.join(", ")}. Multiple sightings are not independent verification.`,
+      ),
+    );
+  for (const row of data.observations || []) {
+    const observation = row.payload;
+    const section = el("section", undefined, "catalog-profile");
+    section.append(el("h4", row.source_id.replaceAll("_", " ")));
+    const facts = el("dl", undefined, "facts");
+    for (const [label, value] of [
+      ["Observation", observation.kind],
+      [
+        "First seen",
+        observation.first_seen ? date(observation.first_seen) : null,
+      ],
+      ["Last seen", observation.last_seen ? date(observation.last_seen) : null],
+      [
+        "Reporting interval",
+        observation.period_start
+          ? `${date(observation.period_start)} to ${date(observation.period_end)}`
+          : null,
+      ],
+      ["Retrieved", date(observation.received_at)],
+      ["Provider reports", observation.report_count],
+      ["Target hosts", observation.target_count],
+      ["Matching honeypot requests", observation.request_count],
+      ["Port", observation.port],
+      [
+        "Provider confidence (not local verification)",
+        observation.provider_confidence == null
+          ? null
+          : `${observation.provider_confidence}%`,
+      ],
+      ["Provider malware association", observation.malware_name || null],
+    ])
+      if (value !== null && value !== undefined)
+        facts.append(el("dt", label), el("dd", String(value)));
+    section.append(
+      facts,
+      link(row.original_url),
+      action("Save observation to case", () =>
+        saveEvidence("record", row.record_id),
+      ),
+    );
+    for (const url of observation.references || [])
+      section.append(link(url, "Provider reference ↗"));
+    root.append(section);
+  }
+  if (data.malware_candidates?.length) {
+    root.append(
+      el("h4", "Related malware references"),
+      el(
+        "p",
+        "Catalog references and name candidates are investigation leads. Shared malware does not establish who operated this indicator.",
+        "muted",
+      ),
+    );
+    for (const item of data.malware_candidates)
+      root.append(
+        action(item.name, async () => {
+          threatDetail((await api(`/cyber/actors/${item.entity_id}`)).data);
+          const network = await api(
+            `/graph/neighborhood/${item.entity_id}?nodes=24&edges=40`,
+          );
+          graph(network.data, null, item.entity_id);
+        }),
+      );
+  }
+}
+
+function greyNoiseDetail(payload) {
+  detail(payload, `${payload.resource} · GreyNoise IP context`);
+  const facts = el("dl", undefined, "facts");
+  for (const [label, value] of [
+    ["Provider classification", payload.data?.classification || "Not supplied"],
+    ["Observed scanner", payload.data?.noise],
+    ["Known service (RIOT)", payload.data?.riot],
+    ["Last seen", payload.data?.last_seen || "Not supplied"],
+  ])
+    facts.append(el("dt", label), el("dd", String(value)));
+  $("detail").append(facts, el("p", payload.limitations, "muted"));
+}
+
+function radarChart(result) {
+  const items = result.data;
+  $("summary").textContent = result.meta.basis;
+  if (!items.length) {
+    $("results").replaceChildren(
+      el(
+        "p",
+        result.meta.configured
+          ? `No stored Radar data. Source status: ${result.meta.health?.state || "awaiting collection"}.`
+          : "Cloudflare Radar is available when its backend API token is configured. No aggregate data has been collected.",
+        "empty",
+      ),
+    );
+    return;
+  }
+  const times = [...new Set(items.map((row) => row.start_at))].sort();
+  const protocols = [...new Set(items.map((row) => row.protocol))].sort();
+  const values = new Map(
+    items.map((row) => [`${row.start_at}:${row.protocol}`, row.percentage]),
+  );
+  $("visual").hidden = false;
+  $("visual").setAttribute(
+    "aria-label",
+    "Cloudflare global DDoS protocol percentages by hour",
+  );
+  state.chart = echarts.init($("visual"));
+  state.chart.setOption({
+    animation: false,
+    backgroundColor: "transparent",
+    textStyle: { color: "#d9e7ec" },
+    tooltip: {
+      trigger: "axis",
+      renderMode: "richText",
+      valueFormatter: (value) => `${value}%`,
+    },
+    legend: { data: protocols, textStyle: { color: "#d9e7ec" } },
+    grid: { left: 55, right: 20, top: 45, bottom: 65 },
+    xAxis: {
+      type: "category",
+      data: times,
+      axisLabel: { formatter: (value) => date(value), rotate: 25 },
+    },
+    yAxis: {
+      type: "value",
+      min: 0,
+      max: 100,
+      axisLabel: { formatter: "{value}%" },
+    },
+    series: protocols.map((protocol) => ({
+      name: protocol,
+      type: "line",
+      connectNulls: false,
+      data: times.map((time) => values.get(`${time}:${protocol}`) ?? null),
+    })),
+  });
+  records(
+    items.slice(0, 24).map((item) => ({
+      ...item,
+      title: `${item.protocol}: ${item.percentage}%`,
+      published_at: item.start_at,
+      description: `Hourly global provider share. Interval ends ${date(item.end_at)}. This is not an attack count.`,
+    })),
+    null,
+    (row) => detail(row),
+  );
+}
 function modal(title, fields, submit) {
   $("dialog-title").textContent = title;
   const form = $("action-form");
@@ -365,6 +529,7 @@ function modal(title, fields, submit) {
       }
     } else input = el(field.multiline ? "textarea" : "input");
     input.name = field.name;
+    input.setAttribute("aria-label", field.label);
     if (!field.options && !field.multiline) input.type = field.type || "text";
     if (field.accept) input.accept = field.accept;
     if (field.value !== undefined) input.value = field.value;
@@ -897,6 +1062,8 @@ async function pollJob(id) {
     const job = (await api(`/jobs/${id}`)).data;
     if (job.state === "completed") {
       if (job.result?.source_id === "sans") ipActivityDetail(job.result);
+      else if (job.result?.source_id === "greynoise")
+        greyNoiseDetail(job.result);
       else
         detail(
           job.result,
@@ -1018,6 +1185,7 @@ async function refresh() {
           ["geopolitical", "Geopolitical"],
           ["military", "Military"],
           ["cyber", "Cyber"],
+          ["infrastructure", "Cyber infrastructure"],
           ["sentiment", "Public discourse"],
           ["documents", "Documents"],
           ["organizations", "Organizations"],
@@ -1043,14 +1211,29 @@ async function refresh() {
       state.category === "documents"
         ? "document"
         : !state.category ||
-            ["geopolitical", "military", "cyber", "sentiment"].includes(
-              state.category,
-            )
+            [
+              "geopolitical",
+              "military",
+              "cyber",
+              "infrastructure",
+              "sentiment",
+            ].includes(state.category)
           ? "record"
           : null,
     );
   } else if (state.module === "cyber") {
     controls.append(
+      selectors(
+        [
+          ["indicators", "Indicators"],
+          ["observations", "Provider observations"],
+          ["ddos", "DDoS protocol trends"],
+        ],
+        state.cyberView,
+        (value) => {
+          state.cyberView = value;
+        },
+      ),
       action("Threat actors & campaigns", () => navigate("actors")),
       action("Dated cyber reports", async () => {
         const found = await api(`/osint/search?category=cyber&${params}`);
@@ -1089,6 +1272,7 @@ async function refresh() {
                 ["local", "Local collected advisories"],
                 ["ripe", "RIPEstat public routing lookup (free)"],
                 ["sans", "SANS ISC public IP activity (free)"],
+                ["greynoise", "GreyNoise selected IP context (API key)"],
               ],
             },
           ],
@@ -1163,14 +1347,55 @@ async function refresh() {
           (item) => detail(item.payload),
         );
       }),
+      action("Saved GreyNoise IP context", async () => {
+        const found = await api("/cyber/ip-context");
+        records(
+          found.data.map((row) => ({
+            ...row,
+            title: `${row.payload.resource} · GreyNoise`,
+          })),
+          null,
+          (row) => greyNoiseDetail(row.payload),
+        );
+      }),
     );
-    result = await api(`/cyber/indicators?${params}`);
-    if (generation !== state.generation) return;
-    records(result.data, null, async (item) =>
-      detail((await api(`/cyber/indicators/${item.indicator_id}`)).data),
-    );
-    $("summary").textContent =
-      "Public cyber feeds, local indicators, country outages, RIPEstat routing and SANS IP observations. Open Threat actors & campaigns for historical knowledge and report links.";
+    if (state.cyberView === "ddos") {
+      result = await api("/cyber/ddos");
+      if (generation !== state.generation) return;
+      radarChart(result);
+    } else {
+      if (state.cyberView === "observations") {
+        controls.append(
+          selectors(
+            [
+              ["", "All observation providers"],
+              ["dshield", "SANS DShield"],
+              ["isc_honeypots", "SANS ISC honeypots"],
+              ["threatfox", "ThreatFox"],
+            ],
+            state.observationProvider,
+            (value) => {
+              state.observationProvider = value;
+            },
+          ),
+        );
+        params.set("provider", state.observationProvider);
+      }
+      result = await api(`/cyber/${state.cyberView}?${params}`);
+      if (generation !== state.generation) return;
+      records(
+        result.data,
+        state.cyberView === "observations" ? "record" : null,
+        async (item) =>
+          indicatorDetail(
+            (await api(`/cyber/indicators/${item.indicator_id}`)).data,
+          ),
+      );
+      $("summary").textContent =
+        state.cyberView === "observations"
+          ? "Provider infrastructure observations. Daily aggregates update in place; reports, requests and indicators have different units. SANS feeds share one provider family. Actor and target geography remain unknown."
+          : "Collected indicators and cited provider observations. Open Threat actors & campaigns for historical knowledge and report links.";
+    }
   } else if (state.module === "actors") {
     const catalogs = (await api("/cyber/catalogs")).data;
     if (generation !== state.generation) return;
@@ -1990,6 +2215,10 @@ async function refresh() {
   }
   if (generation !== state.generation) return;
   $("pagination").hidden = false;
+  if (state.module === "cyber" && state.cyberView === "ddos") {
+    $("pagination").hidden = true;
+    return;
+  }
   $("previous").disabled = state.offset === 0;
   $("next").disabled =
     state.offset + 50 >= (result?.meta.total ?? result?.data.length ?? 0);
@@ -2107,3 +2336,15 @@ $("module-description").textContent = modules[0][2];
 $("modules").firstChild.setAttribute("aria-current", "page");
 $("previous").disabled = true;
 $("next").disabled = true;
+const entry = new URLSearchParams(window.location.search);
+if (entry.get("module") === "cyber") {
+  state.module = "cyber";
+  $("query").value = (entry.get("indicator") || "").slice(0, 200);
+  $("module-code").textContent = "AOS-02";
+  $("module-title").textContent = modules[1][1];
+  $("module-description").textContent = modules[1][2];
+  $("modules").firstChild.setAttribute("aria-current", "false");
+  $("modules")
+    .querySelector('[data-module="cyber"]')
+    .setAttribute("aria-current", "page");
+}

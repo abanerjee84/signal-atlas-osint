@@ -130,7 +130,13 @@ def index_batch(database, limit=200):
                 for name, pattern in INSTITUTIONS.items()
                 if re.search(pattern, text, re.I)
             ]
-            if record["category"] == "cyber":
+            if record["metadata"].get("cyber_observation"):
+                from ..cyber_observations import index_observation
+                from ..models import CyberObservation
+
+                observation = CyberObservation.model_validate(record["metadata"]["cyber_observation"])
+                index_observation(db, rid, record["source_id"], observation, record["confidence"])
+            elif record["category"] == "cyber":
                 for kind, value in indicators(text):
                     iid = stable(kind, value)
                     seen = record["published_at"] or record["observed_at"]

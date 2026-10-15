@@ -13,6 +13,8 @@ const concepts = {
     "sentiment social media public opinion reactions feelings mood positive negative reddit youtube twitter x posts discussion",
   cyber:
     "cyber cybersecurity hackers hacking ransomware malware phishing ddos attacks threats threat actors exploits vulnerability cve blacklist victims",
+  infrastructure:
+    "cyber infrastructure ip address addresses ioc indicators scanning scans dshield sans honeypot honeypots threatfox malware servers command control c2 botnet hosts network",
   economic:
     "economic economy economics business finance markets stocks oil gas energy prices trade inflation power electricity sanctions",
   environment:

@@ -131,6 +131,7 @@ def router(database, settings, authorize, source_statuses):
             "maritime",
             "sentiment",
             "cyber",
+            "infrastructure",
             "economic",
             "environment",
             "analysis",
@@ -150,7 +151,7 @@ def router(database, settings, authorize, source_statuses):
         for source in result["data"]:
             source["health"] = statuses.get(source["source_id"], {"state": "manual_lookup", "stale": True})
             source["last_verified_at"] = source["health"].get("last_success") or source["last_verified_at"]
-            if source["source_id"] in {"ripe", "ioda", "searxng", "sans"}:
+            if source["source_id"] in {"ripe", "ioda", "searxng", "sans", "greynoise"}:
                 last = repo.one(
                     "SELECT * FROM investigation_jobs WHERE kind='lookup' AND json_extract(payload,'$.provider_id')=? ORDER BY created_at DESC LIMIT 1",
                     (source["source_id"],),
@@ -177,6 +178,12 @@ def router(database, settings, authorize, source_statuses):
                 }
             if not source["enabled"] and source["permissions_state"] == "existing_connector":
                 source["health"] = {**source["health"], "state": "disabled"}
+            if source["source_id"] == "greynoise" and not settings.greynoise_api_key:
+                source["health"] = {
+                    **source["health"],
+                    "state": "access_required",
+                    "error": "Set OSINT_GREYNOISE_API_KEY",
+                }
             source["capabilities"] = repo.one(
                 "SELECT capabilities FROM source_capabilities WHERE source_id=?", (source["source_id"],)
             )["capabilities"]
@@ -205,6 +212,7 @@ def router(database, settings, authorize, source_statuses):
             "maritime",
             "sentiment",
             "cyber",
+            "infrastructure",
             "economic",
             "environment",
             "analysis",
@@ -426,20 +434,49 @@ def router(database, settings, authorize, source_statuses):
             (indicator_id,),
         )
         data["attribution_status"] = "Reported reference; not a confirmed cyber incident"
+        data["observations"] = repo.rows(
+            "SELECT o.*,r.title,r.original_url,r.confidence FROM cyber_observations o JOIN external_records r USING(record_id) WHERE o.indicator_id=? ORDER BY COALESCE(o.last_seen,o.first_seen,o.period_start) DESC LIMIT 200",
+            (indicator_id,),
+        )
+        data["source_families"] = sorted({row["source_family"] for row in data["observations"]})
+        data["malware_candidates"] = []
+        candidates = {}
+        for observation in data["observations"]:
+            payload = observation["payload"]
+            matches = []
+            for reference in payload.get("references", []):
+                matches.extend(
+                    repo.rows(
+                        "SELECT DISTINCT entity_id,name FROM threat_catalog_objects o WHERE active=1 AND type='malware' AND EXISTS(SELECT 1 FROM json_each(o.profile,'$.refs') WHERE value=?) LIMIT 10",
+                        (reference,),
+                    )
+                )
+            basis = "Shared provider/catalog reference; historical knowledge, not actor responsibility"
+            if not matches and payload.get("malware_name"):
+                basis = "Exact malware name candidate; shared tools do not establish actor responsibility"
+                matches = repo.rows(
+                    "SELECT DISTINCT entity_id,name FROM threat_catalog_objects WHERE active=1 AND type='malware' AND name=? COLLATE NOCASE LIMIT 10",
+                    (payload["malware_name"],),
+                )
+            for row in matches:
+                candidates.setdefault(row["entity_id"], {**row, "match_basis": basis})
+        data["malware_candidates"] = list(candidates.values())
         return output(data)
 
     @api.post("/cyber/enrich", dependencies=private)
     def enrich(body: EnrichInput):
-        if body.provider_id == "sans":
+        if body.provider_id in {"sans", "greynoise"}:
             import ipaddress
 
             try:
                 address = ipaddress.ip_address(body.indicator)
                 if not address.is_global:
-                    raise ValueError("SANS lookup requires a public IP address")
+                    raise ValueError("Provider lookup requires a public IP address")
             except ValueError as error:
                 raise HTTPException(422, str(error)) from None
-            return queue_lookup("sans", {"query": str(address)})
+            if body.provider_id == "greynoise" and not settings.greynoise_api_key:
+                raise HTTPException(409, "Set OSINT_GREYNOISE_API_KEY to use GreyNoise")
+            return queue_lookup(body.provider_id, {"query": str(address)})
         if body.provider_id == "ripe":
             try:
                 routing_resource(body.indicator)
@@ -450,7 +487,16 @@ def router(database, settings, authorize, source_statuses):
             raise HTTPException(409, "External enrichment provider is not configured")
         try:
             kind, value = normalize_indicator(body.indicator)
-        except (ValueError, UnicodeError) as error:
+        except ValueError:
+            from ..indicators import observed_indicator
+
+            try:
+                kind, value, _ = observed_indicator(
+                    "url" if "://" in body.indicator else "ip:port", body.indicator
+                )
+            except (ValueError, UnicodeError) as error:
+                raise HTTPException(422, str(error)) from None
+        except UnicodeError as error:
             raise HTTPException(422, str(error)) from None
         iid = stable(kind, value)
         found = repo.one("SELECT * FROM cyber_indicators WHERE indicator_id=?", (iid,))
@@ -498,6 +544,42 @@ def router(database, settings, authorize, source_statuses):
     @api.get("/cyber/infrastructure")
     def infrastructure(paging=Depends(page)):
         return listing("advanced_provider_cache", paging, "source_id='ripe'", order="retrieved_at DESC")
+
+    @api.get("/cyber/observations")
+    def observations(paging=Depends(page), provider: str = Query("", max_length=100)):
+        _, _, q = paging
+        return listing(
+            "cyber_observations o JOIN cyber_indicators i USING(indicator_id) JOIN external_records r USING(record_id)",
+            paging,
+            "(?='' OR o.source_id=?) AND (i.normalized_value LIKE ? OR r.title LIKE ?)",
+            (provider, provider, f"%{q}%", f"%{q}%"),
+            "o.received_at DESC,o.record_id",
+        )
+
+    @api.get("/cyber/ddos")
+    def ddos_series():
+        rows = repo.rows("SELECT * FROM cyber_ddos_series ORDER BY start_at DESC,protocol LIMIT 2880")
+        source = repo.one("SELECT enabled FROM sources WHERE source_id='cloudflare_radar'")
+        health = next((row for row in database.statuses() if row["source_id"] == "cloudflare_radar"), {})
+        return output(
+            rows,
+            unit="percent",
+            scope="global",
+            provider="cloudflare_radar",
+            configured=bool(settings.cloudflare_radar_token),
+            enabled=bool(source and source["enabled"]),
+            health=health,
+            basis="Provider L3 DDoS protocol distribution per hour; percentages are not attack counts or actor attribution.",
+        )
+
+    @api.get("/cyber/ip-context")
+    def ip_context(paging=Depends(page)):
+        return listing(
+            "advanced_provider_cache",
+            paging,
+            "source_id='greynoise' AND cache_key<>'greynoise:cooldown'",
+            order="retrieved_at DESC",
+        )
 
     @api.get("/cyber/catalogs")
     def threat_catalogs():

@@ -21,6 +21,7 @@ class Category(StrEnum):
     maritime = "maritime"
     sentiment = "sentiment"
     cyber = "cyber"
+    infrastructure = "infrastructure"
     threat = "threat"
     economic = "economic"
     environment = "environment"
@@ -135,6 +136,66 @@ class ThreatMetadata(BaseModel):
         return SocialMetadata.country_codes(values)
 
 
+class InfrastructureLocation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    country_code: str = Field(pattern="^[A-Z]{2}$")
+    provider: Literal["ipwhois_geo"] = "ipwhois_geo"
+    source_url: str = Field(max_length=2048)
+    retrieved_at: datetime
+    expires_at: datetime
+    basis: str = Field(max_length=1000)
+
+    @field_validator("retrieved_at", "expires_at")
+    @classmethod
+    def aware(cls, value):
+        return Report.aware(value)
+
+
+class CyberObservation(BaseModel):
+    """A provider assertion, distinct from incident attribution and local confidence."""
+
+    model_config = ConfigDict(extra="forbid")
+    provider_record_id: str = Field(min_length=1, max_length=200)
+    source_family: str = Field(min_length=1, max_length=100)
+    kind: str = Field(min_length=1, max_length=80)
+    indicator_type: Literal["ip", "domain", "url", "hash"]
+    indicator_value: str = Field(min_length=1, max_length=2048)
+    native_type: str = Field(max_length=80)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    received_at: datetime
+    report_count: int | None = Field(default=None, ge=0)
+    target_count: int | None = Field(default=None, ge=0)
+    request_count: int | None = Field(default=None, ge=0)
+    provider_confidence: int | None = Field(default=None, ge=0, le=100)
+    malware_id: str = Field(default="", max_length=200)
+    malware_name: str = Field(default="", max_length=200)
+    references: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("first_seen", "last_seen", "period_start", "period_end", "received_at")
+    @classmethod
+    def aware(cls, value):
+        return Report.aware(value)
+
+    @model_validator(mode="after")
+    def validate_observation(self):
+        from .indicators import observed_indicator
+
+        _, self.indicator_value, _ = observed_indicator(self.indicator_type, self.indicator_value)
+        for start, end in [(self.first_seen, self.last_seen), (self.period_start, self.period_end)]:
+            if start and end and start > end:
+                raise ValueError("Observation interval is reversed")
+        if bool(self.period_start) != bool(self.period_end):
+            raise ValueError("Observation period requires both boundaries")
+        if self.port is not None and self.indicator_type != "ip":
+            raise ValueError("Separate ports apply only to IP indicators")
+        self.references = [Report.safe_url(value) for value in self.references]
+        return self
+
+
 class Report(BaseModel):
     model_config = ConfigDict(extra="forbid")
     external_id: str = Field(min_length=1, max_length=512)
@@ -164,6 +225,8 @@ class Report(BaseModel):
     aircraft_category: int | None = Field(default=None, ge=0, le=20)
     aircraft: AircraftMetadata | None = None
     threat: ThreatMetadata | None = None
+    cyber_observation: CyberObservation | None = None
+    infrastructure_geo: InfrastructureLocation | None = None
     raw: dict = Field(default_factory=dict)
 
     @field_validator("source_url")
@@ -190,6 +253,10 @@ class Report(BaseModel):
 
     @model_validator(mode="after")
     def coordinates(self):
+        if self.cyber_observation and (self.category != Category.infrastructure or self.threat is not None):
+            raise ValueError(
+                "Provider indicators require the infrastructure category without actor attribution"
+            )
         if (self.latitude is None) != (self.longitude is None):
             raise ValueError("Coordinates must be a pair")
         if self.latitude is None:
@@ -216,6 +283,7 @@ class Filters(BaseModel):
     end: datetime | None = None
     bbox: tuple[float, float, float, float] | None = None
     time_basis: str = Field(default="event", pattern="^(event|published|ingested)$")
+    infrastructure_provider: Literal["", "dshield", "isc_honeypots", "threatfox"] = ""
 
     @model_validator(mode="after")
     def valid_range(self):

@@ -44,6 +44,10 @@ import {
 import { VECTOR_LABELS, renderVectorBreakdown } from "./threat-vectors.js";
 import { searchLayers } from "./layer-search.js";
 import {
+  infrastructureFacts,
+  infrastructureSummary,
+} from "./infrastructure.js";
+import {
   prepareOrbits,
   orbitalPositions,
   filterOrbitalPositions,
@@ -72,6 +76,7 @@ const names = {
   maritime: "Maritime",
   sentiment: "Global sentiment",
   cyber: "Cyber: Threat Actors",
+  infrastructure: "Cyber infrastructure",
   threat: "Cyber: Threat Actors",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
@@ -85,6 +90,7 @@ const defaults = [
   "maritime",
   "environment",
   "cyber",
+  "infrastructure",
   "threat",
   "economic",
   "space",
@@ -150,7 +156,21 @@ const state = {
   orbitalScope: readSession("osint.orbitalScope", "defence"),
   orbitalTracks: readSession("osint.orbitalTracks", true),
   reportingSignals: 0,
+  infrastructureProvider: readSession("osint.infrastructureProvider", ""),
+  infrastructureCoverage: null,
 };
+if (
+  !["", "dshield", "isc_honeypots", "threatfox"].includes(
+    state.infrastructureProvider,
+  )
+)
+  state.infrastructureProvider = "";
+$("#infrastructure-provider").value = state.infrastructureProvider;
+$("#infrastructure-provider").addEventListener("change", () => {
+  state.infrastructureProvider = $("#infrastructure-provider").value;
+  saveSession("osint.infrastructureProvider", state.infrastructureProvider);
+  refresh({ progressLabel: "Filtering infrastructure observations" });
+});
 if (state.analysisOverlays) state.layers.add("analysis");
 state.analysisOverlays = state.layers.has("analysis");
 // Preserve old saved selections while exposing a single cyber layer control.
@@ -265,6 +285,7 @@ function filters({ sentiment = false } = {}) {
     bbox: $("#viewport-filter").checked ? worldMap?.bounds() : undefined,
     time_basis: $("#time-basis").value,
     aircraft_categories: [],
+    infrastructure_provider: state.infrastructureProvider,
   };
 }
 function params(options = {}) {
@@ -913,6 +934,17 @@ function renderEvents() {
     matchesAircraftFilter(event, state.aircraftClass, state.aircraftRegistry),
   );
   $("#aviation-class-controls").hidden = !state.layers.has("aviation");
+  $("#infrastructure-controls").hidden = !state.layers.has("infrastructure");
+  const infrastructure = visible.filter(
+    (event) => event.category === "infrastructure",
+  );
+  const coverage = state.infrastructureCoverage;
+  const located =
+    coverage?.located ??
+    infrastructure.filter((event) => event.latitude !== null).length;
+  const total = coverage?.total ?? infrastructure.length;
+  $("#infrastructure-status").textContent =
+    `${total} observations · ${located} located · ${total - located} unlocated${coverage?.geolocation?.state === "provider_backoff" ? " · Country lookup delayed" : ""}`;
   $("#aviation-class-status").textContent =
     `${aviationCount} aircraft${state.aircraftClass === "military" ? " · Registry flagged; unknown flags excluded" : ""}`;
   worldMap?.setEvents(visible);
@@ -1000,6 +1032,10 @@ function renderEvents() {
     } else if (event.category === "threat") {
       const facts = threatFacts(event);
       button.append(element("p", "event-excerpt", threatCaption(facts)));
+    } else if (event.category === "infrastructure") {
+      button.append(
+        element("p", "event-excerpt", infrastructureSummary(event)),
+      );
     } else if (event.description)
       button.append(
         element("span", "event-excerpt", event.description.slice(0, 220)),
@@ -1158,8 +1194,38 @@ async function selectEvent(id, locate = false) {
     });
     card.append(close, badge(event.confidence), element("h3", "", event.title));
     if (event.category !== "aviation")
-      card.append(element("p", "", event.description));
+      card.append(
+        element(
+          "p",
+          "",
+          event.category === "infrastructure"
+            ? event.description.replace(
+                "No IP geolocation is inferred.",
+                "Actor and target geography remain unknown.",
+              )
+            : event.description,
+        ),
+      );
     const fields = element("dl");
+    if (event.category === "infrastructure") {
+      for (const [label, value] of infrastructureFacts(event))
+        fields.append(element("dt", "", label), element("dd", "", value));
+      const observation =
+        event.cyber_observation ||
+        event.reports?.[0]?.metadata?.cyber_observation;
+      if (observation)
+        card.append(
+          sourceLink(
+            `advanced.html?module=cyber&indicator=${encodeURIComponent(observation.indicator_value)}`,
+            "Investigate indicator and save evidence ↗",
+          ),
+        );
+      const geo =
+        event.infrastructure_geo ||
+        event.reports?.[0]?.metadata?.infrastructure_geo;
+      if (geo?.source_url)
+        card.append(sourceLink(geo.source_url, "IP country estimate source ↗"));
+    }
     if (event.category === "threat") {
       event.threat ||= event.reports?.[0]?.metadata?.threat;
       const facts = threatFacts(event);
@@ -1740,7 +1806,7 @@ async function refresh(options = {}) {
   refreshController = new AbortController();
   const signal = refreshController.signal;
   const progress = options.progressLabel
-    ? mapProgress.begin(options.progressLabel, { total: 14, priority: 2 })
+    ? mapProgress.begin(options.progressLabel, { total: 15, priority: 2 })
     : null;
   const track = (promise, label) =>
     progress ? progress.track(promise, label) : promise;
@@ -1837,11 +1903,19 @@ async function refresh(options = {}) {
           .catch(() => null),
         "Live source status",
       ),
+      state.layers.has("infrastructure")
+        ? track(
+            api(`infrastructure/coverage?${query}`, { signal }),
+            "Infrastructure geography",
+          )
+        : Promise.resolve(null),
     ]);
     if (signal.aborted) return;
     if (results[0].status === "rejected") throw results[0].reason;
     const data = results[0].value;
     state.events = data.items.filter((event) => event.category !== "threat");
+    state.infrastructureCoverage =
+      results[15].status === "fulfilled" ? results[15].value : null;
     state.total = [...state.layers].some(
       (id) => !["threat", "analysis", "space"].includes(id),
     )

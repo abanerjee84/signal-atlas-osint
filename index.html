@@ -114,6 +114,26 @@
             class="layers"
             aria-label="Selectable intelligence layers"
           ></div>
+          <fieldset
+            id="infrastructure-controls"
+            class="orbital-controls"
+            hidden
+          >
+            <legend>Cyber infrastructure</legend>
+            <label for="infrastructure-provider">Observation provider</label>
+            <select id="infrastructure-provider">
+              <option value="">All observation providers</option>
+              <option value="dshield">SANS DShield</option>
+              <option value="isc_honeypots">SANS ISC honeypots</option>
+              <option value="threatfox">ThreatFox</option>
+            </select>
+            <p id="infrastructure-status" class="helper" role="status"></p>
+            <p class="helper">
+              Country centres show IP infrastructure estimates, not actor
+              nationality or victim locations. Unlocated indicators remain in
+              the feed.
+            </p>
+          </fieldset>
           <fieldset id="orbital-controls" class="orbital-controls" hidden>
             <legend>Spacecraft</legend>
             <label for="orbital-scope">Show</label>

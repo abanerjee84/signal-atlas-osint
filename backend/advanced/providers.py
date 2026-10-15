@@ -42,6 +42,18 @@ PUBLIC_PROVIDERS = [
         },
     ),
     (
+        "greynoise",
+        "GreyNoise Community - selected public IP lookup",
+        "https://docs.greynoise.io/reference/getcommunityip",
+        "cyber",
+        {
+            "on_demand": True,
+            "authentication": "OSINT_GREYNOISE_API_KEY",
+            "limitations": "Provider IP context, including benign scanner classifications; no actor attribution. Account quota applies. Cached for 24 hours.",
+            "usage_terms": "https://www.greynoise.io/terms-of-service",
+        },
+    ),
+    (
         "ioda",
         "Georgia Tech — IODA Internet outage observations",
         "https://api.ioda.inetintel.cc.gatech.edu/v2/",
@@ -63,7 +75,7 @@ def register_public(repo, settings):
     with repo.database.connect() as db:
         for sid, name, official, category, capability in PUBLIC_PROVIDERS:
             db.execute(
-                "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET details=excluded.details",
+                "INSERT INTO sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET details=excluded.details,name=excluded.name,official_url=excluded.official_url,enabled=CASE WHEN sources.permissions_state='manual_only' THEN excluded.enabled ELSE sources.enabled END,permissions_state=excluded.permissions_state,integration=excluded.integration,access_class=excluded.access_class",
                 (
                     sid,
                     name,
@@ -74,7 +86,7 @@ def register_public(repo, settings):
                     "free",
                     "provider_terms",
                     "existing_connector",
-                    1,
+                    int(bool(settings.greynoise_api_key)) if sid == "greynoise" else 1,
                     None,
                     packed(capability),
                 ),
@@ -124,6 +136,78 @@ async def lookup(repo, settings, client, payload):
     source = repo.one("SELECT * FROM sources WHERE source_id=? AND enabled=1", (provider,))
     if not source:
         raise ValueError("Provider is disabled or not configured")
+    if provider == "greynoise":
+        from ..indicators import public_ip
+
+        resource = public_ip(payload["query"])
+        if not settings.greynoise_api_key:
+            raise ValueError("GreyNoise API key is not configured")
+        key = stable("greynoise", resource)
+        cached = repo.one(
+            "SELECT payload FROM advanced_provider_cache WHERE cache_key=? AND expires_at>?", (key, stamp())
+        )
+        if cached:
+            return {**cached["payload"], "cached": True}
+        cooldown = repo.one(
+            "SELECT 1 FROM advanced_provider_cache WHERE cache_key='greynoise:cooldown' AND expires_at>?",
+            (stamp(),),
+        )
+        if cooldown:
+            raise ValueError("GreyNoise requested a pause; wait for the provider backoff period")
+        url = "https://api.greynoise.io/v3/community/" + quote(resource, safe="")
+        try:
+            result = await SafeHTTP(settings, client).json(
+                "GET", url, attempts=1, max_bytes=65536, headers={"key": settings.greynoise_api_key}
+            )
+        except ProviderError as error:
+            if error.status_code == 404:
+                result = {
+                    "ip": resource,
+                    "noise": False,
+                    "riot": False,
+                    "message": "IP not observed in provider dataset",
+                }
+            else:
+                if "HTTP 429" in str(error):
+                    with repo.database.connect() as db:
+                        db.execute(
+                            "INSERT OR REPLACE INTO advanced_provider_cache VALUES(?,?,?,?,?)",
+                            (
+                                "greynoise:cooldown",
+                                provider,
+                                packed({"classification": "provider_backoff"}),
+                                stamp(),
+                                stamp(utcnow() + timedelta(seconds=error.retry_after)),
+                            ),
+                        )
+                raise
+        if (
+            not isinstance(result, dict)
+            or result.get("ip") != resource
+            or not isinstance(result.get("noise"), bool)
+            or not isinstance(result.get("riot"), bool)
+        ):
+            raise ValueError("GreyNoise response failed validation")
+        answer = {
+            "resource": resource,
+            "source_id": provider,
+            "original_url": url,
+            "retrieved_at": stamp(),
+            "data": {
+                key: result[key]
+                for key in ("ip", "noise", "riot", "classification", "name", "last_seen", "message")
+                if key in result
+            },
+            "classification": "provider_ip_context",
+            "cached": False,
+            "limitations": source["details"]["limitations"],
+        }
+        with repo.database.connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO advanced_provider_cache VALUES(?,?,?,?,?)",
+                (key, provider, packed(answer), stamp(), stamp(utcnow() + timedelta(hours=24))),
+            )
+        return answer
     if provider == "sans":
         resource = str(ipaddress.ip_address(payload["query"]))
         if not ipaddress.ip_address(resource).is_global:

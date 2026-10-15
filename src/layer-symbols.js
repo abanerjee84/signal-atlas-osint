@@ -6,6 +6,7 @@ export const colors = {
   maritime: "#8dc7da",
   sentiment: "#79c69f",
   cyber: "#b2a3db",
+  infrastructure: "#65dfc5",
   threat: "#ef8ca2",
   economic: "#e4cc8a",
   environment: "#79c9b1",
@@ -19,6 +20,7 @@ export const CATEGORY_NAMES = {
   maritime: "Maritime",
   sentiment: "Global sentiment",
   cyber: "Cyber: Threat Actors",
+  infrastructure: "Cyber infrastructure",
   threat: "Cyber: Threat Actors — attack report / detection",
   economic: "Economic and energy",
   environment: "Environment and humanitarian",
@@ -32,6 +34,7 @@ const marks = {
   maritime: "MT",
   sentiment: "S",
   cyber: "CY",
+  infrastructure: "CI",
   threat: "TA",
   economic: "EC",
   environment: "EN",
@@ -76,6 +79,9 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
   ctx.translate(count ? 13 : 12, count ? 16 : 12);
   ctx.beginPath();
   switch (category) {
+    case "infrastructure":
+      ctx.roundRect(-10, -10, 20, 20, 3);
+      break;
     case "geopolitical":
       for (const [x, y] of [
         [-5, -10],
@@ -161,6 +167,16 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ctx.lineTo(-9, n);
       ctx.moveTo(9, n);
       ctx.lineTo(12, n);
+      ctx.stroke();
+    }
+  }
+  if (category === "infrastructure") {
+    ctx.strokeStyle = context ? tint : "#101b22";
+    ctx.lineWidth = 1;
+    for (const y of [-6, 6]) {
+      ctx.beginPath();
+      ctx.moveTo(-7, y);
+      ctx.lineTo(7, y);
       ctx.stroke();
     }
   }

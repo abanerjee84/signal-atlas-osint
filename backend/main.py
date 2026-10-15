@@ -24,6 +24,7 @@ from .models import AnalyzeRequest, Category, EvidenceReview, Filters, stamp, ut
 from .relations import cyber_relations, news_relations
 from .security import RequestLimits
 from .social_analytics import social_sentiment
+from .tls import outbound_tls
 
 log = logging.getLogger("osint.api")
 
@@ -37,6 +38,7 @@ def parse_filters(
     bbox: str | None = Query(None, max_length=100),
     time_basis: str = Query("event", pattern="^(event|published|ingested)$"),
     aircraft_categories: str = Query("", max_length=50),
+    infrastructure_provider: str = Query("", pattern="^(|dshield|isc_honeypots|threatfox)$"),
 ) -> Filters:
     try:
         values = tuple(float(part) for part in bbox.split(",")) if bbox else None
@@ -49,6 +51,7 @@ def parse_filters(
             bbox=values,
             time_basis=time_basis,
             aircraft_categories=[int(value) for value in aircraft_categories.split(",") if value],
+            infrastructure_provider=infrastructure_provider,
         )
     except (ValueError, ValidationError):
         raise HTTPException(
@@ -72,7 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         Repository(database).register(providers)
         async with httpx.AsyncClient(
             timeout=config.ai_timeout,
-            verify=True,
+            verify=outbound_tls(),
             limits=httpx.Limits(max_connections=4),
         ) as client:
             app.state.ai = AIService(config, database, client)
@@ -232,6 +235,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "maritime": "Maritime",
                         "sentiment": "Global sentiment",
                         "cyber": "Cyber: Threat Actors",
+                        "infrastructure": "Cyber infrastructure",
                         "threat": "Threat Actor",
                         "economic": "Economic and energy",
                         "environment": "Environment and humanitarian",
@@ -275,6 +279,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 }
             )
         return result
+
+    @app.get("/api/infrastructure/coverage")
+    def infrastructure_coverage(filters: FilterDependency):
+        from .infrastructure_geo import geolocation_status
+
+        where, values = database.where(filters.model_copy(update={"categories": [Category.infrastructure]}))
+        with database.connect() as db:
+            row = db.execute(
+                f"SELECT COUNT(*) total,COALESCE(SUM(latitude IS NOT NULL),0) located FROM events WHERE {where}",
+                values,
+            ).fetchone()
+        return {
+            **dict(row),
+            "geolocation": geolocation_status(database),
+            "basis": "Illustrative IP infrastructure country centres; unknown geography remains unlocated",
+        }
 
     @app.get("/api/events")
     def events(
