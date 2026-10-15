@@ -553,6 +553,7 @@ Dependency audits can be run with the virtual environment's `python scripts/audi
 - [Threat intelligence sources and relationships](docs/THREAT_INTELLIGENCE.md)
 - [Cyber infrastructure observations, provider setup and map geography](docs/CYBER_OBSERVATIONS.md)
 - [Threat Observatory integration assessment](docs/THREAT_OBSERVATORY_INTEGRATION_REVIEW.md)
+- [World Monitor feature catalog](docs/WORLDMONITOR_FEATURE_CATALOG.md) and [Signal Atlas incorporation plan](docs/WORLDMONITOR_INCORPORATION_PLAN.md)
 - [Social narratives and military reporting](docs/SOCIAL_MILITARY.md)
 - [Conflict collection, symbols and reporting signals](docs/CONFLICT_REPORTING.md)
 - [Conflict tracker and upstream publisher audit](docs/CONFLICT_SOURCE_AUDIT.md)
