@@ -43,8 +43,9 @@ def extract_vectors(text, *, contextual=True):
 def reputation_reason(label):
     return bool(
         re.search(
-            r"\b(?:blacklist|dnsbl|blocklist|reputation|bad[- ]?ip|bad behavior|anonymizer|TOR)\b",
+            r"\b(?:blacklist|dnsbl|blocklist|reputation|bad[- _]?(?:ip|behavior)|anonymizer|TOR|country|geoip|geoblock|antibot|crowdsec|modsecurity|unknown|default|limit)\b",
             label,
             re.I,
         )
+        or re.search(r"\blocal[- _]activit", label, re.I)
     )

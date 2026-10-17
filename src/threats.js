@@ -12,12 +12,14 @@ export function threatFacts(event) {
   const tagged = tags
     .filter((tag) => tag.startsWith("attack-vector:"))
     .map((tag) => tag.slice(14));
+  // An "unspecified" status means the provider gave no technique; the kind
+  // wording may still name one explicitly (e.g. OWASP categories).
   const vectors = knownVectors(
     event.threat?.attack_vectors?.length
       ? event.threat.attack_vectors
       : tagged.length
         ? tagged
-        : value("vector-status:")
+        : value("vector-status:") === "reputation"
           ? []
           : [kind],
   );
@@ -86,9 +88,25 @@ export function threatCaption(facts) {
 
 // A traffic category is not necessarily a technique. Keep the provider's wording
 // and explicitly distinguish a generic ATTACK row from a supplied vector.
+const GENERIC_KINDS = new Set([
+  "",
+  "Attack",
+  "N/A",
+  "Unknown",
+  "Reported cyber activity",
+]);
 export function attackVectorLabel(edge) {
-  const kinds = edge.attack_vectors ?? knownVectors(edge.attack_kinds || []);
-  return kinds.length ? kinds.join(" · ") : "Not specified by provider";
+  if (edge.attack_vectors?.length) return edge.attack_vectors.join(" · ");
+  const kinds = knownVectors(edge.attack_kinds || []);
+  if (kinds.length) return kinds.join(" · ");
+  if (edge.reputation) return "Reputation / blocking signal";
+  const wording = [
+    ...new Set(
+      (edge.attack_kinds || []).filter((kind) => !GENERIC_KINDS.has(kind)),
+    ),
+  ];
+  if (wording.length) return wording.join(" · ");
+  return "Not specified by provider";
 }
 
 export function matchesThreatVector(event, mode) {

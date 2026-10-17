@@ -428,6 +428,123 @@ button.wide {
 .layer-note:empty {
   display: none;
 }
+/* Reference rows are separated from observed-signal rows so a reader can tell
+   published geometry from collected records without reading every label. The
+   note drops to its own line so the badge and the info control stay on the
+   label's baseline instead of floating down a tall wrapped row. */
+.layer-row-reference {
+  flex-wrap: wrap;
+  align-content: center;
+  border-top: 1px solid var(--line, #1e2b34);
+  margin-top: 4px;
+  padding-top: 10px;
+  row-gap: 2px;
+}
+.layer-row-reference .layer-copy {
+  /* Shrinkable, so a long label truncates instead of pushing the count and the
+     info control off the row and onto a second line. */
+  flex: 1 1 0;
+  min-width: 0;
+}
+.layer-row-reference .layer-copy > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layer-row-reference .layer-note {
+  /* Indented under the layer name and clamped, so a long limitation cannot make
+     the row tall enough for the controls to look detached from it. The width is
+     reduced by the indent rather than added to it, or the row overflows. */
+  flex: 0 0 calc(100% - 25px);
+  margin-left: 25px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.layer-count-reference {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 9px;
+  opacity: 0.75;
+  flex-shrink: 0;
+  /* Follows the note text, so the space belongs on its left. */
+  margin-left: 7px;
+  color: var(--muted);
+}
+.layer-count-error {
+  color: #e2a05e;
+}
+.layer-info {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-self: center;
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  background: transparent;
+  color: var(--muted);
+  font:
+    italic 11px/15px Georgia,
+    serif;
+  cursor: pointer;
+}
+.layer-info:hover,
+.layer-info:focus-visible {
+  border-color: #93a7b5;
+  color: #d6e2e9;
+}
+.reference-explanation {
+  position: fixed;
+  z-index: 40;
+  width: min(340px, calc(100vw - 24px));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 13px 15px;
+  border-radius: 8px;
+  border: 1px solid #2c3d49;
+  background: #101b22;
+  color: #e6eef2;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  font-size: 11px;
+}
+.reference-explanation h3 {
+  margin: 0 0 9px;
+  font-size: 12px;
+  color: #c6bcff;
+}
+.reference-explanation-fields {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) 1fr;
+  gap: 5px 11px;
+  margin: 0 0 11px;
+}
+.reference-explanation-fields dt {
+  color: var(--muted);
+}
+.reference-explanation-fields dd {
+  margin: 0;
+}
+.reference-explanation-fields dd.ok {
+  color: #79c69f;
+}
+.reference-explanation-fields dd.warn {
+  color: #e2a05e;
+}
+.reference-explanation-close {
+  border: 1px solid #2c3d49;
+  background: transparent;
+  color: #cfdbe2;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
 .map-sample-note {
   margin: 0;
   font-size: 10px;
@@ -938,6 +1055,30 @@ summary span {
 .map-hover-details .maplibregl-popup-content:has(.aircraft-hover-card) {
   max-width: 310px;
   max-height: none;
+}
+.map-hover-details .maplibregl-popup-content:has(.vessel-hover-card) {
+  max-width: 280px;
+  max-height: none;
+}
+.vessel-hover-card {
+  width: 240px;
+  max-width: 100%;
+}
+.vessel-hover-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 3px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+.vessel-hover-facts dt {
+  color: var(--muted);
+}
+.vessel-hover-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .aircraft-hover-card {
   width: 276px;
@@ -1573,6 +1714,22 @@ summary span {
   font-size: 10px;
   line-height: 1.4;
   margin: 8px 0;
+}
+/* Vessel rows reuse the aircraft grid; the class keeps the selector honest. */
+.vessel-card-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 4px 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+.vessel-card-facts dt {
+  color: var(--muted);
+}
+.vessel-card-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .aircraft-card-facts dt {
   color: var(--muted);

@@ -12,9 +12,9 @@ export function knownVectors(labels) {
   return vectors;
 }
 export const reputationReason = (label) =>
-  /\b(?:blacklist|dnsbl|blocklist|reputation|bad[- ]?ip|bad behavior|anonymizer|TOR)\b/i.test(
+  /\b(?:blacklist|dnsbl|blocklist|reputation|bad[- _]?(?:ip|behavior)|anonymizer|TOR|country|geoip|geoblock|antibot|crowdsec|modsecurity|unknown|default|limit)\b/i.test(
     label,
-  );
+  ) || /\blocal[- _]activit/i.test(label);
 
 export function renderVectorBreakdown(summary) {
   const body = document.querySelector("#radware-vector-body");

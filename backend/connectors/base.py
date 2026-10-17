@@ -102,6 +102,15 @@ APPROVED_HOSTS = {
     "acleddata.com",
     "opensky-network.org",
     "auth.opensky-network.org",
+    # Public AIS streams: Open Waters (MIT, anonymous tier) and OpenSeaFeed
+    # (Apache-2.0). Both were probed with the production User-Agent on 17 October
+    # 2026; per-source attribution is carried on every stored observation.
+    "ais.openwaters.io",
+    "stream.openseafeed.com",
+    # AIS Stream (account-keyed). Probed with the production User-Agent on 17
+    # October 2026; the key travels in the subscription frame, never a URL, and
+    # the service forbids direct browser connections.
+    "stream.aisstream.io",
     "openrouter.ai",
     "www.gov.uk",
     "www.reddit.com",

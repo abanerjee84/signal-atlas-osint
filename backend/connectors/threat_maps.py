@@ -317,6 +317,7 @@ class BitdefenderMap(ThreatMap):
     name = "Bitdefender detections"
     homepage = "https://threatmap.bitdefender.com/"
     polling_url = homepage + "socket.io/"
+    interval = 120
     delivery = "Persistent public bottom-table scraper: ATTACK rows only; legacy HTTP transport when no renderer is supplied"
 
     async def fetch(self, http):

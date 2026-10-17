@@ -26,6 +26,11 @@ def canonical_url(url: str) -> str:
     )
 
 
+def report_identifier(source_id: str, external_id: str) -> str:
+    """Stored identity for a report; one row per source and external id."""
+    return hashlib.sha256(f"{source_id}:{external_id}".encode()).hexdigest()[:32]
+
+
 class Database:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -79,7 +84,12 @@ class Database:
                     for line in path.read_text(encoding="utf-8").splitlines(keepends=True):
                         statement += line
                         if sqlite3.complete_statement(statement):
-                            db.execute(statement)
+                            try:
+                                db.execute(statement)
+                            except sqlite3.OperationalError as error:
+                                # A rolled-back version may re-run an upgrade whose columns already exist.
+                                if "duplicate column name" not in str(error):
+                                    raise
                             statement = ""
                     if statement.strip():
                         raise RuntimeError("Incomplete migration statement")
@@ -89,7 +99,7 @@ class Database:
     def ingest(self, report: Report, connection: sqlite3.Connection | None = None) -> str:
         """One transaction preserves report provenance and bounded conservative clustering."""
         now = stamp()
-        report_id = hashlib.sha256(f"{report.source_id}:{report.external_id}".encode()).hexdigest()[:32]
+        report_id = report_identifier(report.source_id, report.external_id)
         source_url = canonical_url(report.source_url)
         label, value = (
             social_score(report.description or report.title, report.language)
@@ -140,8 +150,9 @@ class Database:
                     """INSERT INTO events (event_id,title,description,category,latitude,longitude,
                 location_precision,location_basis,country_code,occurred_at,published_at,ingested_at,
                 updated_at,source_id,source_url,confidence,evidence_basis,severity,severity_basis,
-                tags,ai_summary,time_key,aircraft_track_deg,aircraft_callsign,aircraft_category)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                tags,ai_summary,time_key,aircraft_track_deg,aircraft_callsign,aircraft_category,
+                vessel_course_deg,vessel_speed_kn,vessel_type,vessel_flag)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         event_id,
                         report.title,
@@ -168,15 +179,23 @@ class Database:
                         report.aircraft_track_deg,
                         report.aircraft_callsign or None,
                         report.aircraft_category,
+                        report.vessel_course_deg,
+                        report.vessel_speed_kn,
+                        report.vessel_type,
+                        report.vessel_flag,
                     ),
                 )
             elif existing:
                 # Refresh primary-source revisions without overwriting other supporting reports.
+                # vessel_type is preserved across refreshes: position reports carry no
+                # ship type, and wiping the column on every positional update would
+                # discard the last self-reported static value from earlier cycles.
                 db.execute(
                     """UPDATE events SET title=?,description=?,category=?,latitude=?,longitude=?,country_code=?,
                 location_precision=?,location_basis=?,occurred_at=?,published_at=?,time_key=?,
                 confidence=?,evidence_basis=?,severity=?,severity_basis=?,tags=?,updated_at=?,
-                aircraft_track_deg=?,aircraft_callsign=?,aircraft_category=?
+                aircraft_track_deg=?,aircraft_callsign=?,aircraft_category=?,
+                vessel_course_deg=?,vessel_speed_kn=?,vessel_type=COALESCE(?,vessel_type),vessel_flag=?
                 WHERE event_id=? AND source_id=? AND source_url=?""",
                     (
                         report.title,
@@ -199,6 +218,10 @@ class Database:
                         report.aircraft_track_deg,
                         report.aircraft_callsign or None,
                         report.aircraft_category,
+                        report.vessel_course_deg,
+                        report.vessel_speed_kn,
+                        report.vessel_type,
+                        report.vessel_flag,
                         event_id,
                         report.source_id,
                         source_url,
@@ -459,6 +482,40 @@ class Database:
         with self.connect() as db:
             return [dict(row) for row in db.execute("SELECT * FROM connector_status ORDER BY source_id")]
 
+    def permission(self, source_id: str) -> dict | None:
+        """Recorded redistribution decision for a source, or None when undecided.
+
+        An absent row means the decision was never made, which is not the same as
+        permission granted.
+        """
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM source_permissions WHERE source_id=?", (source_id,)).fetchone()
+        return dict(row) if row else None
+
+    def permissions(self) -> list[dict]:
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("SELECT * FROM source_permissions ORDER BY source_id")]
+
+    def set_permission(self, source_id: str, **fields) -> None:
+        allowed = {
+            "display_class",
+            "commercial_use",
+            "retention_allowed",
+            "export_allowed",
+            "derivative_allowed",
+            "basis",
+            "reviewed_at",
+            "reviewer",
+        }
+        if not fields or not set(fields) <= allowed:
+            raise ValueError("Invalid permission fields")
+        with self.connect() as db:
+            db.execute("INSERT OR IGNORE INTO source_permissions(source_id) VALUES (?)", (source_id,))
+            db.execute(
+                f"UPDATE source_permissions SET {','.join(key + '=?' for key in fields)} WHERE source_id=?",
+                [*fields.values(), source_id],
+            )
+
     def set_status(self, source_id: str, **fields) -> None:
         allowed = {
             "state",
@@ -554,6 +611,58 @@ class Database:
             db.execute("DELETE FROM events WHERE category='sentiment' AND source_id=?", (source_id,))
             for report in reports:
                 self.ingest(report, db)
+        return len(reports)
+
+    def replace_vessel_snapshot(self, source_id: str, reports: list[Report]) -> int:
+        """Current AIS fleet replaces the previous one.
+
+        Vessel rows are keyed by MMSI and updated in place, so without this a
+        vessel that stops reporting keeps its last position on the map
+        indefinitely, presented as a current fix. Only vessels present in this
+        cycle are kept.
+
+        Positions are written first through the ordinary chunked path and the
+        retired rows are deleted afterwards in short statements. Wrapping all of
+        it in one transaction would hold the database write lock for a thousand
+        upserts and stall the concurrent aircraft snapshot, which is what turns
+        a live dashboard into a 503.
+        """
+        if len(reports) > 5000 or any(
+            report.source_id != source_id or report.category != "maritime"
+            for report in reports
+        ):
+            raise ValueError("Invalid vessel snapshot")
+        report_ids = [report_identifier(source_id, report.external_id) for report in reports]
+        for start in range(0, len(reports), 100):
+            self.ingest_many(reports[start : start + 100])
+        # A stored event keeps its own id, so the surviving set is resolved
+        # through the reports that reference it rather than assumed.
+        event_ids: list[str] = []
+        with self.connect() as db:
+            # SQLite caps host parameters per statement, so the lookup reads
+            # report ids in chunks, while the surviving set is stated through a
+            # temp table: a chunked NOT IN list would delete rows whose ids
+            # belong to a later chunk.
+            db.execute("CREATE TEMP TABLE keep_events (event_id TEXT PRIMARY KEY)")
+            for start in range(0, len(report_ids), 400):
+                chunk = report_ids[start : start + 400]
+                event_ids += [
+                    row[0]
+                    for row in db.execute(
+                        f"SELECT event_id FROM reports WHERE report_id IN ({','.join('?' * len(chunk))})",
+                        chunk,
+                    )
+                ]
+            for start in range(0, len(event_ids), 400):
+                db.executemany(
+                    "INSERT OR IGNORE INTO keep_events VALUES (?)",
+                    [(event_id,) for event_id in event_ids[start : start + 400]],
+                )
+            db.execute(
+                "DELETE FROM events WHERE category='maritime' AND source_id=? "
+                "AND event_id NOT IN (SELECT event_id FROM keep_events)",
+                (source_id,),
+            )
         return len(reports)
 
     def prune_threat_telemetry(self, source_id: str) -> int:

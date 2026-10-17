@@ -223,6 +223,10 @@ class Report(BaseModel):
     aircraft_track_deg: float | None = Field(default=None, ge=0, lt=360, allow_inf_nan=False)
     aircraft_callsign: str = Field(default="", max_length=20)
     aircraft_category: int | None = Field(default=None, ge=0, le=20)
+    vessel_course_deg: float | None = Field(default=None, ge=0, lt=360, allow_inf_nan=False)
+    vessel_speed_kn: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    vessel_type: int | None = Field(default=None, ge=0, le=255)
+    vessel_flag: str | None = Field(default=None, pattern="^[A-Z]{2}$")
     aircraft: AircraftMetadata | None = None
     threat: ThreatMetadata | None = None
     cyber_observation: CyberObservation | None = None

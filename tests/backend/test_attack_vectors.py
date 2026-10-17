@@ -61,7 +61,10 @@ def test_radware_missing_destinations_do_not_inherit_global_vectors(settings):
     assert item.threat.attack_vectors == []
     assert item.threat.attack_kind == "DDoS (subtype unspecified)"
     assert item.occurred_at is None and "192.0.2.1" not in item.model_dump_json()
-    assert not RadwareMap(settings).normalize(rows[1]).threat.attack_vectors
+    # Scanner routes keep their explicit provider category; global percentages still never attach.
+    assert RadwareMap(settings).normalize(rows[1]).threat.attack_vectors == [
+        "Reconnaissance / scanning",
+    ]
 
 
 def test_imperva_prioritizes_explicit_techniques_within_country_sample():

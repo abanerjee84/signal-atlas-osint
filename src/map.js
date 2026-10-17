@@ -1,6 +1,6 @@
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
-import { element } from "./api.js";
+import { element, sourceLink } from "./api.js";
 import {
   appendReportPreview,
   countryReportPreviews,
@@ -24,14 +24,25 @@ import {
   aircraftMotionDuration,
   isRotorcraft,
 } from "./aircraft.js";
+import { latestVessel, vesselSummary } from "./vessels.js";
+import { vesselHoverCard } from "./vessel-details.js";
 import {
   colors,
   CATEGORY_NAMES,
   symbolImage,
   conflictIcon,
   conflictColor,
+  referenceImage,
 } from "./layer-symbols.js";
 import { CONFLICT_TYPES, conflictType, conflictSummary } from "./conflicts.js";
+import { disruptionCard } from "./disruptions.js";
+import {
+  REFERENCE_LAYER_IDS,
+  REFERENCE_REGISTRY,
+  referenceCard,
+  referenceData,
+  referencePointLayers,
+} from "./reference-layers.js";
 import { orbitalFacts, orbitalLabel, orbitalCountry } from "./orbits.js";
 import { drawCountryFlag, countryFlagImage } from "./country-flags.js";
 import {
@@ -178,7 +189,82 @@ function aircraftIcon() {
   context.stroke();
   return context.getImageData(0, 0, size, size);
 }
+function shipIcon() {
+  // Drawn bow-up: icon-rotation-alignment "map" then points the hull along the
+  // reported course, the same contract as the aircraft glyphs. A plan view is
+  // required or the ship lies sideways for half the compass.
+  const size = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  context.translate(size / 2, size / 2);
+  context.scale(2, 2);
+  context.fillStyle = colors.maritime;
+  context.beginPath();
+  context.moveTo(0, -11);
+  context.quadraticCurveTo(4.6, -7.5, 4.6, -3);
+  context.lineTo(4.6, 7);
+  context.quadraticCurveTo(4.6, 9.6, 2.4, 10.4);
+  context.lineTo(-2.4, 10.4);
+  context.quadraticCurveTo(-4.6, 9.6, -4.6, 7);
+  context.lineTo(-4.6, -3);
+  context.quadraticCurveTo(-4.6, -7.5, 0, -11);
+  context.closePath();
+  context.fill();
+  context.strokeStyle = "#123a47";
+  context.lineWidth = 0.9;
+  context.stroke();
+  // Deck line and superstructure block read as a ship at small sizes without
+  // fine detail that would vanish below zoom 6.
+  context.strokeStyle = "#123a47";
+  context.lineWidth = 0.8;
+  context.beginPath();
+  context.moveTo(0, -8);
+  context.lineTo(0, -4.5);
+  context.stroke();
+  context.fillStyle = "#123a47";
+  context.fillRect(-2.6, -3.4, 5.2, 6.4);
+  return context.getImageData(0, 0, size, size);
+}
 export const THIN_SAMPLE = 5;
+
+// Which pictogram a reference feature gets. Shape separates the layer; within the
+// military layer, colour separates naval from air facilities, which is the
+// distinction an analyst actually asks about.
+// Which pictogram each reference layer draws. Shape separates the layer; within
+// the military layer, colour separates naval from air facilities, which is the
+// distinction an analyst actually asks about.
+const REFERENCE_IMAGE_NAMES = {
+  military: "ref-military",
+  naval: "ref-naval",
+  air: "ref-air",
+  nuclear: "ref-nuclear",
+  spaceport: "ref-spaceport",
+  port: "ref-port",
+};
+
+// Keyed by layer id rather than derived from it, so a plural layer id cannot
+// silently fall through to another layer's pictogram.
+const REFERENCE_ICON_BY_LAYER = {
+  bases: [
+    "match",
+    ["get", "facility_type"],
+    "naval_base",
+    REFERENCE_IMAGE_NAMES.naval,
+    ["air_base", "aerodrome", "airfield"],
+    REFERENCE_IMAGE_NAMES.air,
+    REFERENCE_IMAGE_NAMES.military,
+  ],
+  nuclear: REFERENCE_IMAGE_NAMES.nuclear,
+  spaceports: REFERENCE_IMAGE_NAMES.spaceport,
+  ports: REFERENCE_IMAGE_NAMES.port,
+};
+
+function referenceIconExpression(id) {
+  return REFERENCE_ICON_BY_LAYER[id] || REFERENCE_IMAGE_NAMES.military;
+}
+
 function satelliteIcon(iss = false, color = colors.space) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 48;
@@ -293,8 +379,12 @@ export function createWorldMap(
       ],
     },
   });
+  // Debug handle for browser tests that need rendered-feature hit testing.
+  window.__osintMap = map;
   let eventData = empty(),
     aircraftData = empty(),
+    vesselData = empty(),
+    vesselRecords = [],
     sentimentData = empty(),
     selected = "",
     density = false,
@@ -509,9 +599,30 @@ export function createWorldMap(
       }
       aircraftFrame = requestAnimationFrame(animate);
     }
-    aircraftFrame = requestAnimationFrame(animate);
-  }
-  let newsData = empty(),
+      aircraftFrame = requestAnimationFrame(animate);
+    }
+    let vesselSignature = "";
+    function updateVessels(records) {
+      // The hover card needs the record behind the hull, so keep them even when
+      // the rendered set has not moved.
+      vesselRecords = records;
+      const signature = JSON.stringify(
+        records.map((r) => [
+          r.event_id,
+          r.time_key,
+          r.longitude,
+          r.latitude,
+          r.vessel_course_deg,
+        ]),
+      );
+      if (signature === vesselSignature) return;
+      vesselSignature = signature;
+      vesselData = features(
+        records.map((r) => ({ ...r, vessel_summary: vesselSummary(r) })),
+      );
+      map.getSource("vessels")?.setData(vesselData);
+    }
+    let newsData = empty(),
     threatData = empty(),
     threatNetwork = null,
     threatVisible = false,
@@ -527,6 +638,13 @@ export function createWorldMap(
     previewEvents = [],
     reportSignature = "";
   let sentimentResult = null;
+  let referenceLayers = new Set();
+  const referenceLoading = new Map();
+  const referenceProblems = new Map();
+  const referenceCounts = new Map();
+  let terminatorTimer = null;
+  let disruptionsVisible = false;
+  let disruptionRecords = [];
   let militaryData = empty(),
     militaryNetwork = null,
     militaryVisible = false;
@@ -703,6 +821,118 @@ export function createWorldMap(
     const layer = map.getLayer(name);
     if (layer) map.setPaintProperty(name, "heatmap-weight", fallback);
   };
+  function setDisruptions(records) {
+    // Records can arrive before the style has finished loading, so they are kept
+    // here and pushed to the source again once it exists rather than dropped.
+    disruptionRecords = records || [];
+    map.getSource("disruptions")?.setData({
+      type: "FeatureCollection",
+      features: disruptionRecords,
+    });
+    setDisruptionsVisible(disruptionsVisible);
+  }
+
+  function setDisruptionsVisible(visible) {
+    disruptionsVisible = Boolean(visible);
+    for (const id of ["disruptions-halo", "disruptions-point"])
+      if (map.getLayer(id))
+        map.setLayoutProperty(
+          id,
+          "visibility",
+          disruptionsVisible ? "visible" : "none",
+        );
+  }
+
+  function referenceVisibility() {
+    const terminatorOn = referenceLayers.has("terminator");
+    for (const id of ["reference-night", "reference-boundary"])
+      if (map.getLayer(id))
+        map.setLayoutProperty(
+          id,
+          "visibility",
+          terminatorOn ? "visible" : "none",
+        );
+    for (const id of REFERENCE_LAYER_IDS) {
+      if (REFERENCE_REGISTRY[id].computed) continue;
+      const on = referenceLayers.has(id);
+      for (const suffix of ["-halo", "-point"]) {
+        const layerId = `reference-${id}${suffix}`;
+        if (map.getLayer(layerId))
+          map.setLayoutProperty(layerId, "visibility", on ? "visible" : "none");
+      }
+    }
+  }
+
+  function setTerminator(date) {
+    const collection = referenceData("terminator", date);
+    map.getSource("reference-night")?.setData(collection);
+    map.getSource("reference-boundary")?.setData(collection);
+  }
+
+  async function loadReference(id) {
+    if (referenceLoading.has(id)) return referenceLoading.get(id);
+    const entry = REFERENCE_REGISTRY[id];
+    if (!entry?.file) return null;
+    const pending = fetch(entry.file, { cache: "no-cache" })
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(
+            `Reference registry unavailable (HTTP ${response.status})`,
+          );
+        return response.json();
+      })
+      .then((data) => {
+        // FR-LY-02: geometry that does not declare the registry version this build
+        // expects is not drawn, rather than shown as current.
+        const declared = data?.metadata?.registry_version;
+        if (declared !== entry.registry.version) {
+          referenceProblems.set(
+            id,
+            `Registry version mismatch: expected ${entry.registry.version}, file declares ${declared ?? "none"}`,
+          );
+          map.getSource(`reference-${id}`)?.setData(empty());
+          return null;
+        }
+        referenceProblems.delete(id);
+        referenceCounts.set(
+          id,
+          Array.isArray(data.features) ? data.features.length : 0,
+        );
+        map.getSource(`reference-${id}`)?.setData(data);
+        return data;
+      })
+      .catch((error) => {
+        referenceProblems.set(id, String(error.message || error));
+        referenceCounts.set(id, 0);
+        map.getSource(`reference-${id}`)?.setData(empty());
+        return null;
+      });
+    referenceLoading.set(id, pending);
+    return pending;
+  }
+
+  function referenceStatus() {
+    return REFERENCE_LAYER_IDS.map((id) => {
+      const entry = REFERENCE_REGISTRY[id];
+      const problem = referenceProblems.get(id);
+      let state;
+      if (problem) state = "unavailable";
+      else if (entry.computed)
+        state = referenceLayers.has(id) ? "available" : "off";
+      else if (referenceLoading.has(id)) state = "available";
+      else state = "not_loaded";
+      return {
+        id,
+        label: entry.label,
+        enabled: referenceLayers.has(id),
+        registry_version: entry.registry.version,
+        license: entry.registry.license,
+        state,
+        problem: problem || null,
+      };
+    });
+  }
+
   function visibility() {
     document.querySelector("#cyber-map-legend").hidden = !threatVisible;
     if (!threatVisible) hoverPopup.remove();
@@ -994,6 +1224,138 @@ export function createWorldMap(
       source: "polar-mask",
       paint: { "fill-color": "#101b22", "fill-antialias": false },
     });
+
+    // Reference geometry sits directly on the basemap and beneath every evidence
+    // layer, so published context can never be read as a detected event.
+    map.addSource("reference-night", { type: "geojson", data: empty() });
+    map.addSource("reference-boundary", { type: "geojson", data: empty() });
+    map.addLayer({
+      id: "reference-night",
+      type: "fill",
+      source: "reference-night",
+      paint: { "fill-color": "#05090c", "fill-opacity": 0.55 },
+    });
+    map.addLayer({
+      id: "reference-boundary",
+      type: "line",
+      source: "reference-boundary",
+      paint: {
+        "line-color": colors.terminator,
+        "line-width": 1.1,
+        "line-dasharray": [4, 3],
+        "line-opacity": 0.8,
+      },
+    });
+    for (const id of REFERENCE_LAYER_IDS) {
+      if (REFERENCE_REGISTRY[id].computed) continue;
+      map.addSource(`reference-${id}`, { type: "geojson", data: empty() });
+      map.addLayer({
+        id: `reference-${id}-halo`,
+        type: "circle",
+        source: `reference-${id}`,
+        paint: {
+          // Grown with zoom so a published coordinate stays reachable as the map
+          // closes in; at world scale a 3px dot is not a usable pointer target.
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            7,
+            6,
+            11,
+            12,
+            16,
+          ],
+          "circle-color": colors.reference,
+          "circle-opacity": 0.22,
+        },
+      });
+      map.addLayer({
+        id: `reference-${id}-point`,
+        type: "circle",
+        source: `reference-${id}`,
+        // Below the icon threshold, where thousands of pictograms would be
+        // unreadable anyway.
+        maxzoom: 3,
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            3.5,
+            6,
+            5.5,
+          ],
+          "circle-color": colors.reference,
+          "circle-stroke-color": "#101b22",
+          "circle-stroke-width": 1.1,
+        },
+      });
+      map.addLayer({
+        id: `reference-${id}-icon`,
+        type: "symbol",
+        source: `reference-${id}`,
+        minzoom: 3,
+        layout: {
+          "icon-image": referenceIconExpression(id),
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 8, 0.78],
+          // Reference points are context, not the subject of the map, so they
+          // never displace each other or the evidence layers above them.
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+        paint: { "icon-opacity": 0.96 },
+      });
+    }
+    referenceVisibility();
+    // symbols, and stay hidden until the layer is switched on. Any records that
+    // arrived before the style finished loading are pushed now.
+    setDisruptionsVisible(false);
+    map.addSource("disruptions", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: disruptionRecords },
+    });
+    map.addLayer({
+      id: "disruptions-halo",
+      type: "circle",
+      source: "disruptions",
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["get", "size"],
+          0,
+          5,
+          1,
+          22,
+        ],
+        "circle-color": "#ef8ca2",
+        "circle-opacity": 0.18,
+      },
+    });
+    map.addLayer({
+      id: "disruptions-point",
+      type: "circle",
+      source: "disruptions",
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["get", "size"],
+          0,
+          3,
+          1,
+          9,
+        ],
+        "circle-color": "#ef8ca2",
+        "circle-stroke-color": "#101b22",
+        "circle-stroke-width": 1.1,
+        "circle-opacity": 0.9,
+      },
+    });
+    setDisruptionsVisible(disruptionsVisible);
     map.addLayer({
       id: "country-selected",
       type: "fill",
@@ -1036,6 +1398,7 @@ export function createWorldMap(
     });
     map.addSource("density", { type: "geojson", data: eventData });
     map.addSource("aircraft", { type: "geojson", data: aircraftData });
+    map.addSource("vessels", { type: "geojson", data: vesselData });
     map.addSource("event-selection", { type: "geojson", data: empty() });
     map.addSource("aircraft-trail", { type: "geojson", data: empty() });
     map.addSource("sentiment", { type: "geojson", data: sentimentData });
@@ -1588,6 +1951,38 @@ export function createWorldMap(
       filter: map.getFilter("aircraft-track"),
       paint: { "circle-radius": 16, "circle-opacity": 0 },
     });
+    map.addImage("vessel-ship", shipIcon(), { pixelRatio: 2 });
+    map.addLayer({
+      id: "vessel-track",
+      type: "symbol",
+      source: "vessels",
+      filter: [
+        "all",
+        ["==", ["get", "category"], "maritime"],
+        // A null course is an absent observation, not a heading of north.
+        [">=", ["get", "vessel_course_deg"], 0],
+      ],
+      layout: {
+        "icon-image": "vessel-ship",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.85, 8, 1.1],
+        // Map alignment rotates the hull along the reported course, so the bow
+        // points where the vessel is going at every zoom and bearing.
+        "icon-rotate": ["get", "vessel_course_deg"],
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "map",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-padding": 2,
+      },
+      paint: { "icon-opacity": 1 },
+    });
+    map.addLayer({
+      id: "vessel-hit-target",
+      type: "circle",
+      source: "vessels",
+      filter: map.getFilter("vessel-track"),
+      paint: { "circle-radius": 16, "circle-opacity": 0 },
+    });
     const nearestAircraft = (event) =>
       event.features.reduce((nearest, feature) => {
         const point = map.project(feature.geometry.coordinates);
@@ -1599,7 +1994,15 @@ export function createWorldMap(
           ? { feature, distance }
           : nearest;
       }, null)?.feature;
+    // A hull glyph shares its pixel with report clusters and aircraft at world
+    // zoom. It is the precise thing under the pointer, so it answers and the
+    // layers it overlaps stand aside rather than hijack the click or the hover.
+    const vesselUnder = (point) =>
+      map.queryRenderedFeatures(point, {
+        layers: ["vessel-hit-target"],
+      }).length > 0;
     map.on("click", "clusters", async (event) => {
+      if (vesselUnder(event.point)) return;
       const feature = event.features[0];
       const zoom = await map
         .getSource("events")
@@ -1612,17 +2015,33 @@ export function createWorldMap(
           : 180,
       });
     });
-    map.on("click", "event-points", (event) =>
-      selectEvent(event.features[0].properties.event_id),
-    );
+    map.on("click", "event-points", (event) => {
+      if (vesselUnder(event.point)) return;
+      selectEvent(event.features[0].properties.event_id);
+    });
     map.on("click", "aircraft-hit-target", (event) => {
       if (
+        vesselUnder(event.point) ||
         map.queryRenderedFeatures(event.point, {
           layers: ["threat-endpoints", "orbital-positions"],
         }).length
       )
         return;
       const feature = nearestAircraft(event);
+      if (feature) selectEvent(feature.properties.event_id);
+    });
+    map.on("click", "vessel-hit-target", (event) => {
+      const feature = event.features.sort(
+        (a, b) =>
+          Math.hypot(
+            map.project(a.geometry.coordinates).x - event.point.x,
+            map.project(a.geometry.coordinates).y - event.point.y,
+          ) -
+          Math.hypot(
+            map.project(b.geometry.coordinates).x - event.point.x,
+            map.project(b.geometry.coordinates).y - event.point.y,
+          ),
+      )[0];
       if (feature) selectEvent(feature.properties.event_id);
     });
     map.addSource("orbital-positions", { type: "geojson", data: orbitalData });
@@ -1686,6 +2105,9 @@ export function createWorldMap(
       map.getCanvas().style.cursor = "pointer";
     });
     map.on("mousemove", "orbital-positions", (event) => {
+      // A hull glyph under the pointer is the closer object, so the satellite
+      // card must not replace the vessel the pointer is actually on.
+      if (vesselUnder(event.point)) return;
       const item = event.features[0].properties;
       orbitHoverId = item.event_id;
       map.setFilter("orbital-track-highlight", [
@@ -1798,7 +2220,11 @@ export function createWorldMap(
                   ? "Declared country origin → country discussed"
                   : "Countries mentioned together";
         card.append(
-          element("strong", "", `${name(edge.from)} → ${name(edge.to)}`),
+          element(
+            "strong",
+            "",
+            `${name(edge.from)} → ${name(edge.to)}`,
+          ),
           element(
             "p",
             "",
@@ -1846,7 +2272,13 @@ export function createWorldMap(
       const p = event.features?.[0]?.properties;
       if (!p) return;
       const card = element("div", "event-hover-card country-hover-card");
-      card.append(element("div", "hover-kind", `${p.name} · Military reports`));
+      card.append(
+        element(
+          "div",
+          "hover-kind",
+          `${p.name} · Military reports`,
+        ),
+      );
       const stories = countryReportPreviews(
         p.code,
         p.name,
@@ -1904,6 +2336,11 @@ export function createWorldMap(
       "threat-connections",
     ]) {
       map.on("mousemove", layer, (event) => {
+        // A hull glyph is a concrete tracked object, so it keeps the pointer
+        // even from the threat overlays below it. Those still outrank report
+        // clusters and aircraft, which is why the endpoint layer is exempt from
+        // the list check rather than from this one.
+        if (vesselUnder(event.point)) return;
         if (
           layer !== "threat-endpoints" &&
           map.queryRenderedFeatures(event.point, {
@@ -2142,16 +2579,29 @@ export function createWorldMap(
       popup.remove();
     });
     let eventHoverKey = null;
-    for (const layer of ["clusters", "event-points", "aircraft-hit-target"]) {
+    for (const layer of [
+      "clusters",
+      "event-points",
+      "vessel-hit-target",
+      "aircraft-hit-target",
+    ]) {
       map.on("mousemove", layer, async (event) => {
         // Country endpoints can share a position with a report cluster. Keep
         // their attacker/target evidence visible instead of replacing it with
-        // an asynchronously loaded cluster preview.
+        // an asynchronously loaded cluster preview. A hull is exempt because
+        // these overlays already stand aside for it.
         if (
+          layer !== "vessel-hit-target" &&
           map.queryRenderedFeatures(event.point, {
             layers: ["threat-endpoints", "orbital-positions"],
           }).length
         ) {
+          eventHoverKey = null;
+          return;
+        }
+        // One hull answers for the vessel, so a cluster preview or an aircraft
+        // card must not replace the vessel the pointer is actually on.
+        if (layer !== "vessel-hit-target" && vesselUnder(event.point)) {
           eventHoverKey = null;
           return;
         }
@@ -2165,6 +2615,17 @@ export function createWorldMap(
         if (eventHoverKey === hoverKey) return;
         eventHoverKey = hoverKey;
         let card;
+        if (layer === "vessel-hit-target") {
+          const record = vesselRecords.find(
+            (item) => item.event_id === feature.properties.event_id,
+          );
+          if (!record) return;
+          hoverPopup
+            .setLngLat(feature.geometry.coordinates)
+            .setDOMContent(vesselHoverCard(record))
+            .addTo(map);
+          return;
+        }
         if (layer === "aircraft-hit-target") {
           const record = aircraftRecords.find(
             (item) => item.event_id === feature.properties.event_id,
@@ -2255,6 +2716,89 @@ export function createWorldMap(
     theme();
     visibility();
     resetWorld();
+    map.on("click", "disruptions-point", (event) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+      event.originalEvent?.stopPropagation?.();
+      hoverPopup
+        .setLngLat(feature.geometry.coordinates)
+        .setDOMContent(
+          disruptionCard(feature.properties, (url) =>
+            sourceLink(url, "Open the provider's original record"),
+          ),
+        )
+        .addTo(map);
+    });
+    map.on("mouseenter", "disruptions-point", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mousemove", "disruptions-point", (event) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+      if (vesselUnder(event.point)) return;
+      const key = `disruption:${feature.properties.id}`;
+      if (eventHoverKey === key) return;
+      eventHoverKey = key;
+      hoverPopup
+        .setLngLat(event.lngLat)
+        .setDOMContent(
+          disruptionCard(feature.properties, (url) =>
+            sourceLink(url, "Open the provider's original record"),
+          ),
+        )
+        .addTo(map);
+    });
+    map.on("mouseleave", "disruptions-point", () => {
+      map.getCanvas().style.cursor = "";
+      eventHoverKey = null;
+      hoverPopup.remove();
+    });
+    // Reference pictograms are registered before the map is declared ready, so a
+    // symbol layer never points at an image the style does not hold.
+    for (const [kind, name] of Object.entries(REFERENCE_IMAGE_NAMES))
+      if (!map.hasImage(name))
+        map.addImage(name, referenceImage(kind), { pixelRatio: 2 });
+    // Reference points answer a hover the same way recorded events do, so a
+    // published coordinate is never a mystery dot on the map.
+    for (const id of referencePointLayers()) {
+      // The dot answers below zoom 3 and the pictogram above it.
+      for (const suffix of ["-point", "-icon"]) {
+        const layerId = `reference-${id}${suffix}`;
+        const show = (event) => {
+          const feature = event.features?.[0];
+          if (!feature) return;
+          // A vessel under the pointer is a live tracked position and keeps it,
+          // so a moored port marker never hides the ship beside it.
+          if (vesselUnder(event.point)) return;
+          const key = `${id}:${feature.properties.name}`;
+          if (eventHoverKey === key) return;
+          eventHoverKey = key;
+          hoverPopup
+            .setLngLat(event.lngLat)
+            .setDOMContent(
+              referenceCard(id, feature.properties, (url) =>
+                sourceLink(url, "Open the registry's licence terms"),
+              ),
+            )
+            .addTo(map);
+        };
+        // Hover, not just click, so a reference point reads the same way a
+        // recorded event does when the pointer passes over it.
+        map.on("mousemove", layerId, show);
+        map.on("click", layerId, (event) => {
+          event.originalEvent?.stopPropagation?.();
+          show(event);
+        });
+        map.on("mouseenter", layerId, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", layerId, () => {
+          map.getCanvas().style.cursor = "";
+          eventHoverKey = null;
+          hoverPopup.remove();
+        });
+      }
+    }
     map.getCanvas().dataset.ready = "true";
   });
   map.on("moveend", () => viewportChanged());
@@ -2266,11 +2810,12 @@ export function createWorldMap(
     if (now - lastSample < 250 || !map.getLayer("event-points")) return;
     lastSample = now;
     const sampled = map.queryRenderedFeatures({
-      layers: [
-        "event-points",
-        "clusters",
-        "aircraft-track",
-        "countries-fill",
+        layers: [
+          "event-points",
+          "clusters",
+          "aircraft-track",
+          "vessel-track",
+          "countries-fill",
         "military-context",
         "news-connections-solid",
         "news-connections-dotted",
@@ -2279,6 +2824,11 @@ export function createWorldMap(
         "threat-connections",
         "threat-directions",
         "threat-endpoints",
+        "disruptions-point",
+        ...referencePointLayers().flatMap((id) => [
+          `reference-${id}-point`,
+          `reference-${id}-icon`,
+        ]),
       ],
     });
     const byLayer = new Map();
@@ -2300,17 +2850,20 @@ export function createWorldMap(
         return [projected.x, projected.y];
       }),
     );
-    const observations = samples({
-      layers: ["event-points", "clusters", "aircraft-track"],
-    }).length;
+      const observations = samples({
+        layers: ["event-points", "clusters", "aircraft-track", "vessel-track"],
+      }).length;
     const countries = samples({
       layers: ["countries-fill"],
     }).length;
     map.getCanvas().dataset.rendered = String(observations + countries > 0);
     map.getCanvas().dataset.observations = String(observations);
-    map.getCanvas().dataset.aircraft = String(
-      samples({ layers: ["aircraft-track"] }).length,
-    );
+      map.getCanvas().dataset.aircraft = String(
+        samples({ layers: ["aircraft-track"] }).length,
+      );
+      map.getCanvas().dataset.vessels = String(
+        samples({ layers: ["vessel-track"] }).length,
+      );
     map.getCanvas().dataset.aircraftHoverPoints = JSON.stringify(
       samples({ layers: ["aircraft-track"] })
         .slice(0, 12)
@@ -2378,6 +2931,51 @@ export function createWorldMap(
         }),
     );
     map.getCanvas().dataset.clusterSymbols = String(clusters.length);
+    // Internet-disruption markers are drawn in their own source, so expose them
+    // alongside the other instrumentation rather than only as pixels.
+    const canvas = map.getCanvas();
+    canvas.dataset.disruptionsLoaded = String(disruptionRecords.length);
+    canvas.dataset.referenceLoaded = String(
+      [...referenceCounts.values()].reduce((total, count) => total + count, 0),
+    );
+    // Which pictogram each layer asks for, reported from this module rather than
+    // read back from MapLibre, which does not expose its parsed expressions.
+    canvas.dataset.referenceIcons = JSON.stringify(
+      referencePointLayers().map((id) => [id, referenceIconExpression(id)]),
+    );
+    canvas.dataset.referenceImages = JSON.stringify(
+      Object.entries(REFERENCE_IMAGE_NAMES).map(([kind, name]) => [
+        kind,
+        map.hasImage(name),
+      ]),
+    );
+    const iconDrawn = referencePointLayers().flatMap(
+      (id) => byLayer.get(`reference-${id}-icon`) || [],
+    ).length;
+    const dotDrawn = referencePointLayers().flatMap(
+      (id) => byLayer.get(`reference-${id}-point`) || [],
+    ).length;
+    canvas.dataset.referenceIconDrawn = String(iconDrawn);
+    canvas.dataset.referenceDotDrawn = String(dotDrawn);
+    // One projected reference feature well inside the canvas, so a test can hover a
+    // real point that no side panel is covering.
+    const projected = referencePointLayers()
+      .flatMap((id) => byLayer.get(`reference-${id}-point`) || [])
+      .filter((feature) => feature.geometry?.type === "Point")
+      .map((feature) => map.project(feature.geometry.coordinates))
+      .filter(
+        (point) =>
+          point.x > map.getCanvas().clientWidth * 0.2 &&
+          point.x < map.getCanvas().clientWidth * 0.8 &&
+          point.y > map.getCanvas().clientHeight * 0.2 &&
+          point.y < map.getCanvas().clientHeight * 0.8,
+      );
+    if (projected.length)
+      canvas.dataset.referenceHoverPoint = `${Math.round(projected[0].x)},${Math.round(projected[0].y)}`;
+    canvas.dataset.disruptionsVisible = String(disruptionsVisible);
+    canvas.dataset.disruptionsDrawn = disruptionsVisible
+      ? String(samples({ layers: ["disruptions-point"] }).length)
+      : "0";
     map.getCanvas().dataset.newsConnections = String(
       samples({
         layers: ["news-connections-solid", "news-connections-dotted"],
@@ -2449,13 +3047,21 @@ export function createWorldMap(
     );
     const card = element("div", "connection-popup");
     card.append(
-      element("strong", "", `${name(edge.from)} → ${name(edge.to)}`),
+      element(
+        "strong",
+        "",
+        `${name(edge.from)} → ${name(edge.to)}`,
+      ),
       element(
         "p",
         "",
         `A · Attacker / origin: ${name(edge.from)} (${edge.from})`,
       ),
-      element("p", "", `V · Victim / target: ${name(edge.to)} (${edge.to})`),
+      element(
+        "p",
+        "",
+        `V · Victim / target: ${name(edge.to)} (${edge.to})`,
+      ),
       element(
         "p",
         "attack-vector",
@@ -2748,7 +3354,10 @@ export function createWorldMap(
     },
     setEvents(events) {
       previewEvents = events;
-      const reports = events.filter((event) => event.category !== "aviation");
+      const reports = events.filter(
+        (event) =>
+          event.category !== "aviation" && event.category !== "maritime",
+      );
       const signature = JSON.stringify(reports);
       const reportsChanged = signature !== reportSignature;
       if (reportsChanged) {
@@ -2757,9 +3366,10 @@ export function createWorldMap(
         map.getSource("events")?.setData(eventData);
       }
       updateAircraft(latestAircraft(events));
+      updateVessels(latestVessel(events));
       map.getSource("density")?.setData({
         type: "FeatureCollection",
-        features: [...eventData.features, ...aircraftData.features],
+        features: [...eventData.features, ...aircraftData.features, ...vesselData.features],
       });
     },
     setSentiment(result, enabled) {
@@ -2973,6 +3583,38 @@ export function createWorldMap(
       light = value;
       theme();
     },
+    setDisruptions(records) {
+      disruptionRecords = records || [];
+      map.getSource("disruptions")?.setData({
+        type: "FeatureCollection",
+        features: disruptionRecords,
+      });
+      setDisruptionsVisible(disruptionsVisible);
+    },
+    setDisruptionsVisible,
+    disruptionCount: () => disruptionRecords.length,
+    setReferenceLayers(ids) {
+      referenceLayers = new Set(
+        REFERENCE_LAYER_IDS.filter((id) => (ids || []).includes(id)),
+      );
+      referenceVisibility();
+      for (const id of referenceLayers)
+        if (!REFERENCE_REGISTRY[id].computed) loadReference(id);
+      if (referenceLayers.has("terminator")) {
+        setTerminator(new Date());
+        // The terminator is the one reference layer that moves; refresh it while
+        // the tab is visible so a backgrounded tab does not spin the geometry.
+        if (!terminatorTimer)
+          terminatorTimer = setInterval(() => {
+            if (!document.hidden) setTerminator(new Date());
+          }, 60000);
+      } else if (terminatorTimer) {
+        clearInterval(terminatorTimer);
+        terminatorTimer = null;
+      }
+      return referenceStatus();
+    },
+    referenceStatus,
     setDensity(value) {
       density = value;
       visibility();

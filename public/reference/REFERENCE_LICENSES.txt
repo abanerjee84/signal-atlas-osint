@@ -1,0 +1,31 @@
+Reference layer sources for public/reference/.
+
+ports.geojson
+  Natural Earth 10m ports, public domain.
+  https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ports.geojson
+  Downloaded source SHA256: c5a5028f5187a5e1b9fe7f0fab99804a8be7482099a2365d404fb7e9dd6b5457
+  Port coordinates are taken exactly as published; no coordinate was
+  created, moved or inferred. Country is resolved with the repository's
+  own boundary test, which leaves coastal points unresolved rather than
+  guessing. Port presence is not throughput, condition or openness.
+
+OpenStreetMap-derived layers (ODbL 1.0, share-alike):
+  public\reference\military-bases.geojson — 5685 features
+    © OpenStreetMap contributors, https://www.openstreetmap.org/copyright
+    Downloaded response SHA256: b0aef0fd137a050da590d70af0e333082642235b9e1ebb9d170f4ef74b4d64a4
+    Query: [out:json][timeout:300];nwr["military"~"^(naval_base|air_base|aerodrome|airfield|base)$"]["name"];out center;
+  public\reference\nuclear-facilities.geojson — 218 features
+    © OpenStreetMap contributors, https://www.openstreetmap.org/copyright
+    Downloaded response SHA256: b56c8d8b556f40efd428ce38bb057ce4c14fa4b1199f23047de00dcdcf4714bf
+    Query: [out:json][timeout:300];(nwr["power"="plant"]["plant:source"="nuclear"]["name"];nwr["power"="plant"]["generator:source"="nuclear"]["name"];);out center;
+  public\reference\spaceports.geojson — 36 features
+    © OpenStreetMap contributors, https://www.openstreetmap.org/copyright
+    Downloaded response SHA256: c8652235f9ff5a99fc9ee7ac01cea3949fb98c7c0864c607387b26c31c9b74f8
+    Query: [out:json][timeout:300];nwr["aeroway"="spaceport"]["name"];out center;
+
+Terms: ODbL 1.0 requires attribution and share-alike for derived databases.
+If any of these layers is redistributed, that obligation applies to the
+distributed dataset. Re-check before offering this data commercially.
+
+Terminator geometry is computed at runtime from the solar ephemeris and
+carries no third-party data.

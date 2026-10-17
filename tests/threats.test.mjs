@@ -83,6 +83,37 @@ test("route vectors retain distinct report types without inventing a technique",
     attackVectorLabel({ attack_kinds: ["OWASP - RCE/RFI"] }),
     "Remote code execution (RCE) · Remote file inclusion (RFI)",
   );
+  // Built edges initialize attack_vectors to []; the kind fallback must still apply.
+  const built = buildThreatNetwork([report], places).edges[0];
+  assert.deepEqual(built.attack_vectors, []);
+  assert.equal(attackVectorLabel(built), "Not specified by provider");
+  assert.equal(
+    attackVectorLabel({ attack_vectors: [], attack_kinds: ["OWASP - XSS"] }),
+    "Cross-site scripting (XSS)",
+  );
+  assert.equal(
+    attackVectorLabel({
+      attack_vectors: [],
+      attack_kinds: ["blacklist"],
+      reputation: true,
+    }),
+    "Reputation / blocking signal",
+  );
+  // Specific provider categories are kept verbatim; generic ones stay unspecified.
+  assert.equal(
+    attackVectorLabel({
+      attack_vectors: [],
+      attack_kinds: ["Ransomware / extortion"],
+    }),
+    "Ransomware / extortion",
+  );
+  assert.equal(
+    attackVectorLabel({
+      attack_vectors: [],
+      attack_kinds: ["Malware / botnet", "Data breach"],
+    }),
+    "Malware / botnet · Data breach",
+  );
 });
 test("daily requests stay separate from incident counts and reporting periods", () => {
   const sample = (id, period, requests) => ({

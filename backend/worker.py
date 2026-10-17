@@ -2,8 +2,10 @@
 
 import argparse
 import asyncio
+import glob
 import json
 import logging
+import os
 import signal
 import sqlite3
 import time
@@ -58,6 +60,52 @@ async def repeat_job(operation, stopped, interval, once=False):
             pass
 
 
+def browser_executable() -> str | None:
+    """First installed desktop browser usable by the optional public-page renderer."""
+    candidates = [os.environ.get("OSINT_BROWSER", "")]
+    if os.name == "nt":
+        candidates += [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        ]
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        if localappdata:
+            candidates += sorted(
+                glob.glob(
+                    os.path.join(localappdata, "ms-playwright", "chromium-*", "chrome-win64", "chrome.exe")
+                ),
+                reverse=True,
+            )
+    else:
+        candidates += ["/usr/bin/google-chrome", "/usr/bin/chromium"]
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
+def permission_refusal(database: Database, provider: Connector) -> str | None:
+    """Refuse collection that this deployment is not permitted to make.
+
+    A research deployment keeps collecting everything it is already configured for.
+    A deployment that declares commercial use may only collect sources whose
+    redistribution decision was actually recorded as cleared. An absent row is an
+    undecided question, not a permission.
+    """
+    decision = database.permission(provider.source_id)
+    if decision is None:
+        if provider.settings.commercial_use:
+            return "No recorded permission decision for commercial use"
+        return None
+    if decision["commercial_use"] == "blocked":
+        return "Blocked by recorded permission decision: " + (decision["basis"] or "no basis recorded")
+    if provider.settings.commercial_use and decision["commercial_use"] != "cleared":
+        return "Commercial use awaiting review: " + (decision["basis"] or "no basis recorded")
+    return None
+
+
 async def collect(provider: Connector, database: Database, http: SafeHTTP) -> dict:
     owner = uuid.uuid4().hex
     identifier = "collect:" + provider.source_id
@@ -70,6 +118,11 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 database.set_status, provider.source_id, state="access_required", error=requirement
             )
             return {"source_id": provider.source_id, "state": "access_required"}
+        if refusal := await database_call(permission_refusal, database, provider):
+            await database_call(
+                database.set_status, provider.source_id, state="permission_required", error=refusal
+            )
+            return {"source_id": provider.source_id, "state": "permission_required", "error": refusal}
         await database_call(database.set_status, provider.source_id, state="fetching", last_attempt=stamp())
         # Whole-job timeout keeps lock lease longer than the job, including normalization/storage.
         async with asyncio.timeout(480):
@@ -89,6 +142,7 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 if (
                     len(pending) == 100
                     and not provider.snapshot
+                    and not getattr(provider, "vessel_snapshot", False)
                     and not getattr(provider, "ddos_aggregate", False)
                     and not getattr(provider, "live_aircraft", False)
                 ):
@@ -107,6 +161,12 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                 if selected and not pending:
                     raise ProviderError("All provider records failed validation")
                 stored = await database_call(save_snapshot, database, pending)
+            elif getattr(provider, "vessel_snapshot", False):
+                if selected and not pending:
+                    raise ProviderError("All provider records failed validation")
+                stored = await database_call(
+                    database.replace_vessel_snapshot, provider.source_id, pending
+                )
             elif provider.snapshot:
                 if records and not pending:
                     raise ProviderError("All provider records failed validation")
@@ -197,6 +257,13 @@ async def run(once: bool = False, source: str | None = None):
         headers={"User-Agent": "GlobalOSINT/0.1 public-source-research"},
     ) as client:
         http = SafeHTTP(settings, client)
+        reader = None
+        executable = browser_executable()
+        if executable:
+            from scripts.threat_table_reader import ThreatTableReader
+
+            reader = ThreatTableReader(executable)
+            http.threat_table_reader = reader
         local_deadlines = {}
 
         async def execute(provider):
@@ -349,8 +416,11 @@ async def run(once: bool = False, source: str | None = None):
         finally:
             for task in aircraft_tasks:
                 task.cancel()
-                with suppress(asyncio.CancelledError):
+                with suppress(CancelledError):
                     await task
+            if reader:
+                with suppress(Exception):
+                    await reader.close()
 
 
 if __name__ == "__main__":

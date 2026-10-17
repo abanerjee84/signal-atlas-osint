@@ -12,6 +12,10 @@ export const colors = {
   environment: "#79c9b1",
   analysis: "#a2b1bc",
   space: "#c6bcff",
+  // Reference geometry reads as published context, deliberately cooler and
+  // quieter than any observed-signal colour so it cannot be mistaken for one.
+  reference: "#93a7b5",
+  terminator: "#5f7280",
 };
 export const CATEGORY_NAMES = {
   geopolitical: "Geopolitical events",
@@ -44,6 +48,8 @@ const marks = {
   attacker: "A",
   victim: "V",
   space: "ST",
+  reference: "RF",
+  terminator: "DN",
 };
 
 // Activity colors belong to the military glyphs, never the map or defence links.
@@ -136,6 +142,15 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ctx.moveTo(0, -11);
       ctx.lineTo(11, 9);
       ctx.lineTo(-11, 9);
+      ctx.closePath();
+      break;
+    case "terminator":
+      // Half-lit disc: the shaded half is night, never an observation.
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      break;
+    case "reference":
+      // Survey marker: a published fixed location, not a detected event.
+      ctx.rect(-8, -8, 16, 16);
       break;
     default:
       ctx.roundRect(-9, -9, 18, 18, 2);
@@ -180,6 +195,37 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
       ctx.stroke();
     }
   }
+  if (category === "terminator") {
+    // Shade the night half, then re-stroke the lit rim so the disc stays legible.
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
+    ctx.fillStyle = context ? "#14212a" : "#2b3b46";
+    ctx.fill();
+    ctx.strokeStyle = context ? tint : "#101b22";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(0, 10);
+    ctx.stroke();
+  }
+  if (category === "reference") {
+    // Corner ticks mark a surveyed coordinate rather than a measured value.
+    ctx.strokeStyle = context ? tint : "#101b22";
+    ctx.lineWidth = 1;
+    for (const [x, y] of [
+      [-8, -8],
+      [8, -8],
+      [8, 8],
+      [-8, 8],
+    ]) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + (y < 0 ? 3 : -3));
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + (x < 0 ? 3 : -3), y);
+      ctx.stroke();
+    }
+  }
   ctx.fillStyle = context ? tint : "#101b22";
   ctx.font = `700 ${category === "analysis" ? 6.5 : 7.5}px Segoe UI, Arial, sans-serif`;
   ctx.textAlign = "center";
@@ -189,7 +235,8 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
     ctx.fillStyle = tint;
     ctx.fillRect(-7, -4, 14, 2);
     ctx.fillRect(-1.5, -10, 3, 6);
-  } else
+  } else if (category !== "terminator")
+    // The terminator's half-lit disc is the whole symbol; lettering would cover it.
     ctx.fillText(marks[category] || "?", 0, category === "analysis" ? 3 : -0.2);
   if (count) {
     ctx.fillStyle = "#14212a";
@@ -218,6 +265,182 @@ export function symbolCanvas(category, { context = false, count, color } = {}) {
 
 export function symbolImage(category, options) {
   const canvas = symbolCanvas(category, options);
+  return canvas
+    .getContext("2d")
+    .getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// Reference geometry is published context, so each kind gets its own pictogram
+// rather than sharing one dot. Shape separates the layer; colour, where it is
+// used, separates subtypes inside it.
+export const REFERENCE_ICONS = {
+  military: { color: "#9fb3c2" },
+  naval: { color: "#8dc7da" },
+  air: { color: "#e5b06a" },
+  nuclear: { color: "#f0c05a" },
+  spaceport: { color: "#c6bcff" },
+  port: { color: "#8dc7da" },
+  terminator: { color: "#5f7280" },
+};
+
+export function referenceCanvas(category, { color, size = 48 } = {}) {
+  const tint = color || REFERENCE_ICONS[category]?.color || "#93a7b5";
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  canvas.className = "layer-symbol";
+  canvas.setAttribute("aria-hidden", "true");
+  const c = canvas.getContext("2d");
+  c.scale(size / 24, size / 24);
+  c.translate(12, 12);
+  c.lineJoin = "round";
+  c.lineCap = "round";
+
+  const shield = () => {
+    c.beginPath();
+    c.moveTo(0, -10.5);
+    c.lineTo(8.8, -6.6);
+    c.lineTo(8.8, 1.4);
+    c.quadraticCurveTo(8.8, 8.4, 0, 11);
+    c.quadraticCurveTo(-8.8, 8.4, -8.8, 1.4);
+    c.lineTo(-8.8, -6.6);
+    c.closePath();
+    c.fillStyle = tint;
+    c.fill();
+    c.strokeStyle = "#101b22";
+    c.lineWidth = 1.1;
+    c.stroke();
+    // A chevron reads as defence without pretending to be an insignia.
+    c.beginPath();
+    c.moveTo(0, -4.4);
+    c.lineTo(4.6, 0.4);
+    c.lineTo(2.2, 0.4);
+    c.lineTo(2.2, 5.2);
+    c.lineTo(-2.2, 5.2);
+    c.lineTo(-2.2, 0.4);
+    c.lineTo(-4.6, 0.4);
+    c.closePath();
+    c.fillStyle = "#14212a";
+    c.fill();
+  };
+
+  const trefoil = () => {
+    // The standard radiation trefoil: three annular blades around a centre.
+    for (let blade = 0; blade < 3; blade++) {
+      const angle = -Math.PI / 2 + (blade * 2 * Math.PI) / 3;
+      c.beginPath();
+      c.arc(0, 0, 9.2, angle - 0.52, angle + 0.52);
+      c.arc(0, 0, 3.1, angle + 0.52, angle - 0.52, true);
+      c.closePath();
+      c.fillStyle = tint;
+      c.fill();
+      c.strokeStyle = "#101b22";
+      c.lineWidth = 0.9;
+      c.stroke();
+    }
+    c.beginPath();
+    c.arc(0, 0, 3.4, 0, Math.PI * 2);
+    c.fillStyle = tint;
+    c.fill();
+    c.strokeStyle = "#101b22";
+    c.lineWidth = 0.9;
+    c.stroke();
+  };
+
+  const rocket = () => {
+    c.beginPath();
+    c.moveTo(0, -11);
+    c.quadraticCurveTo(4.4, -6, 4.4, 1);
+    c.lineTo(4.4, 6.4);
+    c.lineTo(-4.4, 6.4);
+    c.lineTo(-4.4, 1);
+    c.quadraticCurveTo(-4.4, -6, 0, -11);
+    c.closePath();
+    c.fillStyle = tint;
+    c.fill();
+    c.strokeStyle = "#101b22";
+    c.lineWidth = 1.1;
+    c.stroke();
+    c.beginPath();
+    c.moveTo(-4.4, 2.2);
+    c.lineTo(-8, 8.2);
+    c.lineTo(-4.4, 6.4);
+    c.moveTo(4.4, 2.2);
+    c.lineTo(8, 8.2);
+    c.lineTo(4.4, 6.4);
+    c.closePath();
+    c.fillStyle = tint;
+    c.fill();
+    c.strokeStyle = "#101b22";
+    c.lineWidth = 1;
+    c.stroke();
+    c.beginPath();
+    c.arc(0, -3.4, 2.1, 0, Math.PI * 2);
+    c.fillStyle = "#14212a";
+    c.fill();
+  };
+
+  const anchor = () => {
+    c.strokeStyle = tint;
+    c.lineWidth = 2.1;
+    c.beginPath();
+    c.arc(0, -8, 2.9, Math.PI * 0.15, Math.PI * 0.85, true);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(0, -5.4);
+    c.lineTo(0, 8.6);
+    c.moveTo(-6, -2.2);
+    c.lineTo(6, -2.2);
+    c.stroke();
+    c.beginPath();
+    c.arc(0, 1.6, 7.4, 0.28 * Math.PI, 0.72 * Math.PI);
+    c.stroke();
+    c.fillStyle = tint;
+    for (const x of [-7.4, 7.4]) {
+      c.beginPath();
+      c.moveTo(x, 1.6 + 7.4 * Math.sin(0.28 * Math.PI));
+      c.lineTo(x, 5.4);
+      c.lineTo(x + (x < 0 ? -2.6 : 2.6), 2.4);
+      c.closePath();
+      c.fill();
+    }
+  };
+
+  const terminatorGlyph = () => {
+    c.beginPath();
+    c.arc(0, 0, 9.6, 0, Math.PI * 2);
+    c.fillStyle = tint;
+    c.fill();
+    c.strokeStyle = "#101b22";
+    c.lineWidth = 1.1;
+    c.stroke();
+    // The night half is shaded; the lit half stays open to the basemap.
+    c.beginPath();
+    c.arc(0, 0, 9.6, Math.PI / 2, -Math.PI / 2);
+    c.closePath();
+    c.fillStyle = "#2b3b46";
+    c.fill();
+    c.beginPath();
+    c.moveTo(0, -9.6);
+    c.lineTo(0, 9.6);
+    c.strokeStyle = tint;
+    c.lineWidth = 1;
+    c.stroke();
+  };
+
+  ({
+    military: shield,
+    naval: shield,
+    air: shield,
+    nuclear: trefoil,
+    spaceport: rocket,
+    port: anchor,
+    terminator: terminatorGlyph,
+  })[category]?.();
+  return canvas;
+}
+
+export function referenceImage(category, options) {
+  const canvas = referenceCanvas(category, options);
   return canvas
     .getContext("2d")
     .getImageData(0, 0, canvas.width, canvas.height);

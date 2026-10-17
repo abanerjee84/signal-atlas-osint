@@ -96,6 +96,10 @@
     "pattern": "\\b(?:low[- ]and[- ]slow|Slowloris)\\b"
   },
   {
+    "label": "Reconnaissance / scanning",
+    "pattern": "\\b(?:reconnaissance|port scan(?:ning)?)\\b"
+  },
+  {
     "label": "Vulnerability exploitation",
     "pattern": "\\b(?:vulnerability exploitation|exploiting (?:a |an |the )?(?:vulnerabilit|CVE-)|exploitation of (?:CVE-|a |an |the )|actively exploit(?:ed|ing)|active exploitation|zero[- ]day exploit(?:ation|s)?|exploit(?:ed|ing) CVE-)"
   }

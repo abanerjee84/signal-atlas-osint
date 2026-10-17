@@ -79,10 +79,11 @@ class RadwareMap(ThreatMap):
     name = "Radware detections"
     homepage = "https://livethreatmap.radware.com/"
     delivery = "Normal public-page renderer; sampled map countries and a separate DOM statistics breakdown"
+    interval = 120
     sample_seconds = 0
     limitation = (
         ThreatMap.limitation
-        + " Radware supplies broad route categories only. Detailed network vectors are global hourly percentages, never joined to an individual route."
+        + " Radware supplies broad route categories only; scanner routes keep their explicit category. Detailed network vectors are global hourly percentages, never joined to an individual route."
     )
 
     async def fetch(self, http):

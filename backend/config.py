@@ -11,6 +11,10 @@ class Settings(BaseSettings):
 
     database: Path = ROOT / "data/osint.sqlite3"
     advanced_public_read: bool = False
+    # Declares that this deployment displays or redistributes source output for
+    # payment or advertising. When set, every source whose source_permissions row
+    # is not `cleared` is refused rather than silently collected (SRS FR-DATA-01).
+    commercial_use: bool = False
     media_max_bytes: int = Field(20_971_520, ge=1024, le=41_943_040)
     evidence_directory: Path = ROOT / "data/evidence"
     evidence_retention_days: int = Field(180, ge=1, le=3650)
@@ -56,6 +60,11 @@ class Settings(BaseSettings):
     opensky_poll_seconds: int = Field(30, ge=10, le=1800)
     maritime_url: str = ""
     maritime_token: str = ""
+    # AIS Stream account key. Server-side only: the service forbids direct
+    # browser connections, and the key is never sent to a client or written to
+    # a stored observation. Empty disables the keyed primary and leaves the
+    # anonymous OpenSeaFeed/Open Waters streams in place.
+    aisstream_api_key: str = ""
     extra_allowed_hosts: list[str] = []
     extra_rss: list[dict] = []
     reddit_subreddits: list[str] = ["worldnews", "geopolitics", "climate"]

@@ -7,6 +7,7 @@ import { renderMilitary } from "./military.js";
 import { renderSocial, focusSocialPost } from "./social.js";
 import {
   symbolCanvas,
+  referenceCanvas,
   conflictIcon,
   conflictColor,
   conflictCanvas,
@@ -32,6 +33,7 @@ import {
   loadAircraftRegistry,
   refreshAircraftRegistry,
 } from "./aircraft-details.js";
+import { vesselFacts } from "./vessels.js";
 import {
   buildThreatNetwork,
   threatFacts,
@@ -43,6 +45,18 @@ import {
 } from "./threats.js";
 import { VECTOR_LABELS, renderVectorBreakdown } from "./threat-vectors.js";
 import { searchLayers } from "./layer-search.js";
+import {
+  REFERENCE_LAYER_IDS,
+  REFERENCE_REGISTRY,
+  referenceExplanation,
+} from "./reference-layers.js";
+import {
+  DISRUPTION_BASIS,
+  DISRUPTION_LIMITATION,
+  DISRUPTION_STATE,
+  disruptionFeatures,
+  measurementLabel,
+} from "./disruptions.js";
 import {
   infrastructureFacts,
   infrastructureSummary,
@@ -83,6 +97,19 @@ const names = {
   analysis: "Reporting signals & alerts",
   space: "Satellites & ISS",
 };
+// Reference layers are published geometry, not collected records. They live in the
+// same panel but are excluded from the event query: turning one on must never
+// change which records the dashboard asks for or counts.
+for (const entry of Object.values(REFERENCE_REGISTRY))
+  names[entry.id] = entry.label;
+const referenceIds = REFERENCE_LAYER_IDS;
+const isReference = (id) => referenceIds.includes(id);
+// Internet disruptions are an event layer, but their records come from the
+// versioned evidence API rather than the dashboard's own category query, so they
+// are listed beside the other layers and excluded from that query.
+names.disruptions = "Internet disruptions";
+// Layers that must never change which records the dashboard asks for or counts.
+const LAYER_QUERY_EXCLUDED = new Set([...referenceIds, "disruptions"]);
 const defaults = [
   "geopolitical",
   "military",
@@ -245,12 +272,7 @@ function displayThreatNetwork() {
     state.threatVector,
   );
 }
-for (const [category, name] of Object.entries(names)) {
-  if (category === "threat") continue;
-  const key = element("span");
-  key.append(symbolCanvas(category), element("span", "", name));
-  $("#layer-symbol-key").append(key);
-}
+renderLayerKey();
 
 function timeRange() {
   if (state.period === "custom") {
@@ -268,7 +290,9 @@ function timeRange() {
 function filters({ sentiment = false } = {}) {
   const { start, end } = timeRange();
   const physical = [...state.layers].filter(
-    (id) => !["sentiment", "analysis", "threat", "space"].includes(id),
+    (id) =>
+      !["sentiment", "analysis", "threat", "space"].includes(id) &&
+      !LAYER_QUERY_EXCLUDED.has(id),
   );
   return {
     categories: sentiment
@@ -311,25 +335,57 @@ function renderLayers() {
   $("#layers").replaceChildren();
   for (const [id, name] of Object.entries(names)) {
     if (["threat", "analysis"].includes(id)) continue;
-    const label = element("label", "layer-row");
+    const reference = isReference(id);
+    const disruptions = id === "disruptions";
+    const label = element(
+      "label",
+      "layer-row" + (reference ? " layer-row-reference" : ""),
+    );
     const input = element("input");
     input.type = "checkbox";
     input.checked = state.layers.has(id);
     input.dataset.layer = id;
-    const mark = symbolCanvas(id);
+    const mark = reference
+      ? referenceCanvas(REFERENCE_REGISTRY[id].category)
+      : symbolCanvas(disruptions ? "threat" : id);
     const count = element("span", "layer-count", "");
     count.dataset.count = id;
-    count.title =
-      id === "aviation"
-        ? "Matching aircraft for the selected class or database military flag with a reported track; the map shows the latest loaded position per aircraft"
-        : "All matching records in the selected period and geography";
+    if (reference) {
+      // A reference layer has no record count. The registry badge carries the
+      // same data-count hook as a real count, so availability styling and tests
+      // keep working, but it sits on the note line where it cannot crowd the
+      // label out of a 248px panel.
+      const registry = REFERENCE_REGISTRY[id].registry;
+      count.textContent = "ref";
+      count.className = "layer-count layer-count-reference";
+      count.title = `${registry.publisher} · registry ${registry.version} · ${registry.license}`;
+    } else if (disruptions) {
+      count.title = DISRUPTION_BASIS;
+    } else {
+      count.title =
+        id === "aviation"
+          ? "Matching aircraft for the selected class or database military flag with a reported track; the map shows the latest loaded position per aircraft"
+          : "All matching records in the selected period and geography";
+    }
     const copy = element("span", "layer-copy");
     const note = element("small", "layer-note");
     note.dataset.layerNote = id;
-    if (id === "analysis")
+    if (reference) {
+      note.textContent = REFERENCE_REGISTRY[id].summary;
+      note.title = REFERENCE_REGISTRY[id].limitation;
+    } else if (disruptions) {
+      note.textContent = "Country aggregates — not located incidents";
+      note.title = `${DISRUPTION_BASIS} ${DISRUPTION_LIMITATION}`;
+    } else if (id === "analysis")
       note.textContent = "Report surges & links across layers";
-    copy.append(element("span", "", name), note);
-    label.append(input, mark, copy, count);
+    copy.append(element("span", "", name));
+    if (reference) {
+      note.append(count);
+      label.append(input, mark, copy, referenceInfoButton(id), note);
+    } else {
+      copy.append(note);
+      label.append(input, mark, copy, count);
+    }
     input.addEventListener("change", () => {
       input.checked ? state.layers.add(id) : state.layers.delete(id);
       if (id === "cyber")
@@ -337,11 +393,22 @@ function renderLayers() {
           ? state.layers.add("threat")
           : state.layers.delete("threat");
       saveSession("osint.layers", [...state.layers]);
+      if (reference) {
+        // Reference geometry never changes the record query, so no refetch.
+        applyReferenceLayers();
+        return;
+      }
+      if (disruptions) {
+        // Evidence-API records, so no dashboard refetch either.
+        refreshDisruptions(input.checked);
+        return;
+      }
       if (id === "aviation") {
         // Warm the aircraft registry so the first hover paints from cache.
         if (input.checked) refreshAircraftRegistry();
         refreshAircraft();
       }
+      if (id === "maritime") refreshVessels();
       if (input.checked && id === "sentiment") showView("sentiment");
       if (input.checked && id === "military") showView("military");
       if (id === "analysis") {
@@ -358,6 +425,159 @@ function renderLayers() {
     $("#layers").append(label);
   }
   applyLayerSearch();
+}
+
+// FR-WS-06: a reference layer states its basis, registry version and limits next
+// to the control, without a page reload.
+function referenceInfoButton(id) {
+  const button = element("button", "layer-info", "i");
+  button.type = "button";
+  button.dataset.layerInfo = id;
+  button.setAttribute(
+    "aria-label",
+    `How this layer is sourced: ${REFERENCE_REGISTRY[id].label}`,
+  );
+  button.title = "Sourcing, registry version and limits";
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showReferenceExplanation(id, button);
+  });
+  return button;
+}
+
+function showReferenceExplanation(id, anchor) {
+  const existing = $("#reference-explanation");
+  if (existing) {
+    existing.remove();
+    if (existing.dataset.layerInfo === id) return;
+  }
+  const panel = element("div", "reference-explanation");
+  panel.id = "reference-explanation";
+  panel.dataset.layerInfo = id;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", `${REFERENCE_REGISTRY[id].label} sourcing`);
+  const heading = element("h3", "", REFERENCE_REGISTRY[id].label);
+  const table = element("dl", "reference-explanation-fields");
+  for (const [label, value] of referenceExplanation(id)) {
+    table.append(element("dt", "", label), element("dd", "", value));
+  }
+  const LOAD_STATE = {
+    available: "Available",
+    unavailable: "Unavailable",
+    off: "Computed, layer switched off",
+    not_loaded: "Not loaded yet — switch the layer on to read it",
+  };
+  const status = worldMap?.referenceStatus?.().find((row) => row.id === id);
+  if (status)
+    table.append(
+      element("dt", "", "Load state"),
+      element(
+        "dd",
+        status.state === "available" ? "ok" : "warn",
+        `${LOAD_STATE[status.state] || status.state}${status.problem ? ` · ${status.problem}` : ""} · registry ${status.registry_version}`,
+      ),
+    );
+  const close = element("button", "reference-explanation-close", "Close");
+  close.type = "button";
+  close.addEventListener("click", () => panel.remove());
+  panel.append(heading, table, close);
+  document.body.append(panel);
+  const box = anchor.getBoundingClientRect();
+  panel.style.top = `${Math.max(8, box.bottom + 8)}px`;
+  panel.style.left = `${Math.min(window.innerWidth - 360, box.left)}px`;
+  panel.querySelector(".reference-explanation-close").focus();
+}
+
+function applyReferenceLayers() {
+  const status =
+    worldMap?.setReferenceLayers([...state.layers].filter(isReference)) || [];
+  for (const row of status) {
+    const cell = $(`[data-count="${row.id}"]`);
+    if (!cell) continue;
+    cell.classList.toggle("layer-count-error", row.state === "unavailable");
+    if (row.state === "unavailable")
+      cell.title = `Unavailable · ${row.problem}`;
+    else {
+      cell.classList.remove("layer-count-error");
+      cell.title = `${row.license} · registry ${row.registry_version}`;
+    }
+  }
+  renderLayerKey();
+}
+
+function renderLayerKey() {
+  const key = $("#layer-symbol-key");
+  key.replaceChildren();
+  for (const [category, name] of Object.entries(names)) {
+    if (category === "threat") continue;
+    const entry = element("span");
+    entry.append(
+      isReference(category)
+        ? referenceCanvas(REFERENCE_REGISTRY[category].category)
+        : symbolCanvas(category === "disruptions" ? "threat" : category),
+      element("span", "", name),
+    );
+    key.append(entry);
+  }
+}
+
+// Retained internet-disruption observations, drawn at the country reference
+// point. Every distinct failure has its own visible state, because "no rows" and
+// "could not ask" mean very different things to an analyst.
+async function refreshDisruptions(visible) {
+  const cell = $('[data-count="disruptions"]');
+  const note = $('[data-layer-note="disruptions"]');
+  worldMap?.setDisruptionsVisible(Boolean(visible));
+  if (!visible) {
+    worldMap?.setDisruptions([]);
+    if (cell) cell.textContent = "";
+    if (note) note.textContent = "Country aggregates — not located incidents";
+    return;
+  }
+  if (!state.token) {
+    // No credential, so no load: say so rather than showing an empty map.
+    if (cell) cell.textContent = "—";
+    if (note) note.textContent = DISRUPTION_STATE.needsToken;
+    worldMap?.setDisruptions([]);
+    return;
+  }
+  if (cell) cell.textContent = "…";
+  if (note) note.textContent = DISRUPTION_STATE.loading;
+  try {
+    const response = await fetch("/api/v1/cyber/disruptions?limit=200", {
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+    if (response.status === 401 || response.status === 403) {
+      if (cell) cell.textContent = "—";
+      if (note) note.textContent = DISRUPTION_STATE.unauthorised;
+      worldMap?.setDisruptions([]);
+      return;
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const places = Object.fromEntries(
+      (state.world?.features || []).map((feature) => [
+        feature.properties.code,
+        feature.properties,
+      ]),
+    );
+    const { features, unresolved } = disruptionFeatures(
+      payload.data || [],
+      places,
+    );
+    worldMap?.setDisruptions(features);
+    if (cell)
+      cell.textContent = features.length ? String(features.length) : "0";
+    if (note)
+      note.textContent = features.length
+        ? `${payload.meta?.coverage || "Country aggregates"} · ${measurementLabel(payload.meta?.measurement_period)}${unresolved.length ? ` · ${unresolved.length} unplaced` : ""}`
+        : DISRUPTION_STATE.empty;
+  } catch (error) {
+    if (cell) cell.textContent = "—";
+    if (note) note.textContent = DISRUPTION_STATE.failed(error.message);
+    worldMap?.setDisruptions([]);
+  }
 }
 
 function syncReportingSignals() {
@@ -925,6 +1145,24 @@ function renderEvents() {
     );
     visible.push(...flights);
   }
+  const vesselsLive =
+    playhead === 100 &&
+    state.period !== "custom" &&
+    state.layers.has("maritime") &&
+    Array.isArray(state.vesselItems?.items);
+  if (vesselsLive) {
+    // The worker rewrites stored vessel positions in place, so the latest DB
+    // set replaces whatever older maritime rows the balanced feed returned.
+    const fleet = [...state.vesselItems.items];
+    visible = visible.flatMap((event) =>
+      event.category === "maritime"
+        ? fleet.length
+          ? [fleet.shift()]
+          : []
+        : [event],
+    );
+    visible.push(...fleet);
+  }
   const aviationCount = visible.filter(
     (event) =>
       event.category === "aviation" &&
@@ -950,11 +1188,16 @@ function renderEvents() {
   worldMap?.setEvents(visible);
   renderConflictKey(visible);
   updateOrbitalPositions();
+  const cyberMatching = state.events.filter(
+    (event) =>
+      event.category === "cyber" &&
+      matchesThreatVector(event, state.threatVector),
+  ).length;
   $("#matched-count").textContent = Math.max(
     0,
     state.total -
       (state.layers.has("cyber") && state.threatVector !== "all"
-        ? state.categoryCounts.cyber || 0
+        ? Math.max(0, (state.categoryCounts.cyber || 0) - cyberMatching)
         : 0) -
       (state.layers.has("threat")
         ? state.threatCount - (displayThreatNetwork()?.events.length || 0)
@@ -1013,7 +1256,18 @@ function renderEvents() {
         event.latitude === null ? "Unlocated" : event.location_precision,
       ),
     );
-    button.append(meta, element("span", "event-title", event.title));
+    const title = element("span", "event-title", event.title);
+    if (event.category === "maritime" && event.vessel_flag) {
+      // Registered flag state travels on the row the way orbital nationalities
+      // do; it is the registration prefix, not a claimed home port.
+      title.append(
+        countryFlagImage(
+          event.vessel_flag,
+          `${vesselFacts(event)["Flag state"]} flag`,
+        ),
+      );
+    }
+    button.append(meta, title);
     if (event.category === "aviation") {
       const facts = aircraftFacts(event);
       const flight = element("dl", "aircraft-card-facts");
@@ -1029,6 +1283,14 @@ function renderEvents() {
         );
       button.append(flight);
       attachAircraftPhoto(event, button, flight);
+    } else if (event.category === "maritime") {
+      const facts = vesselFacts(event);
+      const fleet = element("dl", "vessel-card-facts");
+      for (const label of ["Flag state", "Vessel type", "Ground speed"]) {
+        const value = facts[label] || "Unknown";
+        fleet.append(element("dt", "", label), element("dd", "", value));
+      }
+      button.append(fleet);
     } else if (event.category === "threat") {
       const facts = threatFacts(event);
       button.append(element("p", "event-excerpt", threatCaption(facts)));
@@ -1106,6 +1368,22 @@ function renderEvents() {
     if (!retained.has(id)) eventRows.delete(id);
   for (const id of Object.keys(names)) {
     if (["sentiment", "analysis", "threat", "space"].includes(id)) continue;
+    if (isReference(id)) {
+      // A reference layer has no record count and no collector health. It shows
+      // its registry version and its own stated limitation, and nothing here may
+      // overwrite that with a record total or a feed-health verdict.
+      const cell = $(`[data-count="${id}"]`);
+      if (cell) {
+        cell.textContent = "ref";
+        cell.title = `${REFERENCE_REGISTRY[id].registry.publisher} · registry ${REFERENCE_REGISTRY[id].registry.version} · ${REFERENCE_REGISTRY[id].registry.license}`;
+      }
+      continue;
+    }
+    if (id === "disruptions") {
+      // Its count and note are owned by refreshDisruptions, which knows whether
+      // the layer actually loaded, was refused, or had no credential.
+      continue;
+    }
     const count =
       id === "aviation"
         ? aviationCount
@@ -1344,6 +1622,25 @@ async function selectEvent(id, locate = false) {
           Number.isFinite(event.aircraft_track_deg)
             ? `${event.aircraft_track_deg.toFixed(1)}° clockwise from true north`
             : "Unknown",
+        ),
+      );
+    }
+    if (event.category === "maritime") {
+      const facts = vesselFacts(event);
+      for (const [label, value] of [
+        ["MMSI", facts.MMSI],
+        ["Flag state", facts["Flag state"]],
+        ["Vessel type", facts["Vessel type"]],
+        ["Ground speed", facts["Ground speed"]],
+        ["Course", facts.Course],
+      ])
+        fields.append(element("dt", "", label), element("dd", "", value));
+      fields.append(
+        element("dt", "", "Registration country"),
+        element(
+          "dd",
+          "",
+          "Flag state comes from the registered MMSI prefix; it is not ownership, departure origin or destination",
         ),
       );
     }
@@ -2602,6 +2899,8 @@ async function initialize() {
       followStopped: () => setFollowedAircraft(null),
     });
     worldMap.setDensityWeighted(state.densityConfidence);
+    applyReferenceLayers();
+    refreshDisruptions(state.layers.has("disruptions"));
     await refreshOrbits();
     worldMap.setAnalysisVisible(state.analysisOverlays);
     const { charts } = await import("./charts.js");
@@ -2873,6 +3172,43 @@ async function refreshAircraft() {
 }
 setInterval(refreshAircraft, 10000);
 window.addEventListener("pagehide", releaseAircraftDemand);
+
+// Vessels need no demand gating: the worker rewrites stored positions every
+// five minutes, so a plain poll of the events API is the freshest source.
+function viewingVessels() {
+  return (
+    !document.hidden &&
+    worldMap &&
+    state.layers.has("maritime") &&
+    state.period !== "custom" &&
+    Number($("#playhead").value) === 100
+  );
+}
+let vesselBusy = false;
+async function refreshVessels() {
+  if (!viewingVessels()) {
+    state.vesselItems = null;
+    return;
+  }
+  if (vesselBusy) return;
+  vesselBusy = true;
+  try {
+    const result = await api(
+      "events?categories=maritime&limit=1000&order=latest",
+    );
+    if (!viewingVessels()) return;
+    state.vesselItems = {
+      items: result.items,
+      collected_at: new Date().toISOString(),
+    };
+    renderEvents();
+  } catch {
+    // Keep the last known positions; the worker's next cycle refreshes them.
+  } finally {
+    vesselBusy = false;
+  }
+}
+setInterval(refreshVessels, 60000);
 
 async function loadThreatTelemetry(query, signal) {
   const results = await Promise.allSettled(

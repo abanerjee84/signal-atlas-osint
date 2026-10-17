@@ -28,6 +28,7 @@ from .schemas import (
     ResolveInput,
     SavedSearch,
     SourcePatch,
+    SourcePermissionPatch,
     VerifyInput,
     WatchInput,
     WatchPatch,
@@ -314,6 +315,48 @@ def router(database, settings, authorize, source_statuses):
             }
         )
 
+    @api.get("/sources/permissions")
+    def permission_register():
+        """Redistribution decisions, joined to registered sources.
+
+        Readable with ordinary investigation read access rather than administrator
+        access, because an operator must be able to see which sources this
+        deployment may redistribute before a paid offering is described. Declared
+        before "/sources/{source_id}" so the literal path is not shadowed.
+        """
+        decided = {row["source_id"]: row for row in repo.rows("SELECT * FROM source_permissions")}
+        rows = []
+        for item in source_list((500, 0, ""))["data"]:
+            decision = decided.get(item["source_id"], {})
+            rows.append(
+                {
+                    "source_id": item["source_id"],
+                    "name": item["name"],
+                    "license_classification": item["license_classification"],
+                    "display_class": decision.get("display_class", "review_required"),
+                    "commercial_use": decision.get("commercial_use", "review_required"),
+                    "retention_allowed": bool(decision.get("retention_allowed", 1)),
+                    "export_allowed": bool(decision.get("export_allowed", 0)),
+                    "derivative_allowed": bool(decision.get("derivative_allowed", 0)),
+                    "basis": decision.get("basis", ""),
+                    "reviewed_at": decision.get("reviewed_at"),
+                    "reviewer": decision.get("reviewer"),
+                    "recorded": item["source_id"] in decided,
+                }
+            )
+        return output(
+            {
+                "commercial_use_declared": settings.commercial_use,
+                "sources": rows,
+                "generated_at": stamp(),
+                "limitations": (
+                    "An unrecorded decision is an open question, not a permission. "
+                    "Provider terms must be rechecked; a client API licence does not grant "
+                    "redistribution of the underlying data."
+                ),
+            }
+        )
+
     @api.get("/sources/{source_id}")
     @api.get("/osint/resources/{source_id}")
     def source(source_id: str):
@@ -344,6 +387,22 @@ def router(database, settings, authorize, source_statuses):
             db.execute("UPDATE sources SET enabled=? WHERE source_id=?", (int(body.enabled), source_id))
         repo.audit("source.configure", source_id, body.model_dump())
         return source(source_id)
+
+    @api.put("/sources/{source_id}/permission", dependencies=private)
+    def record_permission(source_id: str, body: SourcePermissionPatch):
+        source(source_id)
+        decision = body.model_dump()
+        # Store the flags as the integers the table's CHECK constraints expect.
+        for flag in ("retention_allowed", "export_allowed", "derivative_allowed"):
+            decision[flag] = int(decision[flag])
+        database.set_permission(
+            source_id,
+            **decision,
+            reviewed_at=stamp(),
+            reviewer="local-administrator",
+        )
+        repo.audit("source.permission", source_id, body.model_dump())
+        return permission_register()
 
     @api.post("/osint/search/external", dependencies=private)
     def external(body: ExternalInput):

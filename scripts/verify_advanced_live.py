@@ -84,6 +84,7 @@ async def main():
         "opensky_client_secret",
         "firms_map_key",
         "maritime_token",
+        "aisstream_api_key",
     ]
     result["configured_secrets_found_in_frontend"] = sum(
         1 for name in secret_names if (value := getattr(settings, name)) and value in assets

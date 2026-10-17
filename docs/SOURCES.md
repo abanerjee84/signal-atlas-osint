@@ -52,7 +52,7 @@ The War Zone and DefenceWeb RSS URLs were left unchanged: both had failed recent
 | ReliefWeb              | 1 hour           | `OSINT_RELIEFWEB_APPNAME` must be provider-approved; live access not tested                                                                                                                                                               | Newest 100 humanitarian reports and provider country context. No applicant name is fabricated.                                                                                                                                                                                                                                                                                     |
 | ACLED                  | 6 hours          | Account credentials saved privately; OAuth returned HTTP 200, but the data endpoint returned HTTP 403 (Access denied) on 10 October 2026                                                                                                  | API permission is still required. OAuth token adapter, newest bounded page from last seven days. Licensing/redistribution restrictions apply. No exhaustive backfill or deletion reconciliation yet.                                                                                                                                                                               |
 | OpenSky                | 30 minutes       | API client credentials stored privately; extended worldwide request verified at 17:26 UTC on 10 October 2026: 11,853 fetched, 151 eligible observations stored, zero rejected, 11,702 outside class/track selection or the collection cap | Account page reports 4,000 daily credits. Default `OSINT_OPENSKY_BBOX=world` requests all network states. Geographic sampling across 30-degree cells bounds storage. Public reported ADS-B positions have coverage gaps. Registration country is not the position country. No implied military classification or exhaustive tracking. Retention must be allowed by your agreement. |
-| Maritime               | 15 minutes       | Licensed administrator-supplied JSON endpoint and host allowlist; live access not tested                                                                                                                                                  | Generic normalized AIS adapter, not an integration claim for a particular commercial provider. Provider must permit display and history.                                                                                                                                                                                                                                           |
+| Maritime               | 5 minutes        | Free public AIS streams verified 17 October 2026: OpenSeaFeed worldwide primary via three concurrent strips (each under the anonymous tier's 30,000 square-degree limit); Open Waters rotating-region fallback exercised live when a stream went silent; cycles store up to 1,000 vessels with course/speed tracking fields plus the AIS ship type code when static data delivers it. AIS Stream replaces OpenSeaFeed as primary when an account key is configured; it is also the only one of the three that supplies vessel names. | Self-reported vessel positions from community AIS receivers; names unverified. Coverage is receiver-dependent and incomplete. Stable MMSI keying updates each vessel in place instead of accumulating snapshots; `vessel_course_deg`/`vessel_speed_kn` drive the rotating map glyphs, and `vessel_flag` derives from the registered MMSI prefix while `vessel_type` is the last self-reported AIS code. Licensed JSON override still available.                                                                                                                    |
 
 ## Provider references
 
@@ -66,6 +66,7 @@ The War Zone and DefenceWeb RSS URLs were left unchanged: both had failed recent
 - [ReliefWeb API access requirements](https://apidoc.reliefweb.int/)
 - [ACLED OAuth and API access](https://acleddata.com/api-documentation/getting-started)
 - [OpenSky OAuth and coverage limitations](https://opensky-network.org/about/faq)
+- [Open Waters AIS live stream](https://openwaters.io/ais/) and [OpenSeaFeed AIS stream](https://openseafeed.com/)
 - [OpenRouter model discovery](https://openrouter.ai/discover) and [limits documentation](https://openrouter.ai/docs/api-reference/limits)
 
 ## Configure access
@@ -103,9 +104,13 @@ OSINT_EXTRA_RSS=[{"source_id":"authorized_public","name":"Authorized public disc
 
 The example hostname is a placeholder, not a working source. Only add feeds for which public access and use are authorized. Without a configured discourse feed, that sentiment category correctly contains zero samples. Headlines and excerpts do not represent national public opinion. Keywords group related wording; this release does not infer semantic narrative clusters or topic-specific stance.
 
-## Maritime JSON contract
+## Maritime (AIS)
 
-Set `OSINT_MARITIME_URL`, `OSINT_EXTRA_ALLOWED_HOSTS` and, if needed, `OSINT_MARITIME_TOKEN`. The endpoint must return an object containing an `observations` array. Each record requires:
+By default the collector streams self-reported vessel positions from free public AIS receiver networks, both anonymous WebSocket endpoints added to the host allowlist. Primary is [OpenSeaFeed](https://openseafeed.com/) for worldwide coverage: three concurrent connections each subscribe one longitudinal strip — `[[-90,-180],[90,-60]]`, `[[-90,-60],[90,60]]` and `[[-90,60],[90,180]]` — at 21,600 square degrees each, under the anonymous tier's 30,000 square-degree per-connection limit (a single global box is rejected with a free-tier bounding-box error). Fallback is [Open Waters](https://openwaters.io/ais/) with its rotating ~10-degree regions (North Atlantic/Channel, North Sea/Baltic, Western Med, Eastern Med/Levant, Red Sea/Suez, Gulf of Aden/Bab el-Mandeb, Persian Gulf/Hormuz, Gulf of Guinea/West Africa, South China Sea/Malacca), engaged when all three OpenSeaFeed strips fail; its tier allows only one box per connection (`bbox not allowed for this key`), so regions rotate. Each 5-minute cycle keeps roughly 20 seconds of traffic and stores up to 1,000 vessels in total. Vessels are keyed by stable MMSI, so each vessel occupies one event row whose position updates in place; `vessel_course_deg` and `vessel_speed_kn` are stored alongside it, `vessel_flag` follows the registered MMSI prefix (the ITU Maritime Identification Digits table in `backend/mid_flags.py`) and `vessel_type` is the last self-reported AIS ship type code — the maritime cards and hull hover show all three fields. The map still renders a rotating plan-view hull from the course, mirroring the aviation track layer.
+
+Self-reported AIS data: names and static data are unverified, positions can be stale or spoofed, and gaps reflect receiver coverage or transponder state rather than intent. No interpolation between sightings is performed.
+
+A licensed administrator-provided JSON endpoint remains available as an override: set `OSINT_MARITIME_URL`, `OSINT_EXTRA_ALLOWED_HOSTS` and, if needed, `OSINT_MARITIME_TOKEN`. The endpoint must return an object containing an `observations` array. Each record requires:
 
 | Field                   | Type                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -116,7 +121,7 @@ Set `OSINT_MARITIME_URL`, `OSINT_EXTRA_ALLOWED_HOSTS` and, if needed, `OSINT_MAR
 | `name`, `class`         | Optional strings                                                             |
 | `published_at`          | Optional timezone-qualified publication time; falls back to observation time |
 
-Historical snapshots are stored as separate observations. There is no interpolation or inferred movement between sightings. An adapter for a specific vendor must map its licensed format to this contract or subclass the common connector. No live maritime data is supplied by default.
+An adapter for a specific vendor must map its licensed format to this contract or subclass the common connector.
 
 ## Retention and source terms
 

@@ -319,6 +319,10 @@ test("map renders distinct layer symbols and cluster badges while retaining airc
     aircraft_category: i === 10 ? 4 : i === 11 ? 5 : null,
     aircraft_track_deg: i === 10 ? 90 : i === 11 ? 270 : null,
     aircraft_callsign: `TEST${i}`,
+    vessel_course_deg: i === 2 ? 45 : null,
+    vessel_speed_kn: i === 2 ? 10.5 : null,
+    vessel_flag: i === 2 ? "GB" : null,
+    vessel_type: i === 2 ? 79 : null,
   }));
   await page.route("**/api/events?**", (route) =>
     route.fulfill({
@@ -330,13 +334,29 @@ test("map renders distinct layer symbols and cluster badges while retaining airc
   const canvas = page.locator("#map canvas");
   await expect
     .poll(() => canvas.getAttribute("data-symbol-categories"))
-    .toBe("cyber,economic,environment,geopolitical,maritime,military");
+    .toBe("cyber,economic,environment,geopolitical,military");
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-cluster-symbols")))
     .toBeGreaterThanOrEqual(2);
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-aircraft")))
     .toBe(2);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-vessels")))
+    .toBe(1);
+  // The maritime row reads the registered flag state and the last
+  // self-reported AIS type beside the name.
+  const vesselRow = page
+    .locator("button.event-button")
+    .filter({ hasText: "Synthetic maritime marker 2" });
+  const facts = await vesselRow.locator(".vessel-card-facts").textContent();
+  expect(facts, "flag state and vessel type should travel with the row").toContain(
+    "United Kingdom",
+  );
+  expect(facts).toContain("79 · Cargo");
+  await expect(
+    vesselRow.locator("img[alt]"),
+  ).toHaveAttribute("title", "United Kingdom flag");
   await expect(page.locator("#load-error")).toBeHidden();
   expect(errors).toEqual([]);
 });

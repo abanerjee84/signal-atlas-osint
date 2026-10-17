@@ -100,6 +100,15 @@ class SourcePatch(Input):
     permission_basis: str = Field(min_length=30, max_length=1000)
 
 
+class SourcePermissionPatch(Input):
+    display_class: Literal["public", "attribution", "restricted", "review_required"]
+    commercial_use: Literal["cleared", "review_required", "blocked"]
+    retention_allowed: bool = True
+    export_allowed: bool = False
+    derivative_allowed: bool = False
+    basis: str = Field(min_length=30, max_length=1000)
+
+
 class ResolveInput(Input):
     name: str = Field(min_length=1, max_length=200)
     type: Literal[

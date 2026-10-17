@@ -11,6 +11,8 @@ from backend.models import Category, Filters, Report, stamp, utcnow
 
 SCHEMA_VERSION = len(list((ROOT / "backend/migrations").glob("*.sql")))
 
+SCHEMA_VERSION = len(list((ROOT / "backend/migrations").glob("*.sql")))
+
 
 def test_migration_idempotent_and_wal(database):
     database.initialize()
@@ -22,7 +24,7 @@ def test_migration_idempotent_and_wal(database):
 
 def test_future_schema_rejected(database):
     with database.connect() as db:
-        db.execute("PRAGMA user_version=9")
+        db.execute(f"PRAGMA user_version={SCHEMA_VERSION + 1}")
     with pytest.raises(RuntimeError):
         database.initialize()
 

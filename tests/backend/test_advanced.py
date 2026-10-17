@@ -17,10 +17,14 @@ from backend.advanced.processing import index_batch, normalize_indicator
 from backend.advanced.repository import Repository
 from backend.advanced.tasks import tick
 from backend.advanced.watch import normalized_text, pinned_get, save_snapshot, validate_url
-from backend.config import Settings
+from backend.config import ROOT, Settings
 from backend.database import Database
 from backend.main import create_app
 from backend.models import Report, utcnow
+
+# Derived from the migration files so adding a migration cannot leave a test
+# asserting a stale schema version.
+SCHEMA_VERSION = len(list((ROOT / "backend/migrations").glob("*.sql")))
 
 
 @pytest.fixture
@@ -428,7 +432,7 @@ def test_concurrent_first_start_migrations_are_serialized(tmp_path):
             path = tmp_path / f"concurrent-{attempt}.sqlite3"
             list(pool.map(lambda _: Database(path).initialize(), range(2)))
             with sqlite3.connect(path) as db:
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 8
+                assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
                 assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
 
