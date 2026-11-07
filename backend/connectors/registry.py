@@ -8,6 +8,7 @@ from .cyber_feeds import cyber_feeds
 from .firms import FIRMS
 from .gdelt import GDELT
 from .maritime import Maritime
+from .monitoring import monitoring_feeds
 from .ncsc import NCSC
 from .observatory import observation_feeds
 from .ofac import OFAC
@@ -64,6 +65,7 @@ def connectors(settings):
         ),
     ]
     providers.extend(cyber_feeds(settings))
+    providers.extend(monitoring_feeds(settings))
     providers.extend(observation_feeds(settings))
     providers.extend(threat_feeds(settings))
     providers.extend(threat_maps(settings))

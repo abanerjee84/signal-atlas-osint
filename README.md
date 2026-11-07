@@ -34,6 +34,8 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 
 ## What you can do
 
+- **Monitor across domains and replay retained history:** open **Monitor** for 43 observation sublayers, orbital views, public camera and ground-station directories, configured radio receivers, optional GNSS accuracy cells and protected Shodan host lookups. UTC playback uses observations retained after the updated collector starts. See [setup, capability review and limits](docs/SHADOWBROKER_MONITORING.md).
+
 - **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.
 - **Follow geopolitical and military reporting:** nine public Liveuamap regional maps, 18 additional publisher feeds, dated ISW assessments and existing worldwide/official reporting. Conflict symbols distinguish drones, missiles, airstrikes, artillery, bombs, sirens, deployments and other report types. Hover summaries show source wording, location, date and confidence; cards retain original citations.
 - **Compare countries:** a map-side leaderboard for report mentions, sampled sentiment and intelligence activity, with source and sample counts.

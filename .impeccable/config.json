@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-07T19:47:58.076Z",
+        "reason": "Agent review: the existing dense map dashboard intentionally uses equal-sized pane headings; the brand and panel structure provide hierarchy. Shared typography is unchanged and this session only added the Monitor navigation link."
+      }
+    ]
+  }
+}

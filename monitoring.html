@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10171c" />
+    <meta
+      name="description"
+      content="Multi-domain public intelligence monitoring and retained observation playback."
+    />
+    <title>Monitoring | Signal Atlas OSINT</title>
+  </head>
+  <body class="monitoring-page">
+    <a class="skip-link" href="#observations">Skip to observations</a>
+    <header class="monitor-header">
+      <a href="/">Signal Atlas <strong>OSINT</strong></a>
+      <h1>Intelligence monitoring</h1>
+      <span id="mode" role="status">Connecting</span>
+      <a href="/advanced.html">Investigate</a>
+      <button id="refresh-monitoring" type="button">Refresh</button>
+    </header>
+    <main class="monitor-grid">
+      <aside class="monitor-layers" aria-label="Monitoring layers">
+        <h2>Map layers</h2>
+        <label for="layer-search">Find a layer</label>
+        <input
+          id="layer-search"
+          type="search"
+          placeholder="Aircraft, cameras, malware…"
+        />
+        <div class="layer-actions">
+          <button id="clear-layers">Clear</button
+          ><button id="default-layers">Defaults</button>
+        </div>
+        <p id="layer-summary" class="muted"></p>
+        <div id="monitoring-layers"></div>
+        <p class="muted">
+          Views can overlap. A layer is not an independent feed.
+        </p>
+      </aside>
+      <section class="monitor-map" aria-label="Intelligence map">
+        <div id="monitor-map"></div>
+        <p id="map-summary" class="map-summary" role="status">
+          Loading retained observations…
+        </p>
+      </section>
+      <aside class="monitor-feed" aria-label="Observation feed">
+        <section
+          id="inspector"
+          aria-label="Selected observation"
+          hidden
+        ></section>
+        <div class="feed-heading">
+          <h2 id="observations" tabindex="-1">Observations</h2>
+          <span id="record-count"></span>
+        </div>
+        <p id="monitor-message" role="status">Loading…</p>
+        <div id="observation-list"></div>
+        <details id="source-health">
+          <summary>Source health</summary>
+          <p id="source-summary"></p>
+          <div id="source-list"></div>
+        </details>
+        <details>
+          <summary>Passive host lookup</summary>
+          <p class="muted">
+            Read a public IP's existing Shodan record. Uses the server's
+            provider key and local request budget.
+          </p>
+          <form id="shodan-form">
+            <label for="operator-token">Local administrator token</label
+            ><input id="operator-token" type="password" autocomplete="off" />
+            <label for="lookup-ip">Public IP address</label
+            ><input
+              id="lookup-ip"
+              required
+              maxlength="45"
+              placeholder="8.8.8.8"
+            />
+            <button type="submit">Look up host</button>
+          </form>
+          <p id="lookup-result" role="status"></p>
+        </details>
+      </aside>
+      <section class="monitor-playback" aria-label="Time Machine playback">
+        <div class="playback-heading">
+          <h2>Time Machine</h2>
+          <button id="go-live" aria-pressed="true">Live</button
+          ><button id="play" disabled>Play history</button>
+        </div>
+        <form id="time-form">
+          <label for="playback-time">Observation time (UTC)</label
+          ><input id="playback-time" type="datetime-local" required /><button
+            type="submit"
+          >
+            Load time
+          </button>
+        </form>
+        <label for="history-scrubber" class="sr-only"
+          >Retained history time</label
+        >
+        <input
+          id="history-scrubber"
+          type="range"
+          min="0"
+          max="1"
+          value="1"
+          disabled
+        />
+        <p id="history-note" class="muted">
+          History begins when observations are collected. Camera footage and
+          radio audio are not archived.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="/src/monitoring.js"></script>
+  </body>
+</html>

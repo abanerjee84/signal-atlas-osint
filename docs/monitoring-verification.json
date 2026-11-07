@@ -1,0 +1,45 @@
+{
+  "implementation": "ShadowBroker-style monitoring in Signal Atlas",
+  "workspace": "/monitoring.html",
+  "observation_sublayers": 43,
+  "orbital_views": 4,
+  "reference_overlays": 5,
+  "registered_source_definitions_in_default_configuration": 190,
+  "checks": {
+    "production_build": "passed",
+    "ruff_changed_python_modules": "passed",
+    "new_backend_tests": { "passed": 14 },
+    "new_browser_tests": { "passed": 3 },
+    "javascript_unit_tests": { "passed": 53 },
+    "api_connector_maritime_compatibility": { "passed": 66 },
+    "history_orbit_operations_integration": { "passed": 22 },
+    "existing_dashboard_browser_suite": {
+      "passed": 8,
+      "failed": 3,
+      "failures_reproduced_without_new_dashboard_navigation": true,
+      "failures": [
+        "Cyber context counts follow the period and overlay visibility",
+        "country ribbon ranks samples, supports keyboard selection and preserves comparison",
+        "map renders distinct layer symbols and cluster badges while retaining aircraft"
+      ]
+    },
+    "additional_full_backend_sweep": "Not completed. Failures were observed before the run was stopped during a slow existing telemetry-retention stress test. Not counted as a passing full suite."
+  },
+  "live_public_directory_collection_in_isolated_database": {
+    "tfl_cameras": { "fetched": 889, "stored": 889, "rejected": 0, "truncated": 0 },
+    "satnogs_stations": { "fetched": 4563, "stored": 1000, "rejected": 0, "truncated": 3563 },
+    "retained_sensor_records": 1889,
+    "incident_events_created": 0
+  },
+  "visual_checks_with_public_directory_records": {
+    "desktop_viewport": [1440, 960],
+    "mobile_viewport": [390, 844],
+    "browser_page_errors": 0,
+    "mobile_horizontal_overflow": false
+  },
+  "external_access_not_live_verified": [
+    "Shodan with an account key; protected behavior tested with isolated provider fixtures",
+    "An operator-supplied NACp ADS-B endpoint; normalized and readsb formats tested with fixtures",
+    "Individual camera playback availability or public radio receiver availability"
+  ]
+}

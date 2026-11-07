@@ -256,7 +256,14 @@ def collect_orbits_locked(database):
     if not database.lock("collect:orbital-elements", owner, 300):
         return None
     try:
-        return collect_orbits()
+        result = collect_orbits()
+        if isinstance(result, dict) and result.get("checked_at"):
+            # Archive when this set became known locally; source ages remain in the payload.
+            with database.connect() as db:
+                db.execute(
+                    "INSERT OR IGNORE INTO monitoring_orbits VALUES(?,?)", (stamp(), json.dumps(result))
+                )
+        return result
     finally:
         database.unlock("collect:orbital-elements", owner)
 

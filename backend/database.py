@@ -257,6 +257,9 @@ class Database:
                 (report_id, json.dumps(report.raw), now),
             )
             db.execute("UPDATE events SET updated_at=? WHERE event_id=?", (now, event_id))
+            from .monitoring import retain
+
+            retain(db, report, now)
             if report.cyber_observation:
                 from .cyber_observations import index_observation
 
@@ -581,6 +584,19 @@ class Database:
              GROUP BY substr(time_key,1,10),category HAVING 1
              ON CONFLICT(day,category) DO UPDATE SET count=excluded.count""")
             deleted = {}
+            deleted["monitoring_history"] = db.execute(
+                "DELETE FROM monitoring_history WHERE received_at<?",
+                (stamp(utcnow() - timedelta(days=settings.monitoring_retention_days)),),
+            ).rowcount
+            db.execute(
+                "DELETE FROM monitoring_history WHERE observation_id IN "
+                "(SELECT observation_id FROM monitoring_history ORDER BY received_at DESC,observation_id "
+                "LIMIT -1 OFFSET ?)", (settings.monitoring_max_rows,),
+            )
+            db.execute("DELETE FROM monitoring_lookups WHERE requested_at<?",
+                       (stamp(utcnow() - timedelta(days=7)),))
+            db.execute("DELETE FROM monitoring_orbits WHERE collected_at<?",
+                       (stamp(utcnow() - timedelta(days=settings.monitoring_retention_days)),))
             for table, column, days in [
                 ("raw_records", "ingested_at", settings.raw_retention_days),
                 ("events", "time_key", settings.event_retention_days),

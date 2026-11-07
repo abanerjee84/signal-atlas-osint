@@ -1,9 +1,11 @@
 import asyncio
 import json
 import math
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
+import httpx
 import websockets
 
 from ..mid_flags import flag_of_mmsi
@@ -24,6 +26,17 @@ AISSTREAM = {
     "url": "wss://stream.aisstream.io/v0/stream",
     "name": "AIS Stream",
     "homepage": "https://aisstream.io/",
+}
+# Norwegian Coastal Administration open AIS, served through BarentsWatch under
+# the Norwegian Licence for Open Government Data; free OAuth2 client
+# credentials. Every streamed line carries the vessel name and ship type even
+# for a pure position update, which the public fallbacks lack.
+BARENTSWATCH = {
+    "token_url": "https://id.barentswatch.no/connect/token",
+    "live_url": "https://live.ais.barentswatch.no/v1/combined",
+    "name": "BarentsWatch AIS",
+    "homepage": "https://developer.barentswatch.no/",
+    "region": "Norwegian EEZ / Svalbard zones",
 }
 
 # AIS Stream names every subscription with its message types. Positions and
@@ -85,6 +98,7 @@ def _ship_type(value):
 
 
 class Maritime(Connector):
+    fast_monitoring = True
     source_id = "maritime"
     name = "AIS vessel observations"
     category = "maritime"
@@ -97,12 +111,15 @@ class Maritime(Connector):
     limitation = (
         "Worldwide public AIS positions via AIS Stream when an account key is configured (three concurrent "
         "full-latitude strips, primary) or OpenSeaFeed (same strips, anonymous fallback), with Open Waters "
-        "rotating high-traffic regions as the last resort. Measured on 17 October 2026: AIS Stream reports "
+        "rotating high-traffic regions as the last resort, and BarentsWatch (Norwegian Coastal Administration, "
+        "NLOD open data) as a registered-credentials lane covering the Norwegian EEZ, Svalbard and Jan Mayen "
+        "zones with the ship type in every update. Measured on 17 October 2026: AIS Stream reports "
         "roughly one vessel for every thirteen OpenSeaFeed delivers but is the only one of the three that "
         "supplies vessel names, and this collector keeps at most 1,000 spatially sampled observations per "
         "cycle, so the extra unnamed positions OpenSeaFeed provides are discarded either way. One stored "
         "observation per vessel updates in place each cycle. Coverage is incomplete: vessels may switch AIS off "
-        "and some waters have no receiver coverage. Vessel names are self-reported AIS static data and "
+        "and some waters have no receiver coverage; BarentsWatch omits fishing vessels under 15 metres and "
+        "leisure craft under 45 metres by design. Vessel names are self-reported AIS static data and "
         "unverified; the flag state derives from the registered MMSI prefix, which the operator chooses and "
         "which may differ from beneficial ownership, and the type is the last self-reported AIS code. An AIS "
         "gap can reflect receiver coverage or equipment failure and is not evidence of sanctions evasion. An "
@@ -113,6 +130,8 @@ class Maritime(Connector):
         super().__init__(settings)
         self._region_index = -1
         self._collect_seconds = 20
+        self._token: str | None = None
+        self._token_expiry = 0.0
 
     def access(self):
         return None
@@ -120,9 +139,14 @@ class Maritime(Connector):
     def metadata(self):
         return {
             **super().metadata(),
-            "record_selection": "keyed_aisstream_primary_then_openseafeed_then_open_waters",
+            "record_selection": (
+                "licensed_then_keyed_aisstream_then_barentswatch_then_openseafeed_then_open_waters"
+            ),
             "per_cycle_cap": self.per_cycle_cap,
             "keyed_primary_configured": bool(self.settings.aisstream_api_key),
+            "keyed_norwegian_configured": bool(
+                self.settings.barentswatch_client_id and self.settings.barentswatch_client_secret
+            ),
             "world_strips": [name for name, *_ in WORLD_STRIPS],
             "fallback_regions": [region[0] for region in REGIONS],
         }
@@ -143,6 +167,11 @@ class Maritime(Connector):
             # so collection continues when the account is rate limited, out of
             # its three connections or suspended.
             attempts.append(self._collect_aisstream)
+        if self.settings.barentswatch_client_id and self.settings.barentswatch_client_secret:
+            # Norwegian coast lane: streamed open data with the ship type in
+            # every update. A failure here falls through to the worldwide
+            # lanes rather than implying they are broken.
+            attempts.append(lambda: self._collect_barentswatch(http))
         attempts.append(self._collect_worldwide)
         attempts.append(lambda: self._collect_region(OPEN_WATERS))
         failure: Exception | None = None
@@ -219,6 +248,102 @@ class Maritime(Connector):
         except (OSError, ValueError):
             if not vessels:
                 raise ProviderError("AIS stream returned malformed data") from None
+
+    async def _collect_barentswatch(self, http: SafeHTTP) -> list[dict]:
+        host = urlsplit(BARENTSWATCH["live_url"]).hostname
+        if host not in APPROVED_HOSTS:
+            raise ProviderError("BarentsWatch stream destination is not approved")
+        token = await self._barentswatch_token()
+        observed_at = datetime.now(timezone.utc)
+        vessels: dict[int, dict] = {}
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self._collect_seconds
+        try:
+            async for line in http.stream_lines(
+                BARENTSWATCH["live_url"],
+                max_bytes=12 * 1024 * 1024,
+                headers={"Authorization": f"Bearer {token}"},
+                content_type="application/x-ndjson",
+            ):
+                if loop.time() > deadline:
+                    break
+                try:
+                    frame = json.loads(line)
+                except ValueError:
+                    continue
+                self._merge(vessels, self._parse_barentswatch(frame))
+        except (OSError, ValueError):
+            if not vessels:
+                raise ProviderError("BarentsWatch stream returned malformed data") from None
+        if not vessels:
+            raise ProviderError("BarentsWatch stream produced no vessel positions")
+        return [
+            {
+                **record,
+                "region": BARENTSWATCH["region"],
+                "provider": BARENTSWATCH["name"],
+                "source_url": BARENTSWATCH["homepage"],
+                "observed_at": observed_at.isoformat(),
+            }
+            for record in vessels.values()
+        ]
+
+    async def _barentswatch_token(self) -> str:
+        if self._token and time.monotonic() < self._token_expiry:
+            return self._token
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(
+                BARENTSWATCH["token_url"],
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": self.settings.barentswatch_client_id,
+                    "client_secret": self.settings.barentswatch_client_secret,
+                    "scope": "ais",
+                },
+                headers={"User-Agent": "SignalAtlas/0.1 (+https://github.com/abanerjee84/signal-atlas-osint)"},
+            )
+        if response.status_code == 401:
+            raise ProviderError("BarentsWatch credentials rejected", retry_after=3600)
+        if response.status_code != 200:
+            raise ProviderError("BarentsWatch token request failed")
+        try:
+            payload = response.json()
+        except ValueError:
+            raise ProviderError("BarentsWatch token response was malformed") from None
+        token = payload.get("access_token")
+        if not isinstance(token, str) or not token:
+            raise ProviderError("BarentsWatch token response was empty")
+        lifetime = payload.get("expires_in")
+        self._token = token
+        self._token_expiry = time.monotonic() + (
+            float(lifetime) - 60 if isinstance(lifetime, (int, float)) and lifetime > 60 else 3600
+        )
+        return token
+
+    @staticmethod
+    def _parse_barentswatch(frame):
+        # The live endpoint streams one JSON object per vessel update; fields
+        # follow the OpenAPI names (name, shipType, courseOverGround, ...).
+        if not isinstance(frame, dict):
+            return None
+        mmsi = frame.get("mmsi")
+        if not isinstance(mmsi, int) or not 0 < mmsi < 2**32:
+            return None
+        record = {
+            "mmsi": mmsi,
+            "name": str(frame.get("name") or "").strip()[:60] or None,
+            "latitude": _finite(frame.get("latitude")),
+            "longitude": _finite(frame.get("longitude")),
+            "speed_kn": _speed(frame.get("speedOverGround")),
+            "course_deg": _course(frame.get("courseOverGround")),
+            # shipType is the AIS static code and is present on nearly every
+            # line, so a position-only update no longer erases it.
+            "type": _ship_type(frame.get("shipType")),
+            "upstream": None,
+        }
+        return record if any(
+            record[key] is not None for key in ("name", "latitude", "speed_kn", "course_deg")
+        ) else None
 
     async def _collect_worldwide(self) -> list[dict]:
         host = urlsplit(OPEN_SEAFEED["url"]).hostname

@@ -40,7 +40,11 @@ export default defineConfig({
     target: "es2022",
     chunkSizeWarningLimit: 1100,
     rollupOptions: {
-      input: { dashboard: "index.html", investigations: "advanced.html" },
+      input: {
+        dashboard: "index.html",
+        investigations: "advanced.html",
+        monitoring: "monitoring.html",
+      },
     },
   },
 });

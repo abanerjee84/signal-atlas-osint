@@ -182,6 +182,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from .advanced.api import router as investigation_router
 
     app.include_router(investigation_router(database, config, authorize, source_statuses))
+    from .monitoring_api import router as monitoring_router
+
+    app.include_router(monitoring_router(database, config, authorize, source_statuses))
 
     @app.get("/api/status")
     def status():
@@ -206,7 +209,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         statuses = {item["source_id"]: item for item in source_statuses()}
         result = []
         for category in Category:
-            if category == Category.threat:
+            if category in {Category.threat, Category.sensors}:
                 continue
             categories = {"cyber", "threat"} if category == Category.cyber else {category.value}
             own = [

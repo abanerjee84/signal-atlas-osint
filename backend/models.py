@@ -26,6 +26,7 @@ class Category(StrEnum):
     economic = "economic"
     environment = "environment"
     analysis = "analysis"
+    sensors = "sensors"
 
 
 class Confidence(StrEnum):

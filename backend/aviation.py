@@ -33,6 +33,10 @@ def save_snapshot(database, reports):
         items.append(data)
     with database.connect() as db:
         db.execute("BEGIN IMMEDIATE")
+        from .monitoring import retain
+
+        for report in reports:
+            retain(db, report, now)
         previous = db.execute("SELECT history_at FROM aircraft_snapshot WHERE id=1").fetchone()
         history_at = previous[0] if previous else None
         # Preserve the prior history cadence without storing hundreds of rows every two minutes.

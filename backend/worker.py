@@ -145,11 +145,18 @@ async def collect(provider: Connector, database: Database, http: SafeHTTP) -> di
                     and not getattr(provider, "vessel_snapshot", False)
                     and not getattr(provider, "ddos_aggregate", False)
                     and not getattr(provider, "live_aircraft", False)
+                    and not getattr(provider, "monitoring_directory", False)
                 ):
                     await database_call(database.ingest_many, pending)
                     stored += len(pending)
                     pending = []
-            if getattr(provider, "ddos_aggregate", False):
+            if getattr(provider, "monitoring_directory", False):
+                from .monitoring import save_directory
+
+                if selected and not pending:
+                    raise ProviderError("All directory records failed validation")
+                stored = await database_call(save_directory, database, pending)
+            elif getattr(provider, "ddos_aggregate", False):
                 from .cyber_observations import save_ddos_series
 
                 if selected and not pending:
@@ -294,7 +301,9 @@ async def run(once: bool = False, source: str | None = None):
         async def aircraft_poll(provider):
             from .aviation_demand import aviation_requested
 
-            if not await database_call(aviation_requested, database):
+            if not getattr(provider, "fast_monitoring", False) and not await database_call(
+                aviation_requested, database
+            ):
                 return
             if local_deadlines.get(provider.source_id, 0) > time.monotonic():
                 return
@@ -359,8 +368,12 @@ async def run(once: bool = False, source: str | None = None):
                 aircraft_tasks.append(
                     asyncio.create_task(details_loop(database, stopped, require_viewer=True))
                 )
+            if not source or source == "maritime":
+                from .vessel_details import details_loop
+
+                aircraft_tasks.append(asyncio.create_task(details_loop(database, stopped)))
             for provider in providers:
-                if getattr(provider, "live_aircraft", False):
+                if getattr(provider, "live_aircraft", False) or getattr(provider, "fast_monitoring", False):
                     current = next(
                         (
                             row
@@ -394,7 +407,10 @@ async def run(once: bool = False, source: str | None = None):
                 for provider in providers
                 if provider.source_id in enabled
                 and local_deadlines.get(provider.source_id, 0) <= time.monotonic()
-                and (once or not getattr(provider, "live_aircraft", False))
+                and (
+                    once or not (getattr(provider, "live_aircraft", False)
+                                 or getattr(provider, "fast_monitoring", False))
+                )
                 and (
                     once
                     or not statuses.get(provider.source_id, {}).get("next_run")
@@ -416,7 +432,7 @@ async def run(once: bool = False, source: str | None = None):
         finally:
             for task in aircraft_tasks:
                 task.cancel()
-                with suppress(CancelledError):
+                with suppress(asyncio.CancelledError):
                     await task
             if reader:
                 with suppress(Exception):

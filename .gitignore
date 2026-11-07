@@ -13,6 +13,8 @@ public/orbital-elements.json
 public/orbital-elements.*.tmp
 public/aircraft-details.json
 public/aircraft-details.*.tmp
+public/vessel-details.json
+public/vessel-details.*.tmp
 .env
 .env.*
 !.env.example
@@ -32,6 +34,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.impeccable/hook.cache.json
 .coverage
 htmlcov/
 test-results/

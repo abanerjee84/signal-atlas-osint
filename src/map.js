@@ -2624,6 +2624,9 @@ export function createWorldMap(
             .setLngLat(feature.geometry.coordinates)
             .setDOMContent(vesselHoverCard(record))
             .addTo(map);
+          const details = await loadVesselDetails(record);
+          if (eventHoverKey !== hoverKey) return;
+          hoverPopup.setDOMContent(vesselHoverCard(record, false, details));
           return;
         }
         if (layer === "aircraft-hit-target") {

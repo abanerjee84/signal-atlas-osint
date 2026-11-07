@@ -17,6 +17,9 @@ from ..models import Report
 
 USER_AGENT = "SignalAtlas/0.1 (+https://github.com/abanerjee84/signal-atlas-osint)"
 APPROVED_HOSTS = {
+    "network.satnogs.org",
+    "api.tfl.gov.uk",
+    "api.shodan.io",
     "ipwho.is",
     "threatfox-api.abuse.ch",
     "api.greynoise.io",
@@ -111,6 +114,18 @@ APPROVED_HOSTS = {
     # October 2026; the key travels in the subscription frame, never a URL, and
     # the service forbids direct browser connections.
     "stream.aisstream.io",
+    # BarentsWatch live AIS (Norwegian Coastal Administration, NLOD-licensed
+    # open data). Free OAuth2 client credentials issued at barentswatch.no;
+    # the client secret travels only in the worker process.
+    "id.barentswatch.no",
+    "live.ais.barentswatch.no",
+    "historic.ais.barentswatch.no",
+    # Global Fishing Watch v3 research API: vessel identity from public
+    # registries, ownership chains and at-sea events. Free non-commercial token.
+    "gateway.api.globalfishingwatch.org",
+    # NOAA/BOEM Marine Cadastre AIS broadcast points: bulk daily CSV.zst files
+    # of U.S. coastal waters. No key, used only through the manual collector.
+    "noaaocm.blob.core.windows.net",
     "openrouter.ai",
     "www.gov.uk",
     "www.reddit.com",
@@ -351,11 +366,18 @@ class SafeHTTP:
         except (ValueError, UnicodeError):
             raise ProviderError("Provider returned malformed JSON") from None
 
-    async def stream_lines(self, url: str, *, max_bytes=1_048_576):
-        """Validated, bounded public SSE read. Caller sets a total time budget."""
+    async def stream_lines(
+        self,
+        url: str,
+        *,
+        max_bytes=1_048_576,
+        content_type: str = "text/event-stream",
+        headers: dict | None = None,
+    ):
+        """Validated, bounded public stream read. Caller sets a total time budget."""
         await self.validate(url)
         try:
-            async with self.client.stream("GET", url, follow_redirects=False) as response:
+            async with self.client.stream("GET", url, follow_redirects=False, headers=headers) as response:
                 if response.status_code == 429 or response.status_code >= 500:
                     try:
                         delay = float(response.headers.get("Retry-After", "300"))
@@ -367,7 +389,7 @@ class SafeHTTP:
                     raise ProviderError(
                         f"Provider HTTP {response.status_code}", status_code=response.status_code
                     )
-                if not response.headers.get("content-type", "").startswith("text/event-stream"):
+                if not response.headers.get("content-type", "").startswith(content_type):
                     raise ProviderError("Provider did not return a public event stream")
                 # Decode incrementally; a peer cannot grow an unterminated line unboundedly.
                 pending, size = b"", 0

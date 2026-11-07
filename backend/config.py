@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     infrastructure_geo_enabled: bool = True
     infrastructure_geo_daily_budget: int = Field(250, ge=0, le=750)
     admin_token: str = ""
+    monitoring_retention_days: int = Field(7, ge=1, le=90)
+    monitoring_max_rows: int = Field(250_000, ge=1000, le=2_000_000)
+    tfl_cameras_enabled: bool = True
+    satnogs_stations_enabled: bool = True
+    public_radio_receivers: list[dict] = []
+    monitoring_adsb_url: str = ""
+    shodan_api_key: str = ""
+    shodan_daily_budget: int = Field(20, ge=0, le=200)
     http_timeout: float = Field(25, ge=1, le=120)
     connector_concurrency: int = Field(2, ge=1, le=4)
     max_feed_bytes: int = Field(8_388_608, ge=1024, le=33_554_432)
@@ -65,6 +73,19 @@ class Settings(BaseSettings):
     # a stored observation. Empty disables the keyed primary and leaves the
     # anonymous OpenSeaFeed/Open Waters streams in place.
     aisstream_api_key: str = ""
+    # BarentsWatch live AIS (Norwegian Coastal Administration open data).
+    # Free OAuth2 client credentials from barentswatch.no; the secret stays in
+    # the worker process and is never logged or exposed to a client.
+    barentswatch_client_id: str = ""
+    barentswatch_client_secret: str = ""
+    # Global Fishing Watch research token for vessel-registry identity. Free
+    # non-commercial registration; presented as a Bearer token from the worker.
+    gfw_api_token: str = ""
+    # NOAA/BOEM Marine Cadastre AIS bulk lane (manual collector). Points at one
+    # CSV.zst day file from noaaocm.blob.core.windows.net; scheduled cycles
+    # never touch it, so a run is operator-initiated and size-bounded.
+    noaa_ais_url: str = ""
+    noaa_ais_max_bytes: int = Field(603_979_776, ge=1_048_576, le=1_073_741_824)
     extra_allowed_hosts: list[str] = []
     extra_rss: list[dict] = []
     reddit_subreddits: list[str] = ["worldnews", "geopolitics", "climate"]
