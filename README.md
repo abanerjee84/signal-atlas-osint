@@ -4,104 +4,112 @@
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB.svg)](requirements.txt)
 [![Node.js 22.12+](https://img.shields.io/badge/Node.js-22.12%2B-339933.svg)](package.json)
 
-**A global intelligence map and investigation workspace for following public reports, comparing narratives, and tracing relationships back to their sources.**
+**A public-source intelligence map, monitoring dashboard and investigation workspace.**
 
-Signal Atlas brings geopolitical news, defence reporting, aircraft positions, cyber advisories, economic developments and environmental observations into one dashboard. Follow a report from its map marker to the original publication, compare country mentions and sentiment, or preserve evidence in an investigation case.
+Signal Atlas collects international reporting, aircraft and vessel observations, environmental measurements, cyber intelligence and public discussion. Explore the map, inspect the original evidence, replay retained observations, save watch rules, or build a private investigation case.
 
-Collection runs in a separate Python worker. The dashboard reads retained observations from a local database, while the investigation workspace adds search, reference catalogs, evidence snapshots, notes and exports. Most public reporting works without provider keys; aircraft tracking, selected datasets and optional AI require their own credentials. A fresh checkout contains application code and reference geography, with no seeded intelligence records.
+The interface has four roles: **Map layers** chooses map content, **Map records** inspects specific feed records, **Tools** runs monitoring and analysis workflows, and **Cases** holds saved investigations. Collection runs in a separate Python worker; the browser reads retained data through FastAPI.
 
-![World map with intelligence layers, country rankings, source connections and aircraft cards](docs/aircraft-cards-coverage.png)
+![Current Signal Atlas dashboard with the unified Map layers sidebar, topic groups, country rankings, source connections, intelligence feed and timeline](docs/screenshots/dashboard-current.png)
 
-_Example from a collected dataset. A fresh installation starts empty and fills as enabled sources succeed. Screenshots show coverage at capture time._
+_Current interface captured on 8 November 2026 using real collected public-source data. Counts and headlines describe that capture, not guaranteed coverage. A new installation starts without seeded intelligence records. [Capture details](docs/screenshots/capture.json)._
 
 ## Contents
 
-- [What you can do](#what-you-can-do)
-- [Intelligence layers](#intelligence-layers)
+- [Interface and navigation](#interface-and-navigation)
+- [Capabilities](#capabilities)
+- [Screenshots](#screenshots)
 - [Run locally](#run-locally)
-- [Using the dashboard](#using-the-dashboard)
-- [Investigation workspace](#investigation-workspace)
-- [Sources and configuration](#sources-and-configuration)
-- [Reading the map correctly](#reading-the-map-correctly)
-- [Aircraft details and collection](#aircraft-details-and-collection)
-- [How it is built](#how-it-is-built)
-- [API examples](#api-examples)
-- [Operations and recovery](#operations-and-recovery)
-- [Troubleshooting](#troubleshooting)
-- [Development and checks](#development-and-checks)
-- [Documentation and deployment](#documentation-and-deployment)
+- [Sources and access](#sources-and-access)
+- [Configuration](#configuration)
+- [Watches, history and evidence](#watches-history-and-evidence)
+- [Imagery and measured change](#imagery-and-measured-change)
+- [Architecture and codebase](#architecture-and-codebase)
+- [API](#api)
+- [Data interpretation and limits](#data-interpretation-and-limits)
+- [Operations and deployment](#operations-and-deployment)
+- [Testing and screenshot capture](#testing-and-screenshot-capture)
+- [Documentation](#documentation)
 - [License](#license)
 
-## What you can do
+## Interface and navigation
 
-- **Choose map content in one place:** the **Map layers** sidebar groups reporting, tracking, cameras, environment, cyber and reference places by topic. Search for a layer or use **Selected only** to review active choices. Narrower views are under **More layers** within their topic; overlapping broad views share a single category switch. Specific feed records appear under **Map records**. **Tools** opens watches, alerts, imagery and lookups; **Cases** opens saved investigations. The optional `/monitoring.html` workspace remains available with an explicit **Dashboard** return link. See [monitoring foundations](docs/SHADOWBROKER_MONITORING.md).
-- **Run monitoring investigations:** save area, route and entity watches; acknowledge alerts; inspect entity trails; import versioned infrastructure and suppliers; compare acquisition-dated Sentinel-2 and OPERA products; query passive DNS, RDAP, CT, Wikidata and OFAC records; and attach cited snapshots to cases. The [expansion setup guide](docs/SHADOWBROKER_EXPANSION.md) covers all 15 additions, credentials, authorized exports and optional raster processing. Registered sources and overlapping views are counted separately from healthy feeds.
+| Control                  | What it does                                                                         | Where to find it                                             |
+| ------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **Map layers**           | Select map content; search topics and review active choices                          | Left sidebar                                                 |
+| **Selected only**        | Show enabled controls without changing their selections                              | Above the layer groups                                       |
+| **More layers**          | Reveal narrower views within a topic                                                 | Inside applicable groups                                     |
+| **Map records**          | Inspect specific feed records, timestamps, precision, sources and source health      | Right-hand feed tabs; opens when a specific feed is selected |
+| **Tools**                | Open watches, alerts, entity history, imagery, imports, exposure and passive lookups | Top bar                                                      |
+| **Cases**                | Open indexed search, evidence, notes, graphs and saved investigations                | Top bar; `/advanced.html`                                    |
+| **Signals**              | Inspect reporting surges and evidence across enabled categories                      | Map toolbar                                                  |
+| **Observation timeline** | Set the playhead for retained reporting and monitoring history                       | Below the map                                                |
+| **Settings**             | Enter the dashboard access token and adjust settings                                 | Top-right gear                                               |
 
-- **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.
-- **Follow geopolitical and military reporting:** nine public Liveuamap regional maps, 18 additional publisher feeds, dated ISW assessments and existing worldwide/official reporting. Conflict symbols distinguish drones, missiles, airstrikes, artillery, bombs, sirens, deployments and other report types. Hover summaries show source wording, location, date and confidence; cards retain original citations.
-- **Compare countries:** a map-side leaderboard for report mentions, sampled sentiment and intelligence activity, with source and sample counts.
-- **Track eligible aircraft:** OpenSky positions with Countries-panel filters for every class the provider reports (all classes by default, individual classes 0-20 from no-information through Large, Heavy, rotorcraft, UAV and obstacles, or registry-flagged military aircraft), refreshed every 30 seconds by default while a visible Aviation layer is selected. Movement interpolates between real observations. Hovers show registration, aircraft model, country, altitude, speed, track and credited photos where available.
-- **Follow military satellites and ISS:** public CelesTrak, AMSAT and observer elements cover military, navigation, civil spacecraft and crewed stations. Names precede operator-country flags; hover shows mission, origin, altitude, speed and tracking details. Faint ground tracks highlight on hover. Positions update locally every two seconds; no account or key is needed.
-- **Find layers by topic:** search above Display Overlays expands related concepts such as planes, hacking, oil prices and space station. It searches layer meanings locally and preserves your selected overlays.
-- **Study public narratives:** English lexical sentiment, topic groups, regional comparisons and separate news, public-discussion and official-statement datasets.
-- **Investigate cyber intelligence:** advisories, vulnerabilities, routing and outage observations, plus threat-actor, malware and technique relationships from reference catalogs.
-- **Inspect cyber infrastructure:** scheduled DShield observations, optional ThreatFox indicators and bounded ISC honeypot samples retain counts, reporting periods and case evidence. Optional Radar protocol trends and selected-IP GreyNoise lookups keep infrastructure observations separate from actor attribution. See [setup and usage](docs/CYBER_OBSERVATIONS.md).
-- **Follow cyber threats:** the merged Cyber: Threat Actors layer combines attack reporting with Bitdefender ATTACK rows, BunkerWeb traffic, Imperva daily request aggregates and Radware's public map. Filter specific attack vectors separately from reputation blocks. Public Unit 42, Securelist and Mandiant article scrapers add technique evidence and CVEs. Radware's global method breakdown is displayed separately from country routes. Infrastructure geography remains separate from human attribution.
-- **Collect public discussion without social API keys:** Reddit, Mastodon and Lemmy feeds plus timestamped public Telegram previews flow into the sentiment heatmap. Author origins remain unknown unless explicitly declared; country mentions describe discussion context.
-- **Build a case:** indexed search, entity graphs, private notes, immutable evidence snapshots, media/document imports, chronological review and JSON/Markdown exports.
-- **Use optional AI analysis:** OpenRouter summaries with source references, caching and local request budgets. Unstructured model output appears as a labelled draft; schema-valid output must pass citation-ID checks.
+The layer picker uses eight topic groups: **News & politics**, **Conflict & defence**, **Aircraft, ships & rail**, **Cameras & radio**, **Weather & environment**, **Cyber & networks**, **Space**, and **Reference places**. Groups show how many controls are on. Search opens matching groups; Selected only keeps active choices easy to review.
 
-## Intelligence layers
+Broad subjects share one category switch instead of exposing duplicate switches for different internal APIs. Saved broad monitoring selections migrate to those categories. Specific views, such as airborne aircraft, warnings, trains or radio receptions, remain inside their topics. Reporting categories populate Events; specific monitoring feeds populate Map records. Their counts retain their original meanings.
 
-The **Map layers** sidebar groups the core categories and additional feeds by topic. Search the list, expand a topic, or choose **Selected only** to review active map content. The table below describes the core categories; narrower views are inside each topic's **More layers** section. Source health and the selected observation period determine what each layer can display.
+Country selection, map-extent filtering, the period and topic search narrow the display. Clear geographic restrictions to inspect unlocated records and warning polygons: the integrated monitoring geography filter currently selects point observations and states this limit in its records panel.
 
-| Layer                            | What it displays                                                                                                           | Interpretation and access                                                                                                                      |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Geopolitical events**          | Public international reporting, country context and cited source connections                                               | Headline country mentions provide regional context. They do not supply precise incident coordinates.                                           |
-| **Military OSINT**               | Official defence announcements, selected conflict reporting, dated assessments and report-type symbols                     | Published reporting can be delayed, incomplete or disputed. Source wording and publication times remain available.                             |
-| **Aviation**                     | Current OpenSky aircraft positions, reported track, flight measurements, class filters and optional registry/photo context | Requires OpenSky client credentials and provider credits. Collection follows visible live-view demand.                                         |
-| **Maritime**                     | Vessel observations from an administrator-configured normalized AIS feed                                                   | Requires an authorized feed and the schema described in [source configuration](docs/SOURCES.md). No worldwide AIS subscription is bundled.     |
-| **Global sentiment**             | Sampled news, public discussion and official wording, with English sentiment and country context                           | Samples and language exclusions are disclosed. Country references differ from author origins.                                                  |
-| **Cyber: Threat Actors**         | Advisories, investigations, reported attribution and sampled provider traffic                                              | Combines the application's `cyber` and `threat` categories. Blue traffic routes and pink attribution links retain different evidence meanings. |
-| **Cyber infrastructure**         | DShield scan aggregates, opt-in ISC honeypot requests and optional ThreatFox indicators                                    | Teal **CI** symbols show country-located observations. Provider filters and located/unlocated counts are independent of Threat Actors.         |
-| **Economic and energy**          | Business reporting, energy releases, sanctions and institutional statements                                                | Reports describe published developments; collected coverage is not a complete market or sanctions database.                                    |
-| **Environment and humanitarian** | USGS earthquakes, optional FIRMS thermal detections and ReliefWeb reporting                                                | Source-specific observations retain their precision. FIRMS and ReliefWeb require configured access.                                            |
-| **Satellites & ISS**             | Locally calculated positions and ground tracks from public orbital elements                                                | No account is required. Positions are SGP4 estimates; historical satellite tracks are not retained.                                            |
+`/monitoring.html` remains an optional dedicated monitoring workspace with independent layer/time controls and an explicit **Dashboard** return link. The main dashboard provides the normal map and Tools workflow.
 
-**Reporting signals & alerts** shows regional surges in collected reporting and countries with reports across multiple enabled layers. Use the **Signals** button at the top of the map; it is separate from Intelligence layers. Alerts include comparisons and inspection actions; they are separate from optional AI analysis and do not establish escalation or causation. See [conflict collection and reporting signals](docs/CONFLICT_REPORTING.md). A centered map indicator shows progress for user-triggered computation, including filters and analysis. Routine dashboard refresh and live position updates stay quiet.
+## Capabilities
+
+The default code configuration registers **212 source definitions**. The monitoring API exposes **58 overlapping observation sublayers**; the main picker combines overlapping broad views. Registered definitions, enabled sources, recently successful feeds and map views are different counts. Check source health for collection status and access requirements.
+
+| Domain                   | Current implementation                                                                                                             | Coverage and access                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| International reporting  | Publisher RSS/Atom, GDELT discovery, official statements, country context and source connections                                   | Reporting can be delayed, inaccessible or geographically imprecise                                          |
+| Conflict and defence     | Regional Liveuamap collection, ISW assessments, defence publishers, official channels and report-type symbols                      | Source wording is retained; reporting does not establish a verified live military position                  |
+| Aircraft                 | OpenSky observations, classes 0-20, registration/model context, credited photos, trails and retained history                       | Credentials and provider credits required; live collection follows visible viewer demand                    |
+| Maritime                 | AIS Stream when keyed, anonymous OpenSeaFeed/Open Waters fallbacks, optional BarentsWatch and configured normalized AIS            | Receiver coverage, regional limits, provider availability and credentials vary                              |
+| Vessel identity/activity | Registry enrichment and optional GFW fishing, encounter, loitering, port-visit and gap events                                      | GFW token required; apparent activity is separate from AIS fixes and legality findings                      |
+| Space                    | CelesTrak/AMSAT/observer elements, local SGP4 propagation, military/navigation/station views, ground tracks and SatNOGS references | Calculated positions, not live spacecraft telemetry; elements can be stale                                  |
+| Cameras and radio        | TfL, Caltrans, NYC and Singapore camera metadata; configured receivers, KiwiSDR and scoped PSKReporter receptions                  | Media is opt-in; directories do not verify working streams; PSKReporter needs a callsign                    |
+| Satellite receptions     | TinyGS adapter and authorized reception imports                                                                                    | Anonymous access was not verified; token/authorized export required; orbital estimates are not receptions   |
+| Regional rail            | Amtraker US passenger trains and Digitraffic Finland positions                                                                     | Regional observations, not worldwide rail coverage                                                          |
+| Environment              | USGS, optional FIRMS/ReliefWeb, NWS polygons, SWPC, OpenAQ and GVP volcano references                                              | NWS jurisdictional coverage; OpenAQ key/location IDs required; registry entries are not eruption detections |
+| GNSS accuracy            | Cells derived from supported reported airborne NACp samples                                                                        | Needs an authorized accuracy-capable ADS-B feed; low accuracy is not confirmed jamming                      |
+| Cyber intelligence       | Advisories, vulnerabilities, threat catalogs, attack reporting, DShield, ThreatFox, Feodo and URLhaus                              | Optional credentials apply; infrastructure observations remain separate from actor attribution              |
+| Network context          | Outage/routing adapters and RIPE Atlas public probe states                                                                         | A probe state or country aggregate does not establish outage cause or exact incident site                   |
+| Narratives               | Separate news, public-discussion and official samples; lexical sentiment and optional EUvsDisinfo RSS                              | Sampling, language limits and editorial attribution are retained; country mentions are not author origins   |
+| Reference places         | Versioned installations, ports, nuclear plants, spaceports, terminator, optional WRI and authorized asset imports                  | Reference geometry does not establish current activity, damage or dependency                                |
+| Watches and cases        | Spatial/entity rules, alerts, history, snapshots, notes, graphs and exports                                                        | Private actions use the application administrator token                                                     |
+| Imagery and assessments  | Sentinel-2 and OPERA catalogs, previews, published assessment imports, bounded water/NDVI comparisons                              | Acquisition-dated products; optional raster dependencies and protected-asset access apply                   |
+| Passive recon            | Shodan, public DNS, RDAP, CT, Wikidata and OFAC candidates                                                                         | Authenticated, budgeted and passive; no target scanning or automatic identity merge                         |
+
+The [expansion guide](docs/SHADOWBROKER_EXPANSION.md) documents all 15 additions, source IDs, import schemas, budgets and processing limits. [Provider contracts](docs/SHADOWBROKER_PROVIDER_CONTRACTS.md) record source formats and verification findings.
+
+## Screenshots
+
+These images show the current application, not generated mockups. They use a fresh isolated browser context, actual retained public records and empty operator/private-case fields. Provider media and private case APIs were not opened during capture.
 
 <details>
-<summary>Preview conflict reporting and signals</summary>
+<summary>Public camera records on the main map</summary>
 
-![Conflict workspace with report-type symbols and inspectable reporting signals](docs/conflict-workspace.jpg)
+![A real retained Singapore camera record with source attribution, observed and received times, precision and case/history actions in Map records](docs/screenshots/camera-record-current.png)
+
+_Camera metadata and provider location are inspectable alongside the main map. Public camera media loads on request; footage is not archived._
 
 </details>
 
 <details>
-<summary>Preview the threat-actor workspace</summary>
+<summary>Tools and spatial/entity watch setup</summary>
 
-![Cyber workspace with compact controls, origin-to-target routes, provider attack types and reporting periods](docs/threat-actor-workspace.jpg)
+![Current Tools panel with spatial and entity watch controls, source setup, operator access and the shared map](docs/screenshots/tools-current.png)
 
-Catalog relationships describe published reference knowledge. A name match or shared mention does not establish responsibility for an incident.
-
-</details>
-
-<details>
-<summary>Preview the satellite workspace</summary>
-
-![Satellite and ISS positions with altitude, mission, source elements and topic search](docs/satellite-workspace.jpg)
-
-Positions are SGP4 estimates from public orbital elements, rather than live spacecraft telemetry. Polar ground positions can fall outside the world overview. Satellite history is not retained. See [orbital collection and accuracy](docs/SATELLITES.md).
+_Tools opens actions directly. Saved watches, imports, lookups and evidence attachments require Operator access._
 
 </details>
+
+[View the layer picker at full resolution](docs/screenshots/map-layers-current.png). The [capture manifest](docs/screenshots/capture.json) records the application revision, UTC time, viewport and source counts used for these images.
 
 ## Run locally
 
-Requires **Python 3.12+**, **Node.js 22.12+** (Node 24 also works), npm and Git. Internet access is needed to collect feeds; the map boundaries are bundled locally. No GPU or local language model is required.
+Requires **Python 3.12+**, **Node.js 22.12+** (Node 24 also works), npm and Git. Collection needs internet access. Map geography is bundled; intelligence records populate as enabled sources succeed. No GPU or local language model is required.
 
 ### Windows
-
-Run these commands in PowerShell:
 
 ```powershell
 git clone https://github.com/abanerjee84/signal-atlas-osint.git
@@ -114,9 +122,19 @@ Copy-Item .env.example .env
 .\START.bat
 ```
 
-`START.bat` stops this checkout's previous services, starts the API, collector and frontend, then opens [the dashboard](http://127.0.0.1:5173/). Keep its window open; press Enter there to stop all three services. Run it again after changing `.env`. Logs are written to `data/logs/`. It reports missing dependencies or ports occupied by another application. Windows administrator elevation is not required.
+Copy `.env.example` only on first installation. Preserve an existing `.env` during upgrades and add the settings you need from the example file.
 
-### Linux / macOS
+`START.bat` manages this checkout's API, collector and Vite server, opens the dashboard, and writes logs to `data/logs/`. Keep its window open; press Enter there to stop the services. Running it again restarts this checkout's recorded services and recovers stale worker leases. It does not claim ports occupied by unrelated applications. Readiness includes the monitoring catalog, preventing an old route set from being mistaken for a ready updated API.
+
+For background operation without opening another browser:
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1 -Background
+```
+
+Run `START.bat` to take over and restart those recorded background services. `-VerifyStartup` performs a start/readiness/stop check instead of leaving services running.
+
+### Linux and macOS
 
 ```bash
 git clone https://github.com/abanerjee84/signal-atlas-osint.git
@@ -128,459 +146,331 @@ npm ci
 cp .env.example .env
 ```
 
-Start each service in its own terminal, from the project directory:
+Run each service in its own terminal from the checkout:
 
 ```bash
-# Terminal 1: API
+# API
 .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
 ```bash
-# Terminal 2: source collector
+# Collector and background investigation jobs
 .venv/bin/python -m backend.worker
 ```
 
 ```bash
-# Terminal 3: dashboard
+# Frontend
 npm run dev
 ```
 
-Open [the dashboard](http://127.0.0.1:5173/), [the investigation workspace](http://127.0.0.1:5173/advanced.html), or [the API reference](http://127.0.0.1:8000/api/docs).
+| Address                                 | Purpose                                           |
+| --------------------------------------- | ------------------------------------------------- |
+| `http://127.0.0.1:5173/`                | Main dashboard, Map layers, Map records and Tools |
+| `http://127.0.0.1:5173/advanced.html`   | Cases and investigation workspace                 |
+| `http://127.0.0.1:5173/monitoring.html` | Optional standalone monitoring/Time Machine       |
+| `http://127.0.0.1:8000/api/docs`        | Generated interactive API reference               |
+| `http://127.0.0.1:8000/api/health`      | API/database health                               |
 
-### Services, ports and first startup
+API and worker must use the same `OSINT_DATABASE`. Initialization applies migrations automatically; the current schema includes migration **013**, covering watches, monotonic receipt cursors, alerts, asset versions, scenes, analyses and lookup history. Frontend changes reload through Vite. Backend and `.env` changes require restarting Python processes.
 
-| Component     | Development address or command     | Role                                                                                                               |
-| ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Frontend      | `http://127.0.0.1:5173/`           | Vite serves the dashboard and investigation workspace and proxies `/api` to port 8000.                             |
-| API           | `http://127.0.0.1:8000/api/health` | FastAPI serves retained data, protected actions and generated API documentation.                                   |
-| Collector     | `python -m backend.worker`         | Schedules sources, normalizes observations, updates indexes and performs maintenance. It opens no web-server port. |
-| Build preview | `http://127.0.0.1:4173/`           | `npm run preview` serves `dist/` and proxies the existing API. Run `npm run build` first.                          |
+To test the compiled frontend, run `npm run build` followed by `npm run preview`; preview uses port 4173 and still needs the API on 8000.
 
-API and worker initialization apply versioned database migrations. Keep both processes pointed at the same `OSINT_DATABASE`. The API can serve previously collected records while the worker is stopped; new observations and queued investigation jobs require the worker. Frontend changes use Vite's development reload, while backend or `.env` changes require restarting the affected Python processes.
+## Sources and access
 
-On Windows, the API and collector commands can also be run manually in separate PowerShell terminals using `.\.venv\Scripts\python.exe` in place of `.venv/bin/python`. Use this when inspecting one component's logs. Keep one scheduled worker per database.
+Public reporting, USGS, NWS, SWPC, GVP, selected transport feeds and orbital catalogs can operate without provider credentials. Other definitions remain registered while reporting access requirements or errors. A successful API health check does not mean every provider is healthy.
 
-After startup:
+| Capability                    | Backend settings                                                                                                | Notes                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Private actions               | `OSINT_ADMIN_TOKEN`                                                                                             | Application access token; separate from provider keys                  |
+| OpenSky aircraft              | `OSINT_OPENSKY_CLIENT_ID`, `OSINT_OPENSKY_CLIENT_SECRET`                                                        | Account credits, area and polling limits apply                         |
+| AIS Stream                    | `OSINT_AISSTREAM_API_KEY`                                                                                       | Server-only keyed stream; anonymous fallbacks remain when unconfigured |
+| BarentsWatch AIS              | `OSINT_BARENTSWATCH_CLIENT_ID`, `OSINT_BARENTSWATCH_CLIENT_SECRET`                                              | Regional Norwegian coastal coverage and provider conditions            |
+| Custom AIS                    | `OSINT_MARITIME_URL`, `OSINT_MARITIME_TOKEN`                                                                    | Authorized normalized feed with an approved exact public host          |
+| GFW registry/events           | `OSINT_GFW_API_TOKEN`, `OSINT_GFW_EVENT_TYPES`                                                                  | Registry identity and apparent activity remain distinct                |
+| Thermal/humanitarian/conflict | `OSINT_FIRMS_MAP_KEY`, `OSINT_RELIEFWEB_APPNAME`, `OSINT_ACLED_EMAIL`, `OSINT_ACLED_PASSWORD`                   | Approval or entitlement can be required in addition to credentials     |
+| Cyber feeds/context           | `OSINT_THREATFOX_AUTH_KEY`, `OSINT_URLHAUS_AUTH_KEY`, `OSINT_GREYNOISE_API_KEY`, `OSINT_CLOUDFLARE_RADAR_TOKEN` | Providers supply different evidence and reporting windows              |
+| Shodan                        | `OSINT_SHODAN_API_KEY`, `OSINT_SHODAN_DAILY_BUDGET`                                                             | Selected public-IP records; no active or wide scans                    |
+| Air quality                   | `OSINT_OPENAQ_API_KEY`, `OSINT_OPENAQ_LOCATION_IDS`                                                             | OpenAQ v3 latest samples joined to sensor parameters and units         |
+| PSKReporter                   | `OSINT_PSK_CALLSIGN`                                                                                            | Callsign-scoped public FT8 reception query                             |
+| TinyGS                        | `OSINT_TINYGS_TOKEN`, `OSINT_TINYGS_URL`                                                                        | Anonymous access was not verified; authorized import is supported      |
+| GNSS accuracy                 | `OSINT_MONITORING_ADSB_URL`                                                                                     | Authorized NACp-capable feed; OpenSky alone cannot populate this view  |
+| Protected NASA rasters        | `OSINT_EARTHDATA_TOKEN`                                                                                         | Only sent to approved protected NASA hosts                             |
+| Remote AI                     | `OSINT_OPENROUTER_API_KEY`                                                                                      | Optional; other collection and deterministic tools remain usable       |
 
-1. Open the dashboard and inspect source status. Some sources should show successful collection; credentialed sources can remain **Access required** until configured.
-2. Select one or two layers and choose **Last 7 days** if the default 24-hour window is empty. Collection, source publication and observation times differ.
-3. Open a feed card and follow its citation. A record can be searchable without having a supported map location.
-4. Set `OSINT_ADMIN_TOKEN` to use protected investigations, imports, source controls and optional analysis. Leave optional provider keys empty until you need those services.
+Anonymous AIS, NYC cameras and public receiver directories have no availability guarantee. Status, timestamps and limitations are part of the interface. See [source configuration](docs/SOURCES.md), [cyber observations](docs/CYBER_OBSERVATIONS.md) and [monitoring access](docs/SHADOWBROKER_EXPANSION.md).
 
-### Optional browser-based collectors
+### Application authentication
 
-Some vendor pages need the separate pinned browser renderer. Install it only when using those collectors:
+Set `OSINT_ADMIN_TOKEN` in private `.env` and restart the API. Enter it where the action is performed: **Settings** for protected dashboard actions, **Operator access** in Tools, or the connection form in **Cases**. The same server token is used; it stays in the relevant page's memory and must be entered again after reload.
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-browser.txt
-.\.venv\Scripts\python.exe -m playwright install chromium
-```
+`OSINT_ADVANCED_PUBLIC_READ=false` is the default. Enabling selected public investigation reads does not make cases public. The application has one administrator principal; multi-user accounts and roles are not implemented. Public dashboard APIs expose collected map data, so deployments must choose appropriate source permissions and access controls.
 
-This Python browser installation serves collection adapters. Frontend browser tests use the Node Playwright installation described under [Development and checks](#development-and-checks). Public RSS, DShield collection and local orbital propagation do not require the browser renderer.
+## Configuration
 
-### Bounded collection commands
+Settings load from the project-root `.env` and `OSINT_` environment variables. Environment values take precedence. List-valued settings use JSON syntax. [`.env.example`](.env.example) documents the configuration; private `.env`, runtime data and credentials are ignored by Git.
 
-For a single collection pass, use `python -m backend.worker --once` with the virtual environment's Python executable. Add `--source usgs` to collect only that provider.
+| Setting                                 | Default                         | Purpose                                                          |
+| --------------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `OSINT_DATABASE`                        | `data/osint.sqlite3`            | Shared SQLite WAL database                                       |
+| `OSINT_CONNECTOR_CONCURRENCY`           | `2`                             | Concurrent scheduled connectors                                  |
+| `OSINT_HTTP_TIMEOUT`                    | `25`                            | Default provider timeout in seconds                              |
+| `OSINT_MAX_FEED_BYTES`                  | `8388608`                       | Default bounded response size; adapters can set their own bounds |
+| `OSINT_MAX_RECORDS`                     | `1000`                          | Default per-source collection budget                             |
+| `OSINT_OPENSKY_BBOX`                    | `world`                         | Aircraft collection area                                         |
+| `OSINT_OPENSKY_POLL_SECONDS`            | `30`                            | Polling cadence, subject to demand and backoff                   |
+| `OSINT_EXPANSION_ENABLED`               | Public subset in `.env.example` | Initial enablement for new expansion sources                     |
+| `OSINT_CALTRANS_DISTRICTS`              | `[3,4,7,11,12]`                 | Selected camera directories                                      |
+| `OSINT_EXPANSION_LOOKUP_DAILY_BUDGET`   | `40`                            | Shared UTC-day budget for recon, catalogs and raster comparisons |
+| `OSINT_INFRASTRUCTURE_GEO_DAILY_BUDGET` | `250`                           | Public-IP country-context lookup budget                          |
+| `OSINT_SHODAN_DAILY_BUDGET`             | `20`                            | Separate Shodan budget                                           |
+| `OSINT_RASTER_MAX_PIXELS`               | `4000000`                       | Native-window and output-grid raster budget                      |
+| `OSINT_REFERENCE_FEEDS`                 | `[]`                            | Versioned authorized infrastructure/supplier GeoJSON definitions |
+| `OSINT_EXTRA_ALLOWED_HOSTS`             | `[]`                            | Exact additional public HTTPS hosts                              |
 
-If local aircraft disappear while the deployed dashboard works, check that the local collector is still running. The API serves stored data and does not download aircraft on its own. For aviation-only collection alongside an existing API/frontend, run `python -m backend.worker --source opensky` from the project directory; it opens no server port. Avoid running a duplicate collector when the normal worker is already active.
+Enablement flags establish defaults when sources are first registered. Existing administrator choices remain in the database. Configure the provider, then enable its existing source in **Source quality** when changing an installed deployment.
 
-Temporary SQLite write contention is retried without repeating the upstream download. Persistent contention pauses the affected collector lane instead of terminating it; an in-memory deadline preserves the provider's polling interval when the database cannot save the next scheduled run. Non-contention database errors still surface for diagnosis.
+Authorized wastewater, published assessments and infrastructure feeds require source URLs, version/license or permission basis, and their documented schemas. Hosts must satisfy the outbound allowlist. Scheduled exports use `OSINT_WASTEWATER_URL`/`OSINT_WASTEWATER_LICENSE` and `OSINT_PUBLISHED_ASSESSMENTS_URL`/`OSINT_PUBLISHED_ASSESSMENTS_LICENSE`. Manual JSON/CSV and GeoJSON imports are in Tools. Records with `allow_download:false` are rejected. [Import schemas and batch limits](docs/SHADOWBROKER_EXPANSION.md).
 
-Infrastructure collection and country enrichment can be checked separately against the existing database, without starting or replacing the API or Vite server:
+### Retention and budgets
 
-```powershell
-# Check the enabled DShield source once, respecting its persisted deadline.
-.\.venv\Scripts\python.exe -m scripts.collect_observatory --source dshield
+| Data                                          | Default policy                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Raw provider records                          | 30 days                                                                              |
+| General normalized events                     | 180 days, with source/snapshot exceptions                                            |
+| Daily statistics                              | 365 days                                                                             |
+| Monitoring observations                       | 7 days and 250,000 rows; either bound can shorten history                            |
+| Cyber observations and Radar series           | 30 days                                                                              |
+| Bulk public discussion                        | Short-lived snapshots, generally 24 hours                                            |
+| Monitoring alerts / analyses / lookup history | 30 / 90 / 7 days                                                                     |
+| Infrastructure asset versions                 | Latest 10 per source/entity                                                          |
+| Scene metadata                                | Latest 5,000 scenes                                                                  |
+| Private case evidence                         | Independent of monitoring pruning; deleted case/media retention defaults to 180 days |
 
-# Country lookup for at most 50 existing public-IP indicators; cached results are reused.
-.\.venv\Scripts\python.exe -m scripts.geolocate_infrastructure --limit 50
-```
+Controls include `OSINT_RAW_RETENTION_DAYS`, `OSINT_EVENT_RETENTION_DAYS`, `OSINT_STATS_RETENTION_DAYS`, `OSINT_MONITORING_RETENTION_DAYS`, `OSINT_MONITORING_MAX_ROWS`, `OSINT_CYBER_OBSERVATION_RETENTION_DAYS` and `OSINT_EVIDENCE_RETENTION_DAYS`.
 
-The observation collector also accepts `isc_honeypots`, `threatfox` and `cloudflare_radar`; repeat `--source` to select several. Enablement, credentials, database leases and provider cooldowns still apply. For the separate vendor attack-map gathering process, see [collection details](docs/THREAT_MAP_SCRAPERS.md) before running `python -m scripts.collect_threat_maps --watch`.
+Expansion recon/raster results cache for 24 hours and catalog searches for one hour. Failed/pending requests consume budget and back off for two minutes. Shodan, geolocation, queued lookups and AI have separate budgets. Provider quotas still apply when local budget remains.
 
-## Using the dashboard
+### Optional AI
 
-### Filter and inspect reports
+OpenRouter requests run server-side with a bounded evidence packet. Defaults are `OSINT_OPENROUTER_MODEL=openrouter/free` and `OSINT_AI_FREE_ONLY=true`; free-only mode checks catalog prices. `OSINT_OPENROUTER_FALLBACK` is empty. Availability depends on the provider account and catalog.
 
-Select layers on the left, choose a country or region, and set the observation period. The **Filter by** control selects occurrence time with publication fallback, publication time, or ingestion time. Custom date ranges use UTC. Search narrows collected events; layer-topic search only finds relevant layer controls.
+`OSINT_AI_DAILY_BUDGET=40` limits completion attempts, including failures/retries; `OSINT_ADVANCED_AI_DAILY_BUDGET=20` bounds advanced enqueueing. Cached analysis uses `OSINT_AI_CACHE_DAYS=7`. Budgets count requests rather than money. Structured results must cite supplied evidence IDs. Plain-text results appear as labelled unvalidated drafts. AI output does not promote an observation to verified evidence.
 
-The map header distinguishes matching records from mapped records. Unknown locations remain in the feed. **Limit results to map view** adds a geographic extent filter, which excludes records without coordinates. Disable it when researching unlocated advisories or indicators. The dashboard loads bounded pages rather than every stored report at once.
+## Watches, history and evidence
 
-Hover a symbol for a summary, source and time. Select it or its feed card to inspect supporting reports, geographic precision, confidence and source metadata. Select a cluster to expand nearby observations. **World view** restores the overview; the toolbar's **Layers** and **Key** controls expose map overlays and explanations.
+In **Tools**, create a Polygon/MultiPolygon area, buffered point/route, or exact source/entity watch. **Use map bounds** supplies an area geometry. Rules can be narrowed through the API by source, entity and layers.
 
-The timeline shows observation counts by category and the selected period. Historical playback narrows the view to the playhead. Live aircraft collection demand is released while reviewing historical periods. Satellite positions continue to be calculated from the current element snapshot; they are not a historical observation archive.
+- **Enter** alerts on an observed first match or re-entry, subject to cooldown.
+- **New match** alerts on matching new observations after cooldown.
+- Defaults are a ten-minute cooldown and a one-hour maximum age. Existing history is excluded unless explicitly included.
+- References, cameras, stale/expired telemetry and unsupported country-point estimates do not trigger site alerts. Missing telemetry is not an exit.
+- Evaluation runs every 15 seconds in the collector. Monotonic receipt cursors survive pruning; repeated evaluation does not duplicate alerts.
 
-### Compare countries and reporting signals
+Limits are 100 watches, 500 vertices per watch and 2,000 receipts per watch/tick. Alerts preserve the rule and matched observation. Trails split at dateline crossings and gaps longer than 30 minutes; they do not interpolate through missing coverage.
 
-The Countries ribbon offers three measures:
+The main event timeline uses occurrence, publication or ingestion time. Monitoring playback honors observation and receipt time, preventing later-arriving evidence from appearing as if it had already been known. Integrated monitoring lookback is bounded to seven days even when a longer event period is selected. Main-dashboard orbital views show current SGP4 estimates; standalone Time Machine can use retained element snapshots where available.
 
-| View          | Measures                                         | Use it for                                                                     |
-| ------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **Mentions**  | Country references in retained reporting         | Comparing where the selected reporting directs attention.                      |
-| **Sentiment** | Wording scores and sample coverage               | Inspecting the language of sampled English text and its supporting records.    |
-| **Intel**     | Activity across selected intelligence categories | Comparing collected observations, including the Cyber infrastructure category. |
+Open **Cases** to search evidence, inspect entities/relationships, create notes, import media/documents and export chronological JSON/Markdown case material. The versioned workspace also provides reference catalogs, source permission review, indicator investigation and queued enrichment/analysis jobs.
 
-With **Cyber: Threat Actors** selected, the ribbon also exposes attacker/victim route evidence and provider filters. Check the route basis before treating an origin as attributed responsibility. **Signals** compares retained reporting volumes and cross-category coverage, with records available for inspection. Neither a surge nor a co-mention establishes causation.
+Observations, alerts, assets, scenes, lookups and analyses can be attached using an existing case ID. Attachments are immutable snapshots with SHA-256 digests. Candidate names and source-claimed relationships retain those labels; choosing a Wikidata candidate does not merge it into a verified identity.
 
-### Inspect cyber infrastructure
+## Imagery and measured change
 
-Enable **Cyber infrastructure**, then select all observation providers or one provider. The coverage line reports how many matching observations have a location. Teal CI clusters summarize observations, rather than the sum of reported packets, requests or targets. A DShield observation can itself contain thousands of provider reports.
+**Tools** provides Sentinel-2 L2A STAC search and NASA OPERA surface-water/disturbance discovery. Search by bbox, acquisition interval and optical cloud cover; inspect footprints, previews, asset references and dates. Catalog presence alone produces no flood, damage or disturbance measurement.
 
-Select a card to inspect the indicator, provider family, reporting interval, retrieval time and provider-specific counts. Located public IPs include the country estimate's source and retrieval time. **Investigate indicator and save evidence** opens the cyber workspace with the indicator query populated; connect there to inspect its history and save evidence to a case.
-
-IP country estimates are displayed at illustrative country centres. Domains, URLs and file hashes remain unlocated; the application does not resolve them or contact observed infrastructure. ISC and DShield share the SANS provider family, so repeated sightings across these sources do not automatically establish independent corroboration. See [cyber observation setup, retention and geography](docs/CYBER_OBSERVATIONS.md).
-
-## Investigation workspace
-
-Open **Cases** or `/advanced.html` and connect with the server's `OSINT_ADMIN_TOKEN`. The token stays in tab memory and must be entered again after reload. It grants the application's single administrator role; it is not a provider API key.
-
-| Screen                        | Available workflow                                                                                                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Search & resources**        | Search indexed local records, apply source/category/language/country/date filters, and choose external research resources explicitly.                                |
-| **Cyber intelligence**        | Inspect IP/domain/URL/hash/CVE references, provider observation history, optional GreyNoise context, routing observations, outages and global Radar protocol trends. |
-| **Threat actors & campaigns** | Browse aliases, source profiles, malware, techniques and cited historical relationships from MITRE ATT&CK, MISP, Malpedia and ETDA.                                  |
-| **Narratives & sentiment**    | Compare lexical topics, languages, source counts and retained discussion wording; save topics for later review.                                                      |
-| **Geographic evidence**       | Resolve country references, measure coordinates and import WGS84 GeoJSON with a source, precision and acquisition time.                                              |
-| **Image & video evidence**    | Upload authorized PNG/JPEG/MP4 evidence, inspect hashes and metadata, and record verification notes.                                                                 |
-| **Entity relationships**      | Inspect extracted co-mentions and add analyst relationships with evidence, status and a stated basis.                                                                |
-| **Source monitoring**         | Register permitted public HTTPS pages on an administrator allowlist, then inspect version history and text changes.                                                  |
-| **Documents & organizations** | Index authorized document references or text with organization, jurisdiction, version and permission metadata.                                                       |
-| **Cross-domain analysis**     | Compare selected records using documented association rules and optionally enqueue an AI assessment.                                                                 |
-| **Investigation cases**       | Organize scope, tags, immutable evidence, private notes, chronology, graphs and JSON/Markdown exports.                                                               |
-| **Source quality**            | Inspect source ownership, access requirements, freshness, failures and administrator enable/disable controls.                                                        |
-
-A typical case starts with a research question and scope. Search for relevant records, inspect the originals, then save selected evidence to the case. Saved snapshots retain a SHA-256 and remain unchanged when a source record is later revised. Add notes and relationship claims with their evidence basis, review the case timeline, and export the result when ready. Restricted or provider-terms content is exported as provenance metadata where required.
-
-Catalog relationships describe published reference knowledge. A matching malware name or shared indicator does not assign an observed event to a named actor. GeoJSON import does not validate the truth of an asserted location, and media metadata does not certify authenticity. The media tools do not provide deepfake detection or C2PA verification. Full module behavior and limits are documented in [the investigation guide](docs/ADVANCED_OSINT.md).
-
-## Sources and configuration
-
-The public-feed dashboard works without social-media API keys. Copy `.env.example` to `.env` once during setup, then edit the local file. Provider credentials stay on the backend. `.env`, databases, evidence, logs and backups are excluded from Git.
-
-The default registry contains [66 RSS/Atom feeds](docs/RSS_FEEDS.md), plus other public collectors. Source availability is shown separately from event counts. See the [threat and social collection notes](docs/THREAT_ACTIVITY.md) for attribution rules, vendor live-map references and limits.
-
-| Coverage                     | Example sources                                                                                                       | Access                                                                                                                   |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Geopolitical news            | BBC regional feeds, Al Jazeera, DW, France 24, UN News, Africanews, MercoPress, CNA, RFI, ABC, Euronews, The Guardian | Public feeds; availability and publisher terms apply                                                                     |
-| Military reporting           | UK Ministry of Defence, DVIDS, selected news reports                                                                  | Public announcements and reporting                                                                                       |
-| Economic and energy          | BBC Business, Guardian Business/Energy, CNA Business, US EIA, ECB, OFAC                                               | Public feeds and releases                                                                                                |
-| Cyber and threat references  | CISA, NCSC, SANS, MITRE ATT&CK, MISP galaxies, Malpedia, ETDA                                                         | Public feeds/catalogs; source-specific reuse terms                                                                       |
-| Published attack reports     | BleepingComputer, SecurityWeek, The Hacker News, The Record, Cybersecurity Dive, ESET, Microsoft, Cisco Talos         | Public RSS; unverified excerpt attribution, not live packet telemetry                                                    |
-| Sampled cyber detections     | Bitdefender ATTACK table, BunkerWeb blocked-request stream, Imperva daily country-pair dataset                        | No keys. Ten-second live-feed checks; Imperva has a dated daily period and a separate 15-minute check.                   |
-| Cyber infrastructure         | DShield daily IP aggregates, ISC web honeypot requests, ThreatFox indicators                                          | DShield is keyless; ISC is opt-in with a narrow filter; ThreatFox requires an Auth-Key.                                  |
-| IP country context           | IPwho.is country lookup for retained public-IP observations                                                           | Enabled by default with a local daily request cap and cache; only country centres are displayed.                         |
-| Optional cyber enrichment    | GreyNoise selected-IP context and Cloudflare Radar global protocol percentages                                        | Separate credentials and provider access are required; Radar aggregates do not create map incidents.                     |
-| Public narratives            | Reddit feeds/archive deliveries and browser imports, Mastodon, Lemmy, public Telegram previews; YouTube channel feeds | No social API keys; selected samples. YouTube uploads are separate from comments. X has no automatic collector connected |
-| Environment and humanitarian | USGS, NASA FIRMS, ReliefWeb                                                                                           | USGS is keyless; FIRMS needs a map key; ReliefWeb needs an approved app name                                             |
-| Aviation                     | OpenSky state vectors                                                                                                 | Account client credentials and provider credits                                                                          |
-| Conflict events              | ACLED                                                                                                                 | Account credentials **and** API entitlement                                                                              |
-| Maritime                     | Administrator-configured normalized AIS feed                                                                          | Authorized feed URL and any required credentials                                                                         |
-| AI assessment                | OpenRouter                                                                                                            | Optional API key; free-only mode enabled by default                                                                      |
-
-See [source configuration](docs/SOURCES.md) and the in-app source status for schedules, coverage, failures and permission requirements. Historical verification documents describe past checks; they do not guarantee that a provider is available today.
-
-To enable protected analysis, imports and private investigations, set a strong random `OSINT_ADMIN_TOKEN` in `.env`, restart the services, and enter that token in dashboard **Settings** or the investigation workspace's connection form. This is an application access token, separate from Windows privileges and provider keys. The browser holds it in tab memory until reload. Keep `OSINT_ADVANCED_PUBLIC_READ=false` for private investigation records.
-
-Generate a token locally, then copy the result into the private `.env` file:
+Enable optional raster processing with:
 
 ```powershell
-.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
+.\.venv\Scripts\python.exe -m pip install -r requirements-geo.txt
 ```
 
-### Core settings and retention
+On Linux/macOS use `.venv/bin/python`. Dashboard and catalogs work without this dependency.
 
-Settings load from the project-root `.env` and `OSINT_` environment variables; explicit environment variables take precedence. Use JSON syntax for list-valued settings such as `OSINT_EXTRA_ALLOWED_HOSTS=[]`. Copy the example file only on first installation so existing credentials are preserved during upgrades.
+Select two chronological acquisitions from the same collection. Supported calculations are OPERA water-class area change and Sentinel-2 red/NIR NDVI change with explicit scale/offset and SCL quality masks. Results include acquisitions, method, units and valid coverage. Calculations use a 100 m EPSG:6933 equal-area grid.
 
-| Setting                         | Default                                 | Purpose                                                                                                                  |
-| ------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `OSINT_DATABASE`                | `data/osint.sqlite3` under the checkout | Shared SQLite database for the API, worker and operational scripts. Use an absolute path in deployment.                  |
-| `OSINT_ADMIN_TOKEN`             | Empty                                   | Enables protected actions when configured. Empty configuration leaves those actions unavailable.                         |
-| `OSINT_ADVANCED_PUBLIC_READ`    | `false`                                 | Optional public reads for selected search/cyber/narrative/source endpoints. Cases and private evidence remain protected. |
-| `OSINT_EVIDENCE_DIRECTORY`      | `data/evidence`                         | Private media storage outside frontend assets.                                                                           |
-| `OSINT_EVIDENCE_RETENTION_DAYS` | `180`                                   | Retention after soft deletion of cases/media. Active case snapshots follow the case evidence policy.                     |
-| `OSINT_RAW_RETENTION_DAYS`      | `30`                                    | Retention for raw provider payloads. Normalized records can outlive their raw payload.                                   |
-| `OSINT_EVENT_RETENTION_DAYS`    | `180`                                   | General normalized-event retention. Snapshot and source-specific retention can be shorter.                               |
-| `OSINT_STATS_RETENTION_DAYS`    | `365`                                   | Daily aggregate retention.                                                                                               |
-| `OSINT_CONNECTOR_CONCURRENCY`   | `2`                                     | Maximum concurrent scheduled connectors.                                                                                 |
-| `OSINT_HTTP_TIMEOUT`            | `25`                                    | Default outbound request timeout in seconds. Specific adapters can impose tighter bounds.                                |
-| `OSINT_MAX_FEED_BYTES`          | `8388608`                               | Default 8 MiB response bound; adapters can use smaller limits.                                                           |
-| `OSINT_MAX_RECORDS`             | `1000`                                  | Default per-fetch record bound.                                                                                          |
-| `OSINT_MEDIA_MAX_BYTES`         | `20971520`                              | Default 20 MiB private media upload bound. Reverse-proxy limits must match.                                              |
+Searches are bounded to 10 by 10 degrees, one year and 50 results. Comparison is bounded to 2 by 2 degrees, the pixel budget and 32 MiB per downloaded asset. Full Sentinel tiles can exceed the cap; remote COG range-window reading is not implemented. Protected NASA assets need an Earthdata token, exact host checks and validated delivery redirects that strip authorization.
 
-Public discussion uses short-lived snapshots rather than the general event retention period. Infrastructure observations default to 30 days; Radar aggregates have their own 30-day retention. Backups exclude bulk public-discussion snapshots, while evidence deliberately saved in private cases follows case retention. Details are in [operations](docs/OPERATIONS.md) and [cyber observation storage](docs/CYBER_OBSERVATIONS.md).
+Published water/disturbance/emergency assessments can also be imported with source geometry, acquisition date, type and method. Global millimeter deformation, interferometric displacement and building-damage inference are not implemented. [Raster and assessment setup](docs/SHADOWBROKER_EXPANSION.md#imagery-and-raster-measurements).
 
-### Cyber infrastructure settings
+## Architecture and codebase
 
-| Setting                                  | Default     | Purpose                                                                     |
-| ---------------------------------------- | ----------- | --------------------------------------------------------------------------- |
-| `OSINT_DSHIELD_ENABLED`                  | `true`      | Initial enablement for daily top-IP collection.                             |
-| `OSINT_DSHIELD_LIMIT`                    | `50`        | Bounded top-IP result set, from 1 to 100.                                   |
-| `OSINT_ISC_HONEYPOTS_ENABLED`            | `false`     | Initial opt-in for the previous completed UTC day's matching requests.      |
-| `OSINT_ISC_HONEYPOTS_USER_AGENT`         | `jndi:ldap` | Narrow request sample filter; it is not a probe sent by the application.    |
-| `OSINT_CYBER_OBSERVATION_RETENTION_DAYS` | `30`        | Observation retention, from 1 to 180 days.                                  |
-| `OSINT_THREATFOX_AUTH_KEY`               | Empty       | Auth-Key for supported ThreatFox indicator collection.                      |
-| `OSINT_GREYNOISE_API_KEY`                | Empty       | Selected-IP context in the investigation workspace; cached for 24 hours.    |
-| `OSINT_CLOUDFLARE_RADAR_TOKEN`           | Empty       | Hourly global protocol-percentage aggregates, subject to account access.    |
-| `OSINT_INFRASTRUCTURE_GEO_ENABLED`       | `true`      | Enables country lookups for retained public-IP observations.                |
-| `OSINT_INFRASTRUCTURE_GEO_DAILY_BUDGET`  | `250`       | Shared local daily request cap, from 0 to 750; provider limits still apply. |
-| `OSINT_SANS_CONTACT`                     | Empty       | Optional contact text in the SANS collection User-Agent.                    |
-
-Enablement flags set initial source registration defaults. Existing source choices are retained in the database. To enable ISC on an existing installation, configure the filter, reload the Python services, then enable the source in **Source quality**. Set credentials for optional sources and inspect their access state before expecting records.
-
-Country enrichment runs independently of feed collection, up to ten lookups per minute with serial pacing, a shared lease, a daily budget and persisted backoff. Successful estimates are cached for 24 hours; unknown results for an hour. Disabling new lookups leaves retained estimates available with their provenance and expiry times. Review the IP country provider's terms for your deployment.
-
-### Other provider credentials
-
-| Capability               | Settings                                                                                                     | Notes                                                                                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Aircraft positions       | `OSINT_OPENSKY_CLIENT_ID`, `OSINT_OPENSKY_CLIENT_SECRET`, `OSINT_OPENSKY_BBOX`, `OSINT_OPENSKY_POLL_SECONDS` | Default area is `world`, default polling is 30 seconds, accepted interval is 10 to 1800 seconds. Credentials and provider credits are required. |
-| Thermal detections       | `OSINT_FIRMS_MAP_KEY`, `OSINT_FIRMS_AREA`                                                                    | Narrow the area if a worldwide response exceeds collection bounds.                                                                              |
-| Humanitarian reports     | `OSINT_RELIEFWEB_APPNAME`                                                                                    | Requires a provider-approved application name.                                                                                                  |
-| ACLED events             | `OSINT_ACLED_EMAIL`, `OSINT_ACLED_PASSWORD`                                                                  | Account credentials also need API entitlement.                                                                                                  |
-| Maritime feed            | `OSINT_MARITIME_URL`, `OSINT_MARITIME_TOKEN`                                                                 | Administrator-supplied authorized normalized feed. Its host must satisfy outbound policy.                                                       |
-| Public source monitoring | `OSINT_WATCH_ALLOWED_HOSTS`                                                                                  | Exact approved public HTTPS hostnames; the UI also records permission basis.                                                                    |
-| Additional feeds         | `OSINT_EXTRA_RSS`, `OSINT_EXTRA_ALLOWED_HOSTS`, `OSINT_SOCIAL_FEEDS`                                         | JSON definitions and exact hostname allowlists; see [source schemas](docs/SOURCES.md).                                                          |
-| Public discussion/video  | `OSINT_REDDIT_SUBREDDITS`, `OSINT_TELEGRAM_CHANNELS`, `OSINT_YOUTUBE_CHANNELS`                               | Selected public samples. Configuring a list replaces that setting's default list. YouTube feeds supply uploads, not comments.                   |
-| External search          | `OSINT_SEARXNG_URL`                                                                                          | Optional administrator-configured public HTTPS instance with JSON search support.                                                               |
-
-### Optional AI analysis
-
-Set `OSINT_OPENROUTER_API_KEY` to enable remote model analysis. The default `OSINT_OPENROUTER_MODEL=openrouter/free` and `OSINT_AI_FREE_ONLY=true` require zero prompt and completion prices in the provider model catalog. `OSINT_OPENROUTER_FALLBACK` is empty by default. Model availability still depends on the provider account and current catalog.
-
-`OSINT_AI_DAILY_BUDGET=40` limits outbound completion attempts per UTC day, including retries and failures. `OSINT_ADVANCED_AI_DAILY_BUDGET=20` adds a separate advanced-analysis enqueue budget. `OSINT_ADVANCED_LOOKUP_DAILY_BUDGET=100` limits queued public lookups, while IP country enrichment has its separate budget. These controls count requests rather than money. Cached analysis does not require a new completion attempt; `OSINT_AI_CACHE_DAYS=7` controls its retention.
-
-Analysis sends a bounded evidence packet to the configured remote provider. Structured responses must reference event/report IDs from that packet. A usable plain-text response is displayed as a labelled unvalidated draft. Citation checks establish reference membership, so the analyst must still compare each claim with its cited evidence. The model cannot set evidence confidence or execute commands. No GPU or local language model is required for the normal application.
-
-For every supported setting and its validation bounds, read [the example environment](.env.example) and [the settings model](backend/config.py). Provider schedules, source metadata and configuration schemas are documented in [SOURCES.md](docs/SOURCES.md).
-
-## Reading the map correctly
-
-Reported coordinates, country context and publisher origin have different meanings. A country mentioned in a headline is regional context, not a confirmed incident location. Map edges can indicate publisher-to-context links, co-mentions or documented reference relationships; inspect their source and basis before interpreting them.
-
-Cyber traffic routes are blue; reported attacker-to-victim attribution links are pink. An infrastructure country never establishes the attacker's nationality. Vendor samples are shown separately from published reports and are not global attack totals. Natural Earth reference points supplement countries omitted by the low-detail boundary file, without creating boundary polygons. See [the scraper analysis](docs/THREAT_MAP_SCRAPERS.md).
-
-With **Cyber: Threat Actors** active, the Countries ribbon offers an **Attacker → Victim** table with provider filters. Small A/V markers, moving arrows, a top legend and hover evidence identify origins, targets and source reports. A separate gathering thread checks live feeds every ten seconds against the running database, without opening a server port: `python -m scripts.collect_threat_maps --watch`. Install the optional pinned `requirements-browser.txt` renderer and Chromium for the Bitdefender table and normal Imperva page. Imperva rows preserve their daily period and request counts; choose **Last 7 days** for older reports. Arrows illustrate direction rather than packet timing. See [collection details and graceful gatherer shutdown](docs/THREAT_MAP_SCRAPERS.md). Provider backoff still applies.
-
-Route rows, hover previews and selected routes show **Vector / type** using the provider's category or blocking reason. Generic Bitdefender ATTACK rows remain **Not specified by provider**; they do not establish a technique. The compact toolbar keeps overlay switches in **Layers** and explanations in **Key**. World view fits the canvas beside the Countries ribbon, excluding polar cartography above 74°N and below 57°S; collapsing the ribbon refits the overview without resetting a selected route or a manual view.
-
-Sentiment describes the wording of sampled English text. It does not measure national opinion, verify a claim or identify a person's stance. Unknown origins stay unknown. Non-English reports remain available without an English sentiment score.
-
-Aircraft positions are a bounded geographic sample of eligible OpenSky classes, with network coverage gaps and source timestamps. Ground track is movement direction, not necessarily nose heading. Registration country is not departure origin; departure and destination airports are unavailable from state vectors. Animation interpolates between observations without extrapolating a future route.
-
-Collection success and citation validation do not establish truth. AI drafts are labelled as unvalidated, and structured citation checks confirm that references belong to the evidence packet. Zero counts can mean no matching reports, an unavailable source or missing access; check source health and the time filter.
-
-## Aircraft details and collection
-
-OpenSky remains the source of aircraft positions and flight measurements. Its documented live API does not include photos. The aircraft detail helper accepts an ADS-B callsign and verifies the ICAO24 address before attaching a registration, type, model or photo. It uses Airplanes.live’s public callsign lookup and aircraft registry; credited photographs come from Planespotters.net, the same photo source supported by both providers’ map code. No additional key or browser scraper is required. If callsign lookup is blocked or ambiguous, an existing OpenSky ICAO address can still identify the registry record. Photos are optional: missing or failed images do not prevent flight details from displaying.
-
-```powershell
-.venv\Scripts\python.exe -m backend.aircraft_details --callsign BFLO76 --icao24 7cf9cd
-```
-
-The normal worker runs the helper independently of position collection. It publishes ignored runtime data in `public/aircraft-details.json` and `public/aircraft-live.json`; collection keeps up to 1,000 positions balanced across classes and geographic cells, registry records are cached for a day, photos for a week, and upstream rejections receive a shared backoff. A standalone `python -m backend.aircraft_details --watch` can fill this file without opening a server port. Military selection uses the Airplanes.live registry military flag; unknown flags are excluded, and no nationality or callsign inference is made. All-classes includes unclassified aircraft with valid reported tracks. Changes to the running collector require its next reload; the static live snapshot also lets the frontend show broader classes while an older API remains running. Do not run it alongside a worker unnecessarily; a shared database lease prevents overlapping batches. Production Nginx serves the runtime file directly and permits images only from `t.plnspttrs.net`; copy the updated Nginx configuration on deployment.
-
-A visible live Aviation layer renews a short per-tab collection lease every ten seconds. Deselecting the layer, hiding the tab or entering historical playback releases demand. Closing a disconnected tab expires its lease after 35 seconds. Multiple viewers share one collector, and one viewer closing does not stop another viewer’s updates. The default OpenSky collection interval is 30 seconds; retained history remains at 30-minute intervals. Provider errors and quota retry headers still take precedence. Collection must fit the credit allowance of the configured OpenSky account; adjust the polling interval and geographic scope to that allowance.
-
-These demand controls require the updated API and worker code to be loaded. Changing files alone cannot activate them in a resident API launched without reload mode. A collector run with `--once` remains an explicit manual collection, independent of viewer leases.
-
-References: [OpenSky live fields and credit limits](https://openskynetwork.github.io/opensky-api/rest.html), [Airplanes.live callsign lookup](https://airplanes.live/api-docs/), [OpenSky map photo integration](https://github.com/openskynetwork/tar1090/blob/master/html/script.js).
-
-## How it is built
-
-The frontend uses **vanilla JavaScript, Vite, MapLibre GL and ECharts**. **FastAPI** serves a **SQLite WAL** database with FTS5 search. A separate Python worker normalizes feeds, records provenance and schedules collection. Optional OpenRouter requests run on the server.
+The frontend uses vanilla JavaScript, **Vite**, **MapLibre GL**, **ECharts** and **satellite.js**. **FastAPI**, **Pydantic** and **SQLite WAL/FTS5** provide validation, storage and search. The separate worker handles schedules, leases, backoff, position lanes, orbital updates, watch evaluation, queued jobs and maintenance.
 
 ```mermaid
 flowchart LR
-    P[Public feeds and provider APIs] --> W[Collection worker]
-    W --> D[(SQLite WAL and FTS5)]
-    B[Map and investigation browser] --> A[FastAPI]
-    A --> D
-    A --> E[Private evidence files]
-    A --> R[Selected provider lookups and optional AI]
-    W --> R
+  Providers[Public and authorized providers] --> Worker[Python collection worker]
+  Worker --> Store[(SQLite WAL and FTS5)]
+  Browser[Dashboard, Map records, Tools and Cases] --> API[FastAPI]
+  API --> Store
+  Worker --> Elements[Versioned orbital elements]
+  Elements --> Browser
+  Geography[Bundled reference geography] --> Browser
+  API --> Lookups[Budgeted passive providers and optional AI]
+  API --> Evidence[Private evidence files]
 ```
-
-The worker validates source records, retains provenance, applies conservative deduplication and updates the shared investigation index. Daily IP aggregates retain provider identity and reporting day; repeated polling revises that observation instead of creating an independent incident. Source families remain available when comparing sightings.
-
-Database leases prevent overlapping source jobs. The scheduler persists next-run times and provider backoff, bounds downloads and batch writes, and retains previous successful observations when a new fetch fails. Current aircraft reads, registry details, orbital snapshots and infrastructure country enrichment have separate scheduling lanes. The API serves database reads and explicit user actions; it does not run scheduled feed collection.
 
 ```text
-backend/       API, collectors, analysis, investigation modules and migrations
-src/           Map, timeline, feeds, country rankings and investigation UI
-public/        Local country boundaries, map attribution and favicon
-scripts/       Launcher, maintenance, backups, audits and verification tools
-deploy/        Ubuntu systemd services, timers and Nginx configuration
-tests/         Backend, Node and browser tests
-docs/          Architecture, source notes, operations and verification records
+backend/
+  main.py, config.py, database.py   API composition, settings and storage
+  worker.py                        Scheduling, polling lanes and heartbeat
+  connectors/                      Provider adapters and registration
+  monitoring*.py                   History, geometry, watches, imagery, recon, imports
+  advanced/                        Cases, evidence, search, graphs, media, queued jobs
+  migrations/                      Versioned SQL schema, through 013
+src/
+  main.js, map.js                   Dashboard state and MapLibre rendering
+  layer-picker.js                  Topic groups, search and selected-only view
+  dashboard-monitoring.js          Feed overlays and embedded Tools/records panel
+  monitoring-workflows.js          Shared forms and evidence actions
+  monitoring.js                    Standalone monitoring workspace
+  advanced.js                      Case/investigation workspace
+  orbits.js, aircraft*.js, ...      Domain filters, rendering and evidence presentation
+public/                            Geography, registries and generated public snapshots
+scripts/                           Launcher, collection, backup, audits and screenshots
+deploy/                            Nginx, systemd and operational timers
+tests/backend/                     Backend/provider/workflow checks
+tests/browser/                     Playwright UI and reference/geometry checks
+tests/*.test.mjs                   Node unit tests
+docs/                              Feature, provider, operations and deployment guides
 ```
 
-The original [build contract](BUILD_CONTRACT.md) and [advanced integration specification](ADVANCED_OSINT_SPEC.md) describe the project requirements. The main API uses `/api/`; investigation modules use `/api/v1/`.
+`npm run build` creates **three** HTML entry points: `index.html`, `advanced.html` and `monitoring.html`, plus assets. Deploy the complete `dist/` tree, including geography and the MapLibre module worker.
 
-### Evidence, geography and storage
+Aircraft polling defaults to 30 seconds while a visible live Aviation view holds demand; viewers share collection rather than multiplying upstream calls. AIS and regional trains have independent bounded lanes. UI refresh does not override provider cadence or retry deadlines. Aircraft registry/photo enrichment runs independently from positions. Heartbeat is also independent of long publisher cycles.
 
-An event groups supporting reports, each of which retains its source, original URL, time fields and normalized metadata. Source revisions update the retained record; a case snapshot preserves the evidence as it was saved. Raw payload retention and case retention are separate. FTS5 indexes searchable records rather than fetching the web during local search.
+Reference assets, receptions, modelled activity, provider assertions, reports and measurements retain separate classifications. General events and monitoring history have different retention/count semantics. Cases copy evidence into durable snapshots instead of depending on mutable live rows.
 
-Confidence and severity measure different things. Default provider reporting is **Single-source**. Provider-reviewed instrumental observations or authoritative catalog membership can qualify for **Verified** under documented rules. **Corroborated** and **Disputed** require cited reports and an authenticated analyst's recorded independence or contradiction assessment. A successful fetch, repeated provider count or AI response does not upgrade a report automatically. See [evidence classification](docs/ARCHITECTURE.md#evidence-classification).
+## API
 
-Reported coordinates, headline country context, infrastructure country estimates, publisher origins and catalog relationships retain their distinct geographic basis. Unknown locations stay unknown. Country boundaries and reference points are bundled locally; the optional infrastructure-country lookup contacts the approved country provider for public IPs, without resolving indicator domains or contacting observed hosts.
+[Swagger UI](http://127.0.0.1:8000/api/docs) and [`/api/openapi.json`](http://127.0.0.1:8000/api/openapi.json) describe the installed schemas. Vite proxies `/api` to the same backend.
 
-The schema is versioned under `backend/migrations/`. Migration 007 adds typed infrastructure observations and Radar aggregates; migration 008 separates infrastructure events into their own map category without changing event/report IDs. Back up an existing installation before upgrading because there is no automatic schema downgrade.
-
-## API examples
-
-The local API reference is [Swagger UI](http://127.0.0.1:8000/api/docs), with the generated schema at [`/api/openapi.json`](http://127.0.0.1:8000/api/openapi.json). Vite proxies the same `/api` routes, so the frontend and direct API share one backend.
-
-| Route                                            | Use                                                            | Access                                         |
-| ------------------------------------------------ | -------------------------------------------------------------- | ---------------------------------------------- |
-| `GET /api/health`                                | Database/API health                                            | Public read                                    |
-| `GET /api/status`                                | Source states, worker heartbeat and storage                    | Public read                                    |
-| `GET /api/layers`                                | Map category definitions, sources and freshness                | Public read                                    |
-| `GET /api/events`                                | Filtered events or GeoJSON, with matching and located counts   | Public read                                    |
-| `GET /api/events/{event_id}`                     | Supporting reports, time fields and evidence basis             | Public read                                    |
-| `GET /api/infrastructure/coverage`               | Located/unlocated infrastructure totals for the active filters | Public read                                    |
-| `GET /api/aviation/live`                         | Bounded current aircraft snapshot                              | Public read                                    |
-| `GET /api/country-activity`                      | Country leaderboard data                                       | Public read                                    |
-| `GET /api/v1/osint/search`                       | Indexed investigation search                                   | Protected by default                           |
-| `GET /api/v1/cyber/observations`                 | Typed provider observation history                             | Protected by default                           |
-| `GET /api/v1/cyber/indicators/{id}`              | Indicator evidence and related references                      | Protected by default                           |
-| `GET /api/v1/cyber/ddos`                         | Global Radar protocol trend measurements                       | Protected by default                           |
-| `POST /api/admin/connectors/{source_id}/refresh` | Request a scheduled source collection                          | Administrator token                            |
-| `POST /api/ai/analyze`                           | Request bounded source-grounded analysis                       | Administrator token and configured AI provider |
-
-Public event requests can combine `categories`, `q`, `country`, `start`, `end`, `bbox` and `time_basis`. Dates must include a timezone. `categories=infrastructure` selects the new layer; `infrastructure_provider=dshield` filters its provider. The merged Threat Actors UI uses `categories=cyber,threat` when requesting both underlying categories.
+| Route                                                                            | Purpose                                            | Access                                       |
+| -------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------- |
+| `GET /api/health`, `GET /api/status`                                             | API/database health, heartbeat and source states   | Public read                                  |
+| `GET /api/layers`, `GET /api/events`                                             | Categories and filtered event pages/GeoJSON        | Public read                                  |
+| `GET /api/events/{event_id}`                                                     | Reports, time fields and evidence basis            | Public read                                  |
+| `GET /api/aviation/live`                                                         | Bounded current aircraft and viewer demand         | Public read                                  |
+| `GET /api/infrastructure/coverage`                                               | Located/unlocated coverage                         | Public read                                  |
+| `GET /api/country-activity`                                                      | Country leaderboard                                | Public read                                  |
+| `GET /api/monitoring/catalog`                                                    | Sublayers, source health and workflow capabilities | Public read                                  |
+| `GET /api/monitoring/frame`, `GET /api/monitoring/orbits`                        | Retained observations/elements at a UTC time       | Public read                                  |
+| `GET/POST /api/monitoring/watches`                                               | Saved spatial/entity rules                         | Administrator                                |
+| `POST /api/monitoring/watches/evaluate`                                          | Evaluate receipts now                              | Administrator                                |
+| `GET /api/monitoring/alerts`                                                     | Retained alert snapshots                           | Administrator                                |
+| `GET /api/monitoring/entity-history`                                             | Receipt-aware history and trails                   | Administrator                                |
+| `POST /api/monitoring/assets/import`, `POST /api/monitoring/observations/import` | Authorized reference/sample/product imports        | Administrator                                |
+| `POST /api/monitoring/exposure`                                                  | Cited proximity analysis                           | Administrator                                |
+| `POST /api/monitoring/scenes/search`, `POST /api/monitoring/scenes/compare`      | Catalog search and raster measurement              | Administrator and required provider access   |
+| `POST /api/monitoring/recon`, `POST /api/monitoring/shodan`                      | Passive lookups                                    | Administrator and applicable provider access |
+| `POST /api/monitoring/enrichment/retain`, `POST /api/monitoring/evidence`        | Candidate graphs and case attachments              | Administrator                                |
+| `GET /api/v1/osint/search`, `/api/v1/cyber/observations`                         | Investigation search and cyber evidence            | Protected by default                         |
+| `/api/v1/cases`                                                                  | Cases, evidence, notes and exports                 | Administrator                                |
+| `POST /api/admin/connectors/{source_id}/refresh`                                 | Request scheduled collection                       | Administrator                                |
+| `POST /api/ai/analyze`                                                           | Bounded source-grounded AI analysis                | Administrator and configured provider        |
 
 ```bash
-# Check that the API can read its database.
 curl --fail http://127.0.0.1:8000/api/health
-
-# Retrieve a bounded infrastructure event page.
-curl --fail 'http://127.0.0.1:8000/api/events?categories=infrastructure&infrastructure_provider=dshield&limit=20'
-
-# Return located records in GeoJSON form.
-curl --fail 'http://127.0.0.1:8000/api/events?categories=infrastructure&format=geojson&limit=100'
-
-# Inspect country-estimate coverage without fetching a provider.
-curl --fail 'http://127.0.0.1:8000/api/infrastructure/coverage?infrastructure_provider=dshield'
+curl --fail http://127.0.0.1:8000/api/monitoring/catalog
+curl --fail 'http://127.0.0.1:8000/api/monitoring/frame?layers=cctv,rail&hours=24&limit=100'
+curl --fail 'http://127.0.0.1:8000/api/events?categories=infrastructure&infrastructure_provider=feodo&limit=20'
 ```
 
-PowerShell can use `Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/health'` or `curl.exe` for the curl examples. Protected requests use `Authorization: Bearer <OSINT_ADMIN_TOKEN>`. Do not send provider credentials as the application bearer token.
+PowerShell can use `Invoke-RestMethod` or `curl.exe`. Protected requests use `Authorization: Bearer <OSINT_ADMIN_TOKEN>`. Provider keys stay in backend settings.
 
-Event pages default to 500 and cap at 1,000 records per request, with offset pagination. Counts cover the matching dataset, so a page length is not the total. GeoJSON omits unlocated records while retaining coverage counts. Investigation collections use `data`/`meta` envelopes and their own bounded pagination. Exact request fields and response schemas are in the generated OpenAPI document; [API.md](docs/API.md) and [the investigation API guide](docs/ADVANCED_OSINT.md#versioned-api) explain semantics.
+Event requests support categories, query, country, timezone-aware dates, bbox and time basis. Monitoring frames default to 2,000 records, cap at 5,000, and disclose truncation; views can overlap. Latest entity versions are selected before sublayer filtering. The investigation API uses `data`/`meta` envelopes and its own pagination. [API guide](docs/API.md) and [investigation API](docs/ADVANCED_OSINT.md#versioned-api).
 
-## Operations and recovery
+## Data interpretation and limits
 
-Check `/api/health` for API/database access and `/api/status` for the worker heartbeat, source failures and freshness. An API can be healthy while one provider is unavailable. The in-app Source quality screen exposes the same distinction. Windows launcher logs are under `data/logs/`; deployed services use the system journal.
+- Country mentions are context, not proof of an incident at the country centre. Unknown coordinates remain unlocated.
+- IP country estimates describe infrastructure, not attacker nationality, victim location or human attribution. Domains, URLs and hashes do not get invented positions.
+- ADS-B/AIS are provider observations with gaps/bounds. Satellite positions are calculations. GFW activity is a provider model. These are labelled separately.
+- Camera directories and receiver listings do not establish a working stream. Playback preserves metadata; camera footage and radio audio are not archived.
+- Volcano, plant, port, cable and installation references do not establish current activity or disruption. Supplier exposure reports proximity, not damage probability or dependency.
+- Reporting surges, sentiment, narrative comparisons and editorial assessments retain source/sample limits. They are not verified escalation or neutral truth labels.
+- Missing data is not evidence of inactivity. Access failures, outages, stale elements, truncation and filters affect coverage.
 
-### Back up and restore
+## Operations and deployment
 
-Use the online backup tool for a consistent database and active private media bundle:
+Check `/api/health` for API access and `/api/status` for collector heartbeat. Source quality and timestamps explain provider-level failures. Local logs are under `data/logs/`.
+
+Create a consistent online database and active private evidence backup:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\backup.py --destination data\backups --keep 7
 ```
 
-The tool verifies database integrity and writes a SHA-256 manifest. Credentials are excluded, and bulk public-discussion snapshots are omitted under the backup policy. Protect the resulting bundle as private evidence. A copied live `.sqlite3` file alone is not a consistent backup of an active WAL database.
-
-Restore a selected bundle into a **new directory**:
+The tool verifies integrity and writes a SHA-256 manifest. Credentials and bulk public-discussion snapshots are excluded by policy. Restore a bundle to a new directory:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\backup.py --restore data\backups\BUNDLE_DIRECTORY --destination data\restore-check
 ```
 
-Replace `BUNDLE_DIRECTORY` with a bundle created by the backup tool. The restore command refuses an existing target. Validate the recovered database and evidence in isolation before changing service paths. Production replacement requires stopped writers, preservation of the current database and sidecars, and the matching application version. See [recovery instructions](docs/OPERATIONS.md#restore).
+The worker performs retention and SQLite optimization hourly. A manual pass is available with `python scripts/maintenance.py`. Before upgrading, preserve configuration and a verified backup, update dependencies/build assets, and restart API and worker so new routes/migrations load. Reloading the browser alone cannot activate Python changes.
 
-### Maintenance and upgrades
+Production uses Nginx HTTPS, localhost FastAPI, a separate systemd worker, and backup/monitoring timers. The supplied layout uses `/opt/osint`, `/etc/osint/osint.env`, `/var/lib/osint` and `/var/backups/osint`. Node/Vite are production build tools. Serve module workers with the correct MIME type and deploy the current CSP/media-host configuration. Follow [Ubuntu deployment](docs/DEPLOYMENT.md) and [operations/recovery](docs/OPERATIONS.md); target-host acceptance remains necessary.
 
-The worker runs retention and SQLite optimization hourly. For a deliberate maintenance pass under the same configuration:
+| Symptom                           | Action                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| Empty map/list                    | Check enabled sources, heartbeat, period and geography. New installations start empty      |
+| Layers but no provider records    | Read access/error state; registration does not imply collection success                    |
+| Monitoring 404 after upgrading    | Restart API and collector; an older API can still be serving the frontend                  |
+| More matching than mapped records | Inspect unlocated evidence and coverage; only supported geometry is drawn                  |
+| Aircraft stop updating            | Keep a visible live Aviation view; check access, credits, demand and retry deadlines       |
+| Protected tools refuse access     | Configure the application token, restart API and enter it in the relevant form             |
+| Raster comparison unavailable     | Check optional dependencies, product pairing, access, byte/pixel caps and quality coverage |
+| Provider 429/access failure       | Respect retry time and entitlement; dashboard refresh does not reset quotas                |
+| TLS/SQLite failures               | Check trust, disk/permissions and duplicate writers; keep live WAL sidecars intact         |
 
-```powershell
-.\.venv\Scripts\python.exe scripts\maintenance.py
-```
-
-This command applies configured expiration policies. SQLite does not return all freed pages to disk immediately; full vacuuming is a separate maintenance-window operation. Keep room for the database, WAL, private media and backups.
-
-Before an upgrade, create a verified backup, preserve the current source/build and lockfiles, then stop the affected services. Install the new dependencies, build the frontend and restart API/worker with the intended environment. Migrations run during initialization. Frontend-only changes require rebuilding deployed assets; backend changes require loading the new Python code. On a development checkout, Vite handles frontend changes while it is running.
-
-## Troubleshooting
-
-| Symptom                                    | Check and action                                                                                                                                                     |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard opens with no records            | Confirm that the collector is running, inspect source states, widen the period and clear country/viewport filters. New installations start empty.                    |
-| Matching count is higher than mapped count | Some records have no supported location. Inspect them in the unrestricted feed; a map-extent filter excludes them.                                                   |
-| Cyber infrastructure is empty              | Enable the layer and select all providers or DShield. Check collection health and time range. ISC is opt-in; ThreatFox requires credentials.                         |
-| Infrastructure records have no country     | Inspect the located/unlocated count, lookup configuration, daily budget and provider cooldown. Domains, URLs and hashes intentionally remain unlocated.              |
-| Source shows Access required               | Configure the required backend credentials or approved app name, restart the Python services, and inspect the source's enabled state.                                |
-| Aircraft stop updating                     | Keep a visible live Aviation layer open, verify OpenSky access/credits and worker heartbeat, and exit historical playback. The API alone does not collect aircraft.  |
-| Protected workspace cannot connect         | Set `OSINT_ADMIN_TOKEN`, restart the API and use that exact token in the connection form. Re-enter it after browser reload.                                          |
-| Map has no countries or symbols            | Inspect the console and network panel. Serve the complete `dist/` tree, local geography and MapLibre `.mjs` worker with the correct MIME type and CSP.               |
-| Port 5173 or 8000 is occupied              | Inspect the owning process. The launcher only manages this checkout's recorded services; stop or reconfigure an unrelated application yourself.                      |
-| Provider returns 429                       | Wait for its persisted retry deadline. Dashboard refresh does not override provider backoff or quotas.                                                               |
-| TLS validation fails                       | Repair the local trust chain. Outbound HTTP uses certifi public roots plus installed system roots, with certificate and hostname verification enabled.               |
-| SQLite is busy                             | Check for duplicate workers, persistent writers, disk space and permissions. Do not delete live WAL/SHM files to clear a lock.                                       |
-| Optional AI fails                          | Inspect provider configuration, free-model availability, local budgets and source evidence. Search, deterministic comparisons and retained records remain available. |
-
-Additional source-specific conditions and production diagnostics are covered in [OPERATIONS.md](docs/OPERATIONS.md).
-
-## Development and checks
-
-Using the Windows virtual environment:
+## Testing and screenshot capture
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m ruff check backend tests
+# Isolated backend tests; raster checks need requirements-geo.txt.
+.\.venv\Scripts\python.exe -m pytest tests/backend -q
+
+# JavaScript units and production bundle.
 node --test tests/*.test.mjs
 npm run build
+
+# Browser checks.
 npx playwright install chromium
+npx playwright test tests/browser/dashboard-monitoring.spec.js
 npm test
 ```
 
-On Linux/macOS, substitute `.venv/bin/python`. Backend tests use temporary databases and mocked provider responses. Node tests cover map math, aircraft motion, symbols, topic search and evidence presentation. The build creates both dashboard and investigation entry points in `dist/`.
+Use `.venv/bin/python` on Linux/macOS. Backend tests use temporary databases and controlled responses. Browser configuration starts/reuses API and frontend but not the worker. Some cases intercept network responses; live infrastructure/reference checks need appropriate retained data. Keep synthetic fixtures out of the live database. If Windows temporary-directory permissions prevent pytest startup, use a dedicated scratch `--basetemp` directory; see [testing](docs/TESTING.md).
 
-The standard browser configuration starts or reuses the local API and frontend, without starting a collection worker. Browser fixtures intercept selected network responses; some workspace checks also require retained live data. A clean database will not satisfy assertions that expect collected infrastructure observations. Keep synthetic fixtures isolated from the live intelligence database.
+Current layer-picker validation included 53 Node tests, 54 selected Playwright checks covering UI and reference/geometry contracts, and a production build. Backend history, workflows, providers, raster math, permissions and worker contention have separate test modules. Historical verification is in the feature guides.
 
-For the focused cyber checks against servers that are already running:
+Refresh README images against a running, populated development instance:
 
-```powershell
-.\node_modules\.bin\playwright.cmd test --config playwright.existing.config.js
+```bash
+node scripts/capture_readme.mjs
 ```
 
-This configuration never starts or replaces application servers. It checks provider observations and Radar states with browser-only fixtures, and verifies actual infrastructure map clusters and provider filters using retained live observations. The live layer check expects DShield records with country estimates and no ThreatFox records; use an appropriate development dataset. See [cyber validation](docs/CYBER_OBSERVATIONS.md#validation).
+The script captures the real UI without mocked responses, refuses populated operator/private-case fields, and writes four PNGs plus a provenance manifest under `docs/screenshots/`. Its isolated browser leaves the user's saved selections unchanged. Collected public reports and cameras must exist; it fails instead of inventing records. `CAPTURE_BASE_URL` can select another authorized development instance. Inspect generated images before publishing.
 
-Dependency audits can be run with the virtual environment's `python scripts/audit.py` and `npm audit`. Provider integration checks make outbound requests and have different access requirements from isolated unit tests; review the relevant script and [testing guide](docs/TESTING.md) before running them.
-
-## Documentation and deployment
+## Documentation
 
 - [Architecture and evidence rules](docs/ARCHITECTURE.md)
-- [Map symbols, connections and country rankings](docs/MAP_INTERFACE.md)
-- [Investigation workspace](docs/ADVANCED_OSINT.md)
-- [Threat intelligence sources and relationships](docs/THREAT_INTELLIGENCE.md)
-- [Cyber infrastructure observations, provider setup and map geography](docs/CYBER_OBSERVATIONS.md)
-- [Threat Observatory integration assessment](docs/THREAT_OBSERVATORY_INTEGRATION_REVIEW.md)
-- [World Monitor feature catalog](docs/WORLDMONITOR_FEATURE_CATALOG.md) and [Signal Atlas incorporation plan](docs/WORLDMONITOR_INCORPORATION_PLAN.md)
-- [Social narratives and military reporting](docs/SOCIAL_MILITARY.md)
-- [Conflict collection, symbols and reporting signals](docs/CONFLICT_REPORTING.md)
-- [Conflict tracker and upstream publisher audit](docs/CONFLICT_SOURCE_AUDIT.md)
-- [Aircraft refresh, card metadata and AI drafts](docs/AIRCRAFT_ECONOMIC_AI_UPDATE.md)
-- [Satellite collection, propagation and accuracy](docs/SATELLITES.md)
-- [Performance measurements and optimization](docs/PERFORMANCE.md)
-- [API guide](docs/API.md)
-- [Operations, backups and recovery](docs/OPERATIONS.md)
-- [Ubuntu deployment](docs/DEPLOYMENT.md)
-- [Testing and recorded measurements](docs/TESTING.md)
-- [Configured RSS and Atom directory](docs/RSS_FEEDS.md)
-- [Threat attribution, live-map review and public social collection](docs/THREAT_ACTIVITY.md)
-- [Implementation status and remaining acceptance work](docs/STATUS.md)
+- [Map interface and country rankings](docs/MAP_INTERFACE.md)
+- [Monitoring foundations and Time Machine](docs/SHADOWBROKER_MONITORING.md)
+- [Expansion, schemas, quotas and raster limits](docs/SHADOWBROKER_EXPANSION.md)
+- [Provider contracts and verification](docs/SHADOWBROKER_PROVIDER_CONTRACTS.md)
+- [Investigation workspace and case API](docs/ADVANCED_OSINT.md)
+- [Cyber infrastructure observations](docs/CYBER_OBSERVATIONS.md)
+- [Threat intelligence and relationships](docs/THREAT_INTELLIGENCE.md)
+- [Conflict collection, symbols and signals](docs/CONFLICT_REPORTING.md)
+- [Public discussion and military reporting](docs/SOCIAL_MILITARY.md)
+- [Aircraft details and collection](docs/AIRCRAFT_ECONOMIC_AI_UPDATE.md)
+- [Satellite propagation and accuracy](docs/SATELLITES.md)
+- [Source configuration](docs/SOURCES.md) and [RSS/Atom directory](docs/RSS_FEEDS.md)
+- [Operations](docs/OPERATIONS.md), [deployment](docs/DEPLOYMENT.md) and [testing](docs/TESTING.md)
+- [Implementation status](docs/STATUS.md)
 
-The Windows launcher is for local development. Ubuntu deployment includes systemd services, backup/monitoring timers and an Nginx HTTPS configuration. Acceptance testing on the intended production host remains necessary. Private investigations currently use a single administrator principal; multi-user accounts and roles are not implemented.
-
-Production serves the complete compiled `dist/` tree through Nginx and keeps FastAPI bound to localhost. The worker runs as a separate systemd service. Configuration lives in `/etc/osint/osint.env`, database and evidence under `/var/lib/osint`, and backups under `/var/backups/osint`. Node and Vite are build tools rather than resident production services.
-
-Follow [the Ubuntu deployment guide](docs/DEPLOYMENT.md) for the service account, file ownership, TLS, proxy configuration, module-worker MIME types, security headers and timers. The provided guide targets Ubuntu 24.04 LTS with Python 3.12 and an 8 GB host. It records the outstanding target-host acceptance work; a local build or short benchmark does not complete deployment acceptance.
-
-Contributions are welcome through issues and pull requests. For a new connector, document its access requirements, terms, timestamp semantics and geographic precision, and test normalization and failure handling. Never include provider credentials or private evidence in a contribution.
+Reviews and capture reports describe their examined revision/date. The code, current source status and generated API schema are the primary references for the installed version.
 
 ## License
 
 Project code is licensed under the [MIT License](LICENSE), copyright 2026 Abhijit Banerjee.
 
-Third-party dependencies, provider content and reference data retain their own licenses and terms. Natural Earth country boundaries are public domain; see [map attribution](public/MAP_LICENSE.txt). MITRE ATT&CK material retains [MITRE's license and notice](docs/licenses/MITRE-ATTACK.txt). The project license does not grant redistribution rights to collected news, social posts, aircraft data or other provider content.
+Provider content, dependencies and reference data retain their own terms. Natural Earth boundaries are public domain; see [map attribution](public/MAP_LICENSE.txt). MITRE ATT&CK retains [MITRE's notice](docs/licenses/MITRE-ATTACK.txt). The project license does not grant redistribution rights to collected news, social posts, aircraft observations or other provider content. Contributions should document access, attribution, timestamps and precision, and exclude credentials and private evidence.

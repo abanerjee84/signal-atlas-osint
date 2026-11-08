@@ -1,0 +1,32 @@
+{
+  "captured_at": "2026-11-08T10:58:54.289Z",
+  "application_revision": "6c5f1186c3c729a3b7eb14138b08b18f4875cc6a",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "data": "Real retained public-source records from the running local application; no mocks or seeded records",
+  "source_definitions": 212,
+  "healthy_sources_at_capture": 3,
+  "observation_sublayers": 58,
+  "camera_record_title": "Singapore traffic camera 4712",
+  "screenshots": [
+    {
+      "file": "dashboard-current.png",
+      "subject": "Main dashboard with the unified eight-topic Map layers picker"
+    },
+    {
+      "file": "map-layers-current.png",
+      "subject": "The current topic-based layer picker"
+    },
+    {
+      "file": "camera-record-current.png",
+      "subject": "Real retained public camera record, location, timestamps and source attribution"
+    },
+    {
+      "file": "tools-current.png",
+      "subject": "The Tools panel with spatial/entity watch setup and the main map"
+    }
+  ],
+  "privacy": "Fresh isolated browser context; operator token and private case fields verified empty; no private case APIs accessed"
+}
