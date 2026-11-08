@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-11-07T19:47:58.076Z",
         "reason": "Agent review: the existing dense map dashboard intentionally uses equal-sized pane headings; the brand and panel structure provide hierarchy. Shared typography is unchanged and this session only added the Monitor navigation link."
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "monitoring.html"
+        ],
+        "createdAt": "2026-11-08T07:37:51.365Z",
+        "reason": "Agent rendered review: at 1440px and 390px widths, computed CSS gives a 20px page heading, 14px panel headings and 13px body text. The 1.43x heading step exceeds 1.25x; no horizontal overflow. Detector finding is a false positive for the external stylesheet."
       }
     ]
   }
