@@ -1,3 +1,4 @@
+import { openLayerTopic } from "./helpers/layers.js";
 import { test, expect } from "@playwright/test";
 import {
   nightStrips,
@@ -230,6 +231,7 @@ test.describe("ports reference layer", () => {
       return route.fulfill({ json: { data: [], meta: { total: 0 } } });
     });
     await page.goto("/");
+    await openLayerTopic(page, "places");
     await page.waitForSelector("#layers input[data-layer='ports']");
     await page.waitForFunction(
       () => document.querySelector("#map canvas")?.dataset.ready === "true",
@@ -258,6 +260,7 @@ test.describe("ports reference layer", () => {
     page,
   }) => {
     await page.goto("/");
+    await openLayerTopic(page, "places");
     await page.waitForSelector("#layers button[data-layer-info='ports']");
     await page.click("#layers button[data-layer-info='ports']");
     await page.waitForSelector("#reference-explanation");
@@ -336,6 +339,7 @@ test.describe("OpenStreetMap reference layers", () => {
       page,
     }) => {
       await page.goto("/");
+      await openLayerTopic(page, "places");
       await page.waitForSelector(`#layers input[data-layer='${id}']`);
       await page.locator(`#layers input[data-layer='${id}']`).check();
       await page.waitForTimeout(2500);
@@ -384,6 +388,7 @@ test.describe("OpenStreetMap reference layers", () => {
     page,
   }) => {
     await page.goto("/");
+    await openLayerTopic(page, "places");
     await page.waitForFunction(
       () => document.querySelector("#map canvas")?.dataset.ready === "true",
       { timeout: 45000 },

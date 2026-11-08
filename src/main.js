@@ -334,7 +334,7 @@ function badge(confidence) {
 }
 
 function renderLayers() {
-  $("#layers").replaceChildren();
+  const rows = [];
   for (const [id, name] of Object.entries(names)) {
     if (["threat", "analysis"].includes(id)) continue;
     const reference = isReference(id);
@@ -395,6 +395,7 @@ function renderLayers() {
           ? state.layers.add("threat")
           : state.layers.delete("threat");
       saveSession("osint.layers", [...state.layers]);
+      monitoring?.selectionChanged();
       if (reference) {
         // Reference geometry never changes the record query, so no refetch.
         applyReferenceLayers();
@@ -424,8 +425,9 @@ function renderLayers() {
       }
       refresh({ progressLabel: "Applying intelligence layers" });
     });
-    $("#layers").append(label);
+    rows.push(label);
   }
+  monitoring.setBaseRows(rows);
   applyLayerSearch();
 }
 
@@ -642,17 +644,7 @@ function applyLayerSearch() {
       ),
     ),
   );
-  for (const row of $("#layers").children) {
-    const id = row.querySelector("input").dataset.layer;
-    row.hidden = !matches.includes(id);
-    row.style.order = String(matches.indexOf(id));
-  }
-  const result = $("#layer-search-result");
-  result.hidden = !query.trim();
-  const count = matches.length + (monitoring?.search(query) || 0);
-  result.textContent = count
-    ? `${count} related ${count === 1 ? "layer" : "layers"}`
-    : "No related layers. Try a topic such as flights, oil or space.";
+  monitoring?.search(query, matches);
 }
 $("#layer-search").addEventListener("input", applyLayerSearch);
 $("#layer-search").addEventListener("keydown", (event) => {
@@ -2854,6 +2846,11 @@ async function analyze(event) {
 
 async function initialize() {
   monitoring = createDashboardMonitoring({
+    restoreCategory(id) {
+      state.layers.add(id);
+      if (id === "cyber") state.layers.add("threat");
+      saveSession("osint.layers", [...state.layers]);
+    },
     open() {
       showView("monitoring");
       if ($("#workspace").classList.contains("right-collapsed"))

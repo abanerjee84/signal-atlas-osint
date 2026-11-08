@@ -49,9 +49,9 @@
       <a
         href="/advanced.html"
         class="investigate-button"
-        aria-label="Investigate"
+        aria-label="Open investigation cases"
         aria-describedby="investigate-tooltip"
-        ><span aria-hidden="true">⌕</span> Investigate ↗<span
+        ><span aria-hidden="true">⌕</span> Cases<span
           id="investigate-tooltip"
           class="investigate-tooltip"
           role="tooltip"
@@ -60,7 +60,7 @@
         ></a
       >
       <button id="monitoring-open" class="investigate-button" type="button">
-        Monitoring tools
+        Tools
       </button>
       <time id="utc-clock" class="clock" aria-label="Current UTC time"></time>
       <button
@@ -87,7 +87,7 @@
         aria-label="Intelligence controls"
       >
         <div class="panel-heading">
-          <h1>Intelligence layers</h1>
+          <h1>Map layers</h1>
           <button
             class="icon-button collapse"
             data-panel="left"
@@ -99,35 +99,37 @@
           </button>
         </div>
         <div id="left-content" class="panel-content">
-          <p class="eyebrow">DISPLAY OVERLAYS</p>
+          <p class="layer-picker-help">
+            Choose what appears on the map. Open Tools for watches, alerts and
+            analysis.
+          </p>
           <label class="sr-only" for="layer-search"
-            >Find intelligence layers by meaning or topic</label
+            >Find map layers by topic</label
           >
           <input
             id="layer-search"
             type="search"
-            placeholder="Find layers by topic…"
+            placeholder="Find cameras, aircraft, weather…"
             maxlength="150"
             aria-controls="layers"
             aria-describedby="layer-search-result"
           />
           <p id="layer-search-result" class="helper" role="status" hidden></p>
-          <button
-            id="monitoring-layer-jump"
-            type="button"
-            class="monitoring-layer-jump"
-          >
-            Observation layers (58)
-          </button>
+          <div class="layer-picker-actions">
+            <span id="layer-selection-summary" role="status"></span
+            ><button
+              id="layer-show-selected"
+              type="button"
+              aria-pressed="false"
+            >
+              Selected only
+            </button>
+          </div>
           <div
             id="layers"
             class="layers"
-            aria-label="Selectable intelligence layers"
+            aria-label="Selectable map layers"
           ></div>
-          <section
-            id="monitoring-overlays"
-            aria-label="Monitoring observation layers"
-          ></section>
           <fieldset
             id="infrastructure-controls"
             class="orbital-controls"
@@ -518,12 +520,14 @@
             ><button id="analysis-tab" aria-pressed="false">Analysis</button
             ><button id="military-tab" aria-pressed="false">Military</button
             ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
-            <button id="monitoring-tab" aria-pressed="false">Monitoring</button>
+            <button id="monitoring-tab" aria-pressed="false">
+              Map records
+            </button>
           </div>
           <section
             id="monitoring-view"
             hidden
-            aria-label="Monitoring observations and tools"
+            aria-label="Map records and tools"
           ></section>
           <section id="feed-view">
             <section

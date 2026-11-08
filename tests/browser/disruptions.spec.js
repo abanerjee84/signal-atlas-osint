@@ -1,3 +1,4 @@
+import { openLayerTopic } from "./helpers/layers.js";
 import { test, expect } from "@playwright/test";
 import {
   DISRUPTION_BASIS,
@@ -115,6 +116,7 @@ test.describe("internet disruptions on the dashboard", () => {
   }) => {
     await page.goto("/");
     await page.waitForSelector("#layers input[data-layer='disruptions']");
+    await openLayerTopic(page, "cyber");
     await page.locator("#layers input[data-layer='disruptions']").check();
     await page.waitForTimeout(800);
     const row = page.locator("#layers .layer-row", {
@@ -169,6 +171,7 @@ test.describe("internet disruptions on the dashboard", () => {
       if (new URL(request.url()).pathname.startsWith("/api/"))
         queries.push(request.url());
     });
+    await openLayerTopic(page, "cyber");
     await page.locator("#layers input[data-layer='disruptions']").check();
     await page.waitForTimeout(1500);
     // These records come from the evidence API, so enabling the layer must not

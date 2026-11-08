@@ -1,3 +1,4 @@
+import { openLayerTopic } from "./helpers/layers.js";
 import { test, expect } from "@playwright/test";
 
 // Reference layers must be tellable apart on the map, not just different in the
@@ -9,6 +10,7 @@ const REFERENCE_LAYERS = ["bases", "nuclear", "spaceports", "ports"];
 // Enable the reference layers and wait for the map to be ready.
 async function enableReferenceLayers(page) {
   await page.goto("/");
+  await openLayerTopic(page, "places");
   await page.waitForFunction(
     () => document.querySelector("#map canvas")?.dataset.ready === "true",
     { timeout: 45000 },
@@ -33,6 +35,7 @@ test("each reference layer has its own pictogram in the panel", async ({
   page,
 }) => {
   await page.goto("/");
+  await openLayerTopic(page, "places");
   await page.waitForSelector("#layers .layer-row-reference");
   const glyphs = await page.$$eval("#layers .layer-row-reference", (rows) =>
     rows.map((row) => {

@@ -59,9 +59,13 @@ test("monitoring layers are searchable in the main Intelligence layers panel", a
     page.locator('#left-panel [data-monitoring-layer="cctv"]'),
   ).toBeVisible();
   await expect(page.locator("#layer-search-result")).toContainText(
-    "1 related layer",
+    "1 matching layer",
   );
-  expect(await page.locator("[data-monitoring-layer]").count()).toBe(58);
+  await expect(page.locator('[data-layer="aviation"]')).toHaveCount(1);
+  await expect(page.locator('[data-monitoring-layer="aircraft"]')).toHaveCount(
+    0,
+  );
+  await expect(page.locator("#monitoring-layer-jump")).toHaveCount(0);
 });
 
 test("selecting monitoring evidence draws on the main map and exposes the inspector", async ({
@@ -136,11 +140,12 @@ test("catalog failures preserve searchable layers and an explicit retry", async 
   await page.locator("#layer-search").fill("camera");
   await expect(page.locator('[data-monitoring-layer="cctv"]')).toBeVisible();
   await page.locator("#monitoring-open").click();
+  await page.locator("#show-observations").click();
   await expect(page.locator("#monitor-message")).toContainText(
     "Restart the API and collector",
   );
   await expect(
-    page.getByRole("button", { name: "Refresh monitoring data" }),
+    page.getByRole("button", { name: "Refresh layer data" }),
   ).toBeVisible();
 });
 
@@ -199,6 +204,82 @@ test("a monitoring deep link also opens tools on an already loaded dashboard", a
   });
   await expect(page.locator("#monitoring-view")).toBeVisible();
   await expect(page.locator("#monitoring-tab")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("one layer picker combines topic browsing and selected-only filtering", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("osint.layers", JSON.stringify(["geopolitical"]));
+    sessionStorage.setItem("osint.dashboard.monitoring", JSON.stringify([]));
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Map layers", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Observation layers", exact: true }),
+  ).toHaveCount(0);
+  await page.locator("#layer-search").fill("camera");
+  await page.locator('[data-monitoring-layer="cctv"]').check();
+  await page.locator("#layer-show-selected").click();
+  await page.locator("#layer-search").fill("");
+  await expect(page.locator("#layer-selection-summary")).toHaveText(
+    "2 layers on",
+  );
+  await expect(page.locator('[data-layer="geopolitical"]')).toBeVisible();
+  await expect(page.locator('[data-monitoring-layer="cctv"]')).toBeVisible();
+  await expect(page.locator('[data-layer="maritime"]')).toBeHidden();
+  await page.locator('[data-monitoring-layer="cctv"]').uncheck();
+  await expect(page.locator("#layer-selection-summary")).toHaveText(
+    "1 layer on",
+  );
+  await expect(page.locator('[data-monitoring-layer="cctv"]')).toBeHidden();
+  await page.locator("#layer-show-selected").click();
+  await expect(page.locator('[data-layer-topic="transport"]')).toBeVisible();
+});
+
+test("saved broad observation selections become a single category control", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("osint.layers", JSON.stringify([]));
+    sessionStorage.setItem(
+      "osint.dashboard.monitoring",
+      JSON.stringify(["aircraft"]),
+    );
+  });
+  await page.goto("/");
+  await expect(page.locator('[data-layer="aviation"]')).toBeChecked();
+  await expect(page.locator('[data-monitoring-layer="aircraft"]')).toHaveCount(
+    0,
+  );
+  await expect(page.locator("#layer-selection-summary")).toHaveText(
+    "1 layer on",
+  );
+});
+
+test("Tools opens actions while map layer choices open records", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Tools", exact: true })
+    .first()
+    .click();
+  await expect(page.locator("#investigations-panel")).toBeVisible();
+  await expect(
+    page
+      .locator(".topbar")
+      .getByRole("link", { name: "Open investigation cases", exact: true }),
+  ).toHaveAttribute("href", "/advanced.html");
+  await page.locator("#layer-search").fill("camera");
+  await page.locator('[data-monitoring-layer="cctv"]').check();
+  await expect(page.locator("#observations-panel")).toBeVisible();
+  await expect(page.locator("#show-observations")).toHaveAttribute(
     "aria-pressed",
     "true",
   );

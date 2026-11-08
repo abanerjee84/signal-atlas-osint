@@ -3,6 +3,11 @@ import bundledLayers from "./monitoring-layers.json";
 import { api, element, dateText, sourceLink } from "./api.js";
 import { createMonitoringWorkflows } from "./monitoring-workflows.js";
 import { filterOrbitalPositions } from "./orbits.js";
+import {
+  createLayerPicker,
+  layerTopic,
+  PRIMARY_LAYER_ALIASES,
+} from "./layer-picker.js";
 
 const empty = () => ({ type: "FeatureCollection", features: [] });
 const palette = {
@@ -16,10 +21,13 @@ const palette = {
 
 // Independent observation overlays share the dashboard map, while their counts
 // remain separate from incident/event analytics and existing category switches.
-export function createDashboardMonitoring({ open, context }) {
+export function createDashboardMonitoring({ open, context, restoreCategory }) {
   const $ = (selector) => document.querySelector(selector);
   const panel = $("#monitoring-view"),
-    controls = $("#monitoring-overlays");
+    controls = $("#layers");
+  const picker = createLayerPicker(controls);
+  let baseRows = [],
+    specificRows = [];
   let layers = bundledLayers,
     items = [],
     frame = {},
@@ -41,20 +49,31 @@ export function createDashboardMonitoring({ open, context }) {
   }
   const valid = new Set(layers.map((r) => r.id));
   selected = new Set([...selected].filter((id) => valid.has(id)));
+  for (const [id, category] of Object.entries(PRIMARY_LAYER_ALIASES)) {
+    if (!selected.delete(id)) continue;
+    restoreCategory?.(category);
+  }
+  try {
+    sessionStorage.setItem(
+      "osint.dashboard.monitoring",
+      JSON.stringify([...selected]),
+    );
+  } catch {
+    /* Optional storage. */
+  }
   panel.innerHTML = `
-    <nav class="monitor-tabs" aria-label="Monitoring panels"><button id="show-observations" aria-pressed="true">Observations</button><button id="show-investigations" aria-pressed="false">Investigations</button></nav>
-    <p class="helper">Observation layers use the main map, geography and timeline. Their counts are separate from event totals.</p>
+    <nav class="monitor-tabs" aria-label="Records and tools"><button id="show-observations" aria-pressed="true">Layer records</button><button id="show-investigations" aria-pressed="false">Tools</button></nav>
+    <p class="helper">Select map layers on the left to inspect their records here. Use Tools to create watches or run an investigation.</p>
     <details id="operator-access"><summary>Operator access</summary><label for="operator-token">Local administrator token</label><input id="operator-token" type="password" autocomplete="off" /><p class="helper">Kept only in this page. Required for saved watches, imports and lookups.</p></details>
     <section id="investigations-panel" hidden aria-label="Investigation tools"></section>
     <section id="observations-panel">
-      <p id="monitor-message" role="status">Select observation layers in Intelligence layers.</p>
-      <button id="monitoring-retry">Refresh monitoring data</button>
+      <p id="monitor-message" role="status">Choose a layer in Map layers to see its records.</p>
+      <button id="monitoring-retry">Refresh layer data</button>
       <section id="inspector" hidden aria-label="Selected monitoring observation"></section>
       <div id="dashboard-observations" aria-label="Retained monitoring observations"></div>
-      <details><summary>Monitoring source health</summary><p id="monitoring-source-summary"></p><div id="monitoring-source-list"></div></details>
+      <details><summary>Layer source health</summary><p id="monitoring-source-summary"></p><div id="monitoring-source-list"></div></details>
       <details><summary>Passive Shodan host lookup</summary><form id="shodan-form"><label for="lookup-ip">Public IP address</label><input id="lookup-ip" required maxlength="45" /><button>Look up host</button></form><p id="lookup-result" role="status"></p></details>
     </section>`;
-  controls.innerHTML = `<h2>Observation layers</h2><p id="monitoring-layer-summary" class="helper"></p><div id="dashboard-monitoring-layers"></div>`;
   const workflows = createMonitoringWorkflows({
     onGeometry(data) {
       geometry = data;
@@ -69,12 +88,9 @@ export function createDashboardMonitoring({ open, context }) {
       return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
     },
   });
-  $("#monitoring-open").addEventListener("click", open);
-  $("#monitoring-layer-jump").addEventListener("click", () => {
-    $("#layer-search").value = "";
-    $("#layer-search").dispatchEvent(new Event("input"));
-    controls.scrollIntoView({ block: "start", behavior: "auto" });
-    controls.querySelector("summary")?.focus();
+  $("#monitoring-open").addEventListener("click", () => {
+    open();
+    $("#show-investigations").click();
   });
   $("#monitoring-retry").addEventListener("click", async () => {
     await catalog();
@@ -104,86 +120,48 @@ export function createDashboardMonitoring({ open, context }) {
   });
 
   function rows() {
-    const root = $("#dashboard-monitoring-layers");
-    const expanded = new Map(
-      [...root.children].map((group) => [
-        group.querySelector("summary").textContent,
-        group.open,
-      ]),
-    );
-    root.replaceChildren();
-    const groups = [...new Set(layers.map((row) => row.group))];
-    // Put the additional sensor and environment feeds ahead of overlapping views.
-    const order = (group) => {
-      const rank = ["Sensors", "Environment", "Reference assets"].indexOf(
-        group,
-      );
-      return rank < 0 ? 99 : rank;
-    };
-    groups.sort((a, b) => order(a) - order(b));
-    for (const group of groups) {
-      const section = element("details", "monitoring-layer-group");
-      section.open =
-        expanded.get(group) ??
-        (group === "Sensors" ||
-          layers.some((r) => r.group === group && selected.has(r.id)));
-      section.append(element("summary", "", group));
-      for (const row of layers.filter((r) => r.group === group)) {
-        const label = element("label", "layer-row monitoring-layer-row");
-        const check = element("input");
-        check.type = "checkbox";
-        check.checked = selected.has(row.id);
-        check.dataset.monitoringLayer = row.id;
-        const copy = element("span", "layer-copy");
-        copy.append(element("span", "", row.label));
-        const count = element("span", "layer-count", "off");
-        count.dataset.monitoringCount = row.id;
-        count.title =
-          "Latest retained versions in the observation response; overlapping views are not separate events";
-        label.append(check, copy, count);
-        check.addEventListener("change", () => {
-          check.checked ? selected.add(row.id) : selected.delete(row.id);
-          try {
-            sessionStorage.setItem(
-              "osint.dashboard.monitoring",
-              JSON.stringify([...selected]),
-            );
-          } catch {
-            /* Optional storage. */
-          }
-          open();
-          refresh();
-        });
-        section.append(label);
-      }
-      root.append(section);
+    specificRows = [];
+    for (const row of layers.filter((r) => !PRIMARY_LAYER_ALIASES[r.id])) {
+      const label = element("label", "layer-row monitoring-layer-row");
+      const check = element("input");
+      check.type = "checkbox";
+      check.checked = selected.has(row.id);
+      check.dataset.monitoringLayer = row.id;
+      const copy = element("span", "layer-copy");
+      copy.append(element("span", "", row.label));
+      const count = element("span", "layer-count", "off");
+      count.dataset.monitoringCount = row.id;
+      count.title =
+        "Latest retained versions in the observation response; overlapping views are not separate events";
+      label.append(check, copy, count);
+      check.addEventListener("change", () => {
+        check.checked ? selected.add(row.id) : selected.delete(row.id);
+        try {
+          sessionStorage.setItem(
+            "osint.dashboard.monitoring",
+            JSON.stringify([...selected]),
+          );
+        } catch {
+          /* Optional storage. */
+        }
+        picker.selectionChanged();
+        open();
+        $("#show-observations").click();
+        refresh();
+      });
+      specificRows.push({
+        node: label,
+        id: row.id,
+        name: row.label,
+        topic: layerTopic(row.id, row.group),
+        primary: false,
+      });
     }
-    search($("#layer-search").value);
+    picker.setRows([...baseRows, ...specificRows]);
     counts();
   }
-  function search(query = "") {
-    const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    let total = 0;
-    for (const section of $("#dashboard-monitoring-layers").children) {
-      let visible = 0;
-      for (const label of section.querySelectorAll("label")) {
-        const row = layers.find(
-          (r) => r.id === label.querySelector("input").dataset.monitoringLayer,
-        );
-        const words = `${row.id} ${row.label} ${row.group}`.toLowerCase();
-        label.hidden = !terms.every((term) => words.includes(term));
-        if (!label.hidden) visible++;
-      }
-      section.hidden = !visible;
-      total += visible;
-      if (terms.length && visible) section.open = true;
-    }
-    controls.hidden = !total;
-    return total;
-  }
   function counts() {
-    $("#monitoring-layer-summary").textContent =
-      `${layers.length} views · ${selected.size} selected · overlapping evidence`;
+    picker.selectionChanged();
     for (const node of controls.querySelectorAll("[data-monitoring-count]")) {
       const id = node.dataset.monitoringCount;
       node.textContent = selected.has(id)
@@ -241,7 +219,7 @@ export function createDashboardMonitoring({ open, context }) {
       render();
       if (catalogReady)
         $("#monitor-message").textContent =
-          "Select observation layers in Intelligence layers. Their records appear on this map.";
+          "Choose a specific map layer, such as cameras, trains or weather warnings, to inspect its records here. Broad reporting layers use the Events feed.";
       else $("#monitor-message").textContent = previous;
       return;
     }
@@ -538,7 +516,21 @@ export function createDashboardMonitoring({ open, context }) {
     if (!document.hidden) catalog();
   }, 60000);
   return {
-    search,
+    search: picker.search,
+    setBaseRows(nodes) {
+      baseRows = nodes.map((node) => {
+        const id = node.querySelector("input").dataset.layer;
+        return {
+          node,
+          id,
+          name: node.querySelector(".layer-copy > span").textContent,
+          topic: layerTopic(id, "", true),
+          primary: true,
+        };
+      });
+      picker.setRows([...baseRows, ...specificRows]);
+    },
+    selectionChanged: picker.selectionChanged,
     attachMap,
     async start() {
       await catalog();

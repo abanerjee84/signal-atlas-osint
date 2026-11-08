@@ -34,7 +34,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 
 ## What you can do
 
-- **Monitor across domains and replay retained history:** select **Observation layers (58)** in the main **Intelligence layers** sidebar, or search for cameras, trains, weather and other topics. Observations draw on the existing map and follow its timeline. **Monitoring tools** opens records, source health and investigation workflows in the right panel. The optional `/monitoring.html` workspace remains available with an explicit **Dashboard** return link. See [monitoring foundations](docs/SHADOWBROKER_MONITORING.md).
+- **Choose map content in one place:** the **Map layers** sidebar groups reporting, tracking, cameras, environment, cyber and reference places by topic. Search for a layer or use **Selected only** to review active choices. Narrower views are under **More layers** within their topic; overlapping broad views share a single category switch. Specific feed records appear under **Map records**. **Tools** opens watches, alerts, imagery and lookups; **Cases** opens saved investigations. The optional `/monitoring.html` workspace remains available with an explicit **Dashboard** return link. See [monitoring foundations](docs/SHADOWBROKER_MONITORING.md).
 - **Run monitoring investigations:** save area, route and entity watches; acknowledge alerts; inspect entity trails; import versioned infrastructure and suppliers; compare acquisition-dated Sentinel-2 and OPERA products; query passive DNS, RDAP, CT, Wikidata and OFAC records; and attach cited snapshots to cases. The [expansion setup guide](docs/SHADOWBROKER_EXPANSION.md) covers all 15 additions, credentials, authorized exports and optional raster processing. Registered sources and overlapping views are counted separately from healthy feeds.
 
 - **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.
@@ -53,7 +53,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 
 ## Intelligence layers
 
-The ten switches under **Intelligence layers** control the map and matching feed. Search the layer list by topic, then combine the relevant categories. Source health and the selected observation period determine what each layer can display.
+The **Map layers** sidebar groups the core categories and additional feeds by topic. Search the list, expand a topic, or choose **Selected only** to review active map content. The table below describes the core categories; narrower views are inside each topic's **More layers** section. Source health and the selected observation period determine what each layer can display.
 
 | Layer                            | What it displays                                                                                                           | Interpretation and access                                                                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -232,7 +232,7 @@ IP country estimates are displayed at illustrative country centres. Domains, URL
 
 ## Investigation workspace
 
-Open **Investigate** or `/advanced.html` and connect with the server's `OSINT_ADMIN_TOKEN`. The token stays in tab memory and must be entered again after reload. It grants the application's single administrator role; it is not a provider API key.
+Open **Cases** or `/advanced.html` and connect with the server's `OSINT_ADMIN_TOKEN`. The token stays in tab memory and must be entered again after reload. It grants the application's single administrator role; it is not a provider API key.
 
 | Screen                        | Available workflow                                                                                                                                                   |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

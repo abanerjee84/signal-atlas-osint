@@ -1,3 +1,4 @@
+import { openLayerTopic } from "./helpers/layers.js";
 import { test, expect } from "@playwright/test";
 
 // Reference layers must read as published context, not as more observations.
@@ -44,6 +45,7 @@ test("reference row controls stay attached to their label", async ({
   page,
 }) => {
   await page.goto("/");
+  await openLayerTopic(page, "places");
   await page.waitForSelector("#layers .layer-row-reference");
   await page.waitForTimeout(1200);
   const rows = await referenceRows(page);
@@ -68,6 +70,7 @@ test("a reference point answers hover with a summary card", async ({
 }) => {
   test.setTimeout(90000);
   await page.goto("/");
+  await openLayerTopic(page, "places");
   await page.waitForFunction(
     () => document.querySelector("#map canvas")?.dataset.ready === "true",
     { timeout: 45000 },
@@ -132,6 +135,7 @@ test("reference points grow with zoom so they stay reachable", async ({
   page,
 }) => {
   await page.goto("/");
+  await openLayerTopic(page, "places");
   await page.waitForFunction(
     () => document.querySelector("#map canvas")?.dataset.ready === "true",
     { timeout: 45000 },
