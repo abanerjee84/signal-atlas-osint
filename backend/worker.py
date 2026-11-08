@@ -354,6 +354,12 @@ async def run(once: bool = False, source: str | None = None):
 
         aircraft_tasks = []
         if not once:
+            from .monitoring_workflows import evaluate_watches
+
+            async def watch_tick():
+                await database_call(evaluate_watches, database)
+
+            aircraft_tasks.append(asyncio.create_task(repeat_job(watch_tick, stopped, 15)))
             if not source:
                 aircraft_tasks.append(asyncio.create_task(orbital_updates()))
                 from .infrastructure_geo import enrich_locations

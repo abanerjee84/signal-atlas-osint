@@ -1,0 +1,2 @@
+# Optional bounded optical/SAR raster comparisons. The dashboard and catalogs work without it.
+rasterio==1.5.2

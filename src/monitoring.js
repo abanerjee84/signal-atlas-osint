@@ -4,6 +4,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { api, element, dateText, sourceLink } from "./api.js";
 import { prepareOrbits, orbitalPositions } from "./orbits.js";
 import { REFERENCE_REGISTRY, nightStrips } from "./reference-layers.js";
+import { createMonitoringWorkflows } from "./monitoring-workflows.js";
 
 const $ = (selector) => document.querySelector(selector);
 const colors = {
@@ -81,6 +82,7 @@ let at = null,
 const referenceData = new Map();
 const referencePending = new Set();
 const empty = () => ({ type: "FeatureCollection", features: [] });
+let workflowGeometry = empty();
 maplibregl.setWorkerUrl(workerUrl);
 
 const map = new maplibregl.Map({
@@ -152,6 +154,51 @@ map.on("load", () => {
     },
   });
   map.addSource("observations", { type: "geojson", data: empty() });
+  map.addSource("observation-shapes", { type: "geojson", data: empty() });
+  map.addLayer({
+    id: "observation-areas",
+    type: "fill",
+    source: "observation-shapes",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": "#ee9c85", "fill-opacity": 0.15 },
+  });
+  map.addLayer({
+    id: "observation-boundaries",
+    type: "line",
+    source: "observation-shapes",
+    paint: { "line-color": "#ee9c85", "line-width": 1.5 },
+  });
+  map.addSource("workflow-geometry", {
+    type: "geojson",
+    data: workflowGeometry,
+  });
+  map.addLayer({
+    id: "workflow-areas",
+    type: "fill",
+    source: "workflow-geometry",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": "#77d4bc", "fill-opacity": 0.12 },
+  });
+  map.addLayer({
+    id: "workflow-lines",
+    type: "line",
+    source: "workflow-geometry",
+    filter: ["!=", ["geometry-type"], "Point"],
+    paint: { "line-color": "#77d4bc", "line-width": 2 },
+  });
+  map.addLayer({
+    id: "workflow-points",
+    type: "circle",
+    source: "workflow-geometry",
+    filter: ["==", ["geometry-type"], "Point"],
+    paint: { "circle-color": "#77d4bc", "circle-radius": 5 },
+  });
+  map.on("click", "observation-areas", (event) => {
+    const item = shown.find(
+      (row) => row.id === event.features[0].properties.id,
+    );
+    if (item) inspect(item);
+  });
   map.addLayer({
     id: "points",
     type: "circle",
@@ -202,6 +249,20 @@ map.on("load", () => {
 });
 map.on("idle", () => {
   if (mapReady) $("#monitor-map").dataset.ready = "true";
+});
+
+const workflows = createMonitoringWorkflows({
+  onGeometry(data) {
+    workflowGeometry = data;
+    if (mapReady) map.getSource("workflow-geometry").setData(data);
+  },
+  onObservation: inspect,
+  onRefresh: loadFrame,
+  getAt: () => at,
+  getBounds() {
+    const b = map.getBounds();
+    return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  },
 });
 
 function persistLayers() {
@@ -276,6 +337,34 @@ function inspect(item) {
     fields.push(["Directory", item.sensor.directory_status]);
   if (item.sensor?.provider_updated_at)
     fields.push(["Provider time", item.sensor.provider_updated_at]);
+  for (const [key, label] of Object.entries({
+    value: "Measurement",
+    unit: "Unit",
+    parameter: "Parameter",
+    expires_at: "Expires",
+    event: "Event",
+    severity: "Provider severity",
+    certainty: "Provider certainty",
+    classification: "Classification",
+    method: "Method",
+    event_type: "Activity type",
+    period_start: "Interval start",
+    period_end: "Interval end",
+    operator: "Operator",
+    speed: "Speed",
+    speed_unit: "Speed unit",
+    frequency_hz: "Frequency (Hz)",
+    snr_db: "Signal/noise (dB)",
+    grid: "Receiver grid",
+    reference_version: "Registry version",
+    license: "Source terms",
+    quality: "Sample quality",
+    analyte: "Analyte",
+  })) {
+    if (item.sensor?.[key] != null)
+      fields.push([label, String(item.sensor[key])]);
+  }
+  if (item.expired) fields.push(["Validity", "Expired at the selected time"]);
   for (const [label, value] of fields)
     facts.append(element("dt", "", label), element("dd", "", value));
   panel.replaceChildren(
@@ -311,6 +400,29 @@ function inspect(item) {
         "This is historical metadata. The linked source shows its current content; footage and audio are not archived.",
       ),
     );
+  if (item.sensor?.kind === "cctv" && item.sensor.media_url && !at) {
+    try {
+      const media = new URL(item.sensor.media_url);
+      if (media.protocol === "https:") {
+        const show = element("button", "", "Load public camera snapshot");
+        show.addEventListener("click", () => {
+          const image = element("img", "workflow-preview");
+          image.alt = `Public traffic camera: ${item.title}`;
+          image.src = media.href;
+          image.addEventListener("error", () => {
+            image.remove();
+            show.textContent = "Snapshot unavailable; open the original source";
+            show.disabled = true;
+          });
+          panel.append(image);
+        });
+        panel.append(show, sourceLink(media.href, "Open camera media source"));
+      }
+    } catch {
+      /* Unsupported provider media is left as source metadata. */
+    }
+  }
+  workflows.inspectActions(panel, item);
   if (Number.isFinite(item.longitude) && Number.isFinite(item.latitude))
     map.flyTo({
       center: [item.longitude, item.latitude],
@@ -408,9 +520,27 @@ function render() {
     ...orbital,
   ];
   const located = shown.filter(
-    (item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude),
+    (item) =>
+      Number.isFinite(item.latitude) &&
+      Number.isFinite(item.longitude) &&
+      !item.expired,
   );
   if (mapReady) {
+    map.getSource("observation-shapes").setData({
+      type: "FeatureCollection",
+      features: shown
+        .filter(
+          (item) =>
+            item.sensor?.geometry &&
+            !item.expired &&
+            item.sensor.geometry.type !== "Point",
+        )
+        .map((item) => ({
+          type: "Feature",
+          properties: { id: item.id, title: item.title },
+          geometry: item.sensor.geometry,
+        })),
+    });
     map.getSource("observations").setData({
       type: "FeatureCollection",
       features: located.map((item) => ({
@@ -439,8 +569,12 @@ function render() {
     references();
   }
   $("#record-count").textContent = shown.length.toLocaleString();
+  const expiredCount = shown.filter((item) => item.expired).length;
+  const shapedCount = shown.filter(
+    (item) => !item.expired && item.sensor?.geometry && !located.includes(item),
+  ).length;
   $("#map-summary").textContent =
-    `${located.length.toLocaleString()} mapped · ${(shown.length - located.length).toLocaleString()} unlocated · ${at ? dateText(at) : "Live retained view"}${currentFrame?.truncated ? " · response capped" : ""}`;
+    `${(located.length + shapedCount).toLocaleString()} mapped · ${(shown.length - located.length - shapedCount - expiredCount).toLocaleString()} unlocated${expiredCount ? ` · ${expiredCount} expired` : ""} · ${at ? dateText(at) : "Live retained view"}${currentFrame?.truncated ? " · response capped" : ""}`;
   const list = $("#observation-list");
   list.replaceChildren();
   // Keep a large sensor directory from hiding every other source in the feed.
@@ -494,6 +628,7 @@ async function loadFrame() {
   const query = new URLSearchParams({
     layers: eventIds.join(","),
     limit: "2000",
+    hours: document.querySelector("#observation-hours")?.value || "24",
   });
   if (at) query.set("at", at);
   try {
@@ -539,6 +674,7 @@ async function loadFrame() {
 async function loadCatalog() {
   try {
     catalog = await api("monitoring/catalog");
+    workflows.catalog(catalog);
     layers = [...catalog.layers, ...orbitViews, ...referenceViews];
     selected = new Set(
       [...selected].filter((id) => layers.some((row) => row.id === id)),
@@ -605,6 +741,9 @@ async function setTime(value) {
   await loadFrame();
 }
 $("#layer-search").addEventListener("input", renderLayers);
+document
+  .querySelector("#observation-hours")
+  .addEventListener("change", loadFrame);
 $("#clear-layers").addEventListener("click", () => {
   selected.clear();
   persistLayers();

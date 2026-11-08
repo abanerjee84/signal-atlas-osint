@@ -145,6 +145,87 @@
   border-left: 1px solid var(--border);
   background: var(--surface);
 }
+.monitor-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.monitor-tabs button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+#investigations-panel h2 {
+  font-size: 18px;
+  margin: 14px 0;
+}
+#workflow-status {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+#investigations-panel form {
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+}
+#investigations-panel textarea {
+  resize: vertical;
+  max-height: 240px;
+}
+#investigations-panel select,
+#observation-hours {
+  min-height: 36px;
+  width: 100%;
+}
+#investigations-panel .check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#investigations-panel .check-label input {
+  width: auto;
+}
+.workflow-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.workflow-row > strong {
+  display: block;
+  line-height: 1.5;
+}
+.workflow-row button {
+  margin: 6px 6px 0 0;
+}
+.workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.workflow-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  margin-top: 12px;
+}
+.workflow-facts {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(0, 1.5fr);
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.workflow-facts dt {
+  color: var(--muted);
+}
+.workflow-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .feed-heading {
   display: flex;
   justify-content: space-between;

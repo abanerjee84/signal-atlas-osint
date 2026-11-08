@@ -187,7 +187,7 @@ const state = {
   infrastructureCoverage: null,
 };
 if (
-  !["", "dshield", "isc_honeypots", "threatfox"].includes(
+  !["", "dshield", "isc_honeypots", "threatfox", "feodo", "urlhaus"].includes(
     state.infrastructureProvider,
   )
 )

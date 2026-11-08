@@ -288,7 +288,7 @@ class Filters(BaseModel):
     end: datetime | None = None
     bbox: tuple[float, float, float, float] | None = None
     time_basis: str = Field(default="event", pattern="^(event|published|ingested)$")
-    infrastructure_provider: Literal["", "dshield", "isc_honeypots", "threatfox"] = ""
+    infrastructure_provider: Literal["", "dshield", "isc_honeypots", "threatfox", "feodo", "urlhaus"] = ""
 
     @model_validator(mode="after")
     def valid_range(self):

@@ -598,6 +598,28 @@ class Database:
             db.execute("DELETE FROM monitoring_orbits WHERE collected_at<?",
                        (stamp(utcnow() - timedelta(days=settings.monitoring_retention_days)),))
             for table, column, days in [
+                ("monitoring_alerts", "triggered_at", 30),
+                ("monitoring_analyses", "created_at", 90),
+                ("monitoring_lookup_calls", "requested_at", 7),
+            ]:
+                db.execute(
+                    f"DELETE FROM {table} WHERE {column}<?",
+                    (stamp(utcnow() - timedelta(days=days)),),
+                )
+            db.execute(
+                "DELETE FROM monitoring_assets WHERE id IN (SELECT id FROM ("
+                "SELECT id,ROW_NUMBER() OVER(PARTITION BY source_id,entity_id "
+                "ORDER BY received_at DESC,rowid DESC) AS rank FROM monitoring_assets) WHERE rank>10)"
+            )
+            db.execute(
+                "DELETE FROM monitoring_scenes WHERE id IN (SELECT id FROM monitoring_scenes "
+                "ORDER BY received_at DESC,id LIMIT -1 OFFSET 5000)"
+            )
+            db.execute(
+                "DELETE FROM monitoring_rule_states WHERE observed_at<?",
+                (stamp(utcnow() - timedelta(days=30)),),
+            )
+            for table, column, days in [
                 ("raw_records", "ingested_at", settings.raw_retention_days),
                 ("events", "time_key", settings.event_retention_days),
                 ("daily_stats", "day", settings.stats_retention_days),

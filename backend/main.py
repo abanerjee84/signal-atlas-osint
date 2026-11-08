@@ -38,7 +38,7 @@ def parse_filters(
     bbox: str | None = Query(None, max_length=100),
     time_basis: str = Query("event", pattern="^(event|published|ingested)$"),
     aircraft_categories: str = Query("", max_length=50),
-    infrastructure_provider: str = Query("", pattern="^(|dshield|isc_honeypots|threatfox)$"),
+    infrastructure_provider: str = Query("", pattern="^(|dshield|isc_honeypots|threatfox|feodo|urlhaus)$"),
 ) -> Filters:
     try:
         values = tuple(float(part) for part in bbox.split(",")) if bbox else None
@@ -185,6 +185,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from .monitoring_api import router as monitoring_router
 
     app.include_router(monitoring_router(database, config, authorize, source_statuses))
+    from .monitoring_workflows_api import router as monitoring_workflows_router
+
+    app.include_router(monitoring_workflows_router(database, config, authorize))
 
     @app.get("/api/status")
     def status():

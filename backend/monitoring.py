@@ -28,6 +28,23 @@ LAYERS = [
     layer("radio", "Public radio receivers", "Sensors", tag="radio"),
     layer("ground-stations", "Satellite ground stations", "Sensors", tag="ground-station"),
     layer("gnss", "GNSS low-accuracy cells", "Sensors", tag="gnss-cell"),
+    layer("weather-alerts", "Official weather warnings", "Environment", tag="weather-alert"),
+    layer("space-weather", "Geomagnetic and solar observations", "Environment", tag="space-weather"),
+    layer("air-quality", "Air-quality measurements", "Environment", tag="air-quality"),
+    layer("volcanoes", "Volcano references", "Reference assets", tag="volcano"),
+    layer("wastewater", "Authorized wastewater samples", "Environment", tag="wastewater"),
+    layer(
+        "published-assessments", "Published emergency assessments", "Environment", tag="published-assessment"
+    ),
+    layer("rail", "Regional train positions", "Air & sea", tag="rail"),
+    layer("vessel-activity", "Apparent vessel activity", "Air & sea", tag="vessel-activity"),
+    layer("radio-receptions", "Digital-mode radio receptions", "Sensors", tag="radio-reception"),
+    layer("satellite-receptions", "Satellite radio receptions", "Sensors", tag="satellite-reception"),
+    layer("connectivity", "Network probe states", "Cyber", tag="connectivity"),
+    layer("power-plants", "Power-plant references", "Reference assets", tag="power-plant"),
+    layer("data-centers", "Data-center references", "Reference assets", tag="data-center"),
+    layer("cables", "Submarine cable references", "Reference assets", tag="cable"),
+    layer("suppliers", "Reviewed supplier references", "Reference assets", tag="supplier"),
     layer("military", "Military reporting", "Conflict", "military"),
     layer("drones", "Drone reports", "Conflict", "military", r"\b(drone|uav|shahed|fpv)"),
     layer("missiles", "Missile reports", "Conflict", "military", r"\b(missile|rocket)"),
@@ -110,6 +127,31 @@ def retain(db, report, received_at=None):
     sensor = report.raw.get("monitoring")
     if sensor:
         item["sensor"] = sensor  # Only connector-normalized, explicitly public metadata.
+        if sensor.get("reference") and sensor.get("asset_kind"):
+            version = str(sensor["reference_version"])
+            asset_key = hashlib.sha256(f"{report.source_id}:{entity}:{version}".encode()).hexdigest()
+            from .monitoring_geo import geometry
+
+            shape = sensor.get("geometry") or (
+                {"type": "Point", "coordinates": [report.longitude, report.latitude]}
+                if report.longitude is not None
+                else None
+            )
+            shape = geometry(shape)
+            db.execute(
+                "INSERT OR IGNORE INTO monitoring_assets VALUES(?,?,?,?,?,?,?,?,?)",
+                (
+                    asset_key,
+                    report.source_id,
+                    entity,
+                    version,
+                    report.title,
+                    sensor["asset_kind"],
+                    json.dumps(shape) if shape else None,
+                    json.dumps(item),
+                    received,
+                ),
+            )
     item.update(observed_at=observed, entity_id=entity, layers=memberships(item))
     payload = json.dumps(item, sort_keys=True, separators=(",", ":"))
     key = hashlib.sha256(payload.encode()).hexdigest()
@@ -128,6 +170,7 @@ def retain(db, report, received_at=None):
             payload,
         ),
     )
+    db.execute("INSERT OR IGNORE INTO monitoring_receipts(observation_id) VALUES(?)", (key,))
 
 
 def save_directory(database, reports):
@@ -166,8 +209,10 @@ def frame(database, at, hours=24, selected=None, limit=2000):
         item = json.loads(row["payload"])
         item.update(id=row["observation_id"], received_at=row["received_at"])
         # Sensor metadata has a long useful window; mobile fixes have short freshness.
-        ttl = 600 if item["category"] in {"aviation", "maritime"} else 86400
+        sensor = item.get("sensor") or {}
+        ttl = sensor.get("freshness_seconds", 600 if item["category"] in {"aviation", "maritime"} else 86400)
         item["stale"] = row["observed_at"] < stamp(at - timedelta(seconds=ttl))
+        item["expired"] = bool(sensor.get("expires_at") and sensor["expires_at"] <= cutoff)
         items.append(item)
     return dict(
         at=cutoff,

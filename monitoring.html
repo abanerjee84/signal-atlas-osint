@@ -45,42 +45,70 @@
         </p>
       </section>
       <aside class="monitor-feed" aria-label="Observation feed">
+        <nav class="monitor-tabs" aria-label="Monitoring panels">
+          <button id="show-observations" aria-pressed="true">
+            Observations
+          </button>
+          <button id="show-investigations" aria-pressed="false">
+            Investigations
+          </button>
+        </nav>
+        <details id="operator-access">
+          <summary>Operator access</summary>
+          <label for="operator-token">Local administrator token</label>
+          <input id="operator-token" type="password" autocomplete="off" />
+          <p class="muted">
+            Kept in this page only. Required for watch rules, imports, imagery
+            and lookups.
+          </p>
+        </details>
         <section
-          id="inspector"
-          aria-label="Selected observation"
+          id="investigations-panel"
+          aria-label="Investigation tools"
           hidden
         ></section>
-        <div class="feed-heading">
-          <h2 id="observations" tabindex="-1">Observations</h2>
-          <span id="record-count"></span>
+        <div id="observations-panel">
+          <section
+            id="inspector"
+            aria-label="Selected observation"
+            hidden
+          ></section>
+          <div class="feed-heading">
+            <h2 id="observations" tabindex="-1">Observations</h2>
+            <span id="record-count"></span>
+          </div>
+          <p id="monitor-message" role="status">Loading…</p>
+          <label for="observation-hours">Observation window</label>
+          <select id="observation-hours">
+            <option value="1">Last hour</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+          </select>
+          <div id="observation-list"></div>
+          <details id="source-health">
+            <summary>Source health</summary>
+            <p id="source-summary"></p>
+            <div id="source-list"></div>
+          </details>
+          <details>
+            <summary>Passive host lookup</summary>
+            <p class="muted">
+              Read a public IP's existing Shodan record. Uses the server's
+              provider key and local request budget.
+            </p>
+            <form id="shodan-form">
+              <label for="lookup-ip">Public IP address</label
+              ><input
+                id="lookup-ip"
+                required
+                maxlength="45"
+                placeholder="8.8.8.8"
+              />
+              <button type="submit">Look up host</button>
+            </form>
+            <p id="lookup-result" role="status"></p>
+          </details>
         </div>
-        <p id="monitor-message" role="status">Loading…</p>
-        <div id="observation-list"></div>
-        <details id="source-health">
-          <summary>Source health</summary>
-          <p id="source-summary"></p>
-          <div id="source-list"></div>
-        </details>
-        <details>
-          <summary>Passive host lookup</summary>
-          <p class="muted">
-            Read a public IP's existing Shodan record. Uses the server's
-            provider key and local request budget.
-          </p>
-          <form id="shodan-form">
-            <label for="operator-token">Local administrator token</label
-            ><input id="operator-token" type="password" autocomplete="off" />
-            <label for="lookup-ip">Public IP address</label
-            ><input
-              id="lookup-ip"
-              required
-              maxlength="45"
-              placeholder="8.8.8.8"
-            />
-            <button type="submit">Look up host</button>
-          </form>
-          <p id="lookup-result" role="status"></p>
-        </details>
       </aside>
       <section class="monitor-playback" aria-label="Time Machine playback">
         <div class="playback-heading">

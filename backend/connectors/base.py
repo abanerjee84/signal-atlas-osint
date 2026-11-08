@@ -17,6 +17,12 @@ from ..models import Report
 
 USER_AGENT = "SignalAtlas/0.1 (+https://github.com/abanerjee84/signal-atlas-osint)"
 APPROVED_HOSTS = {
+    "feodotracker.abuse.ch", "urlhaus-api.abuse.ch", "api.weather.gov", "services.swpc.noaa.gov",
+    "cwwp2.dot.ca.gov", "webcams.nyctmc.org", "api.data.gov.sg", "api.amtraker.com", "rata.digitraffic.fi",
+    "rx.linkfanel.net", "retrieve.pskreporter.info", "api.tinygs.com", "webservices.volcano.si.edu",
+    "atlas.ripe.net", "api.openaq.org", "euvsdisinfo.eu", "earth-search.aws.element84.com",
+    "cmr.earthdata.nasa.gov", "dns.google", "rdap.org", "crt.sh", "www.wikidata.org", "query.wikidata.org",
+    "data.iana.org", "sanctionslistservice.ofac.treas.gov",
     "network.satnogs.org",
     "api.tfl.gov.uk",
     "api.shodan.io",

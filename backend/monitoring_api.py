@@ -39,6 +39,7 @@ def router(database, settings, authorize, source_statuses):
 
     @api.get("/catalog")
     def catalog():
+        from .monitoring_workflows_api import capabilities
         sources = source_statuses()
         with database.connect() as db:
             bounds = db.execute(
@@ -58,6 +59,7 @@ def router(database, settings, authorize, source_statuses):
                 max_rows=settings.monitoring_max_rows,
             ),
             shodan_configured=bool(settings.shodan_api_key),
+            capabilities=capabilities(),
             limitation="Sublayers overlap. Registered feeds are not necessarily enabled, accessible or healthy.",
         )
 

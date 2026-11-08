@@ -1,5 +1,7 @@
 # ShadowBroker-style monitoring in Signal Atlas
 
+This document describes the initial monitoring release. The subsequent [15-feature expansion](SHADOWBROKER_EXPANSION.md) adds provider adapters and investigation workflows and increases the current observation sublayers to 58.
+
 Signal Atlas already has a collection worker, source provenance, MapLibre, OpenSky aircraft, AIS vessels, public orbital elements, conflict reporting, cyber observations and investigation cases. This change adds the missing monitoring workflow at `/monitoring.html`. It implements new code within the existing architecture; it does not import ShadowBroker source code.
 
 ## Capability review

@@ -43,6 +43,40 @@ class Settings(BaseSettings):
     monitoring_adsb_url: str = ""
     shodan_api_key: str = ""
     shodan_daily_budget: int = Field(20, ge=0, le=200)
+    expansion_enabled: list[str] = [
+        "feodo",
+        "nws_alerts",
+        "swpc",
+        "caltrans_cameras",
+        "nyc_cameras",
+        "singapore_cameras",
+        "kiwisdr",
+        "amtraker",
+        "digitraffic",
+        "volcanoes",
+        "ripe_atlas",
+    ]
+    urlhaus_auth_key: str = ""
+    caltrans_districts: list[int] = [3, 4, 7, 11, 12]
+    openaq_api_key: str = ""
+    openaq_location_ids: list[int] = []
+    psk_callsign: str = ""
+    tinygs_token: str = ""
+    tinygs_url: str = "https://api.tinygs.com/v1/satellitesWorldmap"
+    gfw_event_types: list[str] = ["fishing", "encounter", "loitering", "port_visit", "gap"]
+    reference_feeds: list[dict] = []
+    wastewater_url: str = ""
+    wastewater_license: str = ""
+    published_assessments_url: str = ""
+    published_assessments_license: str = ""
+    expansion_lookup_daily_budget: int = Field(40, ge=0, le=500)
+    earthdata_token: str = ""
+    imagery_search_url: str = "https://earth-search.aws.element84.com/v1/search"
+    imagery_asset_hosts: list[str] = [
+        "earth-search.aws.element84.com",
+        "sentinel-cogs.s3.us-west-2.amazonaws.com",
+    ]
+    raster_max_pixels: int = Field(4_000_000, ge=1000, le=16_000_000)
     http_timeout: float = Field(25, ge=1, le=120)
     connector_concurrency: int = Field(2, ge=1, le=4)
     max_feed_bytes: int = Field(8_388_608, ge=1024, le=33_554_432)
