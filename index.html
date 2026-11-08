@@ -59,7 +59,9 @@
           cases.</span
         ></a
       >
-      <a href="/monitoring.html" class="investigate-button">Monitor</a>
+      <button id="monitoring-open" class="investigate-button" type="button">
+        Monitoring tools
+      </button>
       <time id="utc-clock" class="clock" aria-label="Current UTC time"></time>
       <button
         id="refresh"
@@ -110,11 +112,22 @@
             aria-describedby="layer-search-result"
           />
           <p id="layer-search-result" class="helper" role="status" hidden></p>
+          <button
+            id="monitoring-layer-jump"
+            type="button"
+            class="monitoring-layer-jump"
+          >
+            Observation layers (58)
+          </button>
           <div
             id="layers"
             class="layers"
             aria-label="Selectable intelligence layers"
           ></div>
+          <section
+            id="monitoring-overlays"
+            aria-label="Monitoring observation layers"
+          ></section>
           <fieldset
             id="infrastructure-controls"
             class="orbital-controls"
@@ -505,7 +518,13 @@
             ><button id="analysis-tab" aria-pressed="false">Analysis</button
             ><button id="military-tab" aria-pressed="false">Military</button
             ><button id="sentiment-tab" aria-pressed="false">Sentiment</button>
+            <button id="monitoring-tab" aria-pressed="false">Monitoring</button>
           </div>
+          <section
+            id="monitoring-view"
+            hidden
+            aria-label="Monitoring observations and tools"
+          ></section>
           <section id="feed-view">
             <section
               id="reporting-signals"

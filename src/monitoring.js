@@ -5,6 +5,7 @@ import { api, element, dateText, sourceLink } from "./api.js";
 import { prepareOrbits, orbitalPositions } from "./orbits.js";
 import { REFERENCE_REGISTRY, nightStrips } from "./reference-layers.js";
 import { createMonitoringWorkflows } from "./monitoring-workflows.js";
+import bundledLayers from "./monitoring-layers.json";
 
 const $ = (selector) => document.querySelector(selector);
 const colors = {
@@ -68,7 +69,7 @@ try {
   selected = new Set(defaultLayers);
 }
 let catalog,
-  layers = [],
+  layers = [...bundledLayers, ...orbitViews, ...referenceViews],
   items = [],
   orbits = [],
   orbitBasis = "",
@@ -820,6 +821,8 @@ $("#shodan-form").addEventListener("submit", async (event) => {
   }
 });
 $("#playback-time").value = new Date().toISOString().slice(0, 16);
+// Layer discovery must not disappear when a stale API or outage rejects the catalog.
+renderLayers();
 try {
   await loadCatalog();
   await loadFrame();

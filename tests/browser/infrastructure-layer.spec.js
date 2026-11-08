@@ -30,7 +30,8 @@ test("live infrastructure layer renders clusters, evidence and independent provi
   expect(target).toBeTruthy();
   await page.mouse.move(box.x + target.x, box.y + target.y);
   await expect(page.locator(".map-hover-details")).toContainText(
-    "infrastructure observations",
+    // Live data can put either a single observation or a cluster at this point.
+    /infrastructure observations?/i,
   );
   await expect(page.locator(".map-hover-details")).toContainText(
     "provider reports",

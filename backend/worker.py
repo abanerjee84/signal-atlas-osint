@@ -401,6 +401,12 @@ async def run(once: bool = False, source: str | None = None):
                     (stamp(),),
                 )
 
+        if not once:
+            # Slow publisher cycles must not make a running collector look inactive.
+            aircraft_tasks.append(asyncio.create_task(
+                repeat_job(lambda: database_call(update_heartbeat), stopped, 15)
+            ))
+
         async def cycle():
             nonlocal last_maintenance
             enabled = {

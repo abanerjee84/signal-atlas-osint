@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from contextlib import suppress
 
 import pytest
 
@@ -7,6 +8,41 @@ from backend.aviation import current_aircraft
 from backend.connectors.opensky import OpenSky
 from backend.models import Filters, utcnow
 from backend.worker import run
+
+
+async def test_collector_heartbeat_updates_during_a_slow_source_cycle(settings, database, monkeypatch):
+    from backend.connectors.expanded import NWS
+
+    started = asyncio.Event()
+    provider = NWS(settings)
+
+    async def slow_fetch(_):
+        started.set()
+        await asyncio.Event().wait()
+
+    provider.fetch = slow_fetch
+    monkeypatch.setattr("backend.worker.Settings", lambda: settings)
+    monkeypatch.setattr("backend.worker.Database", lambda _: database)
+    monkeypatch.setattr("backend.worker.connectors", lambda _: [provider])
+    monkeypatch.setattr("backend.worker.browser_executable", lambda: None)
+    task = asyncio.create_task(run(source="nws_alerts"))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+
+        async def heartbeat():
+            while True:
+                with database.connect() as db:
+                    row = db.execute("SELECT heartbeat FROM worker_state WHERE id=1").fetchone()
+                if row:
+                    return row[0]
+                await asyncio.sleep(0.02)
+
+        assert await asyncio.wait_for(heartbeat(), timeout=2)
+        assert not task.done()  # The source has not completed, but the worker is alive.
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 async def test_busy_lane_survives_and_non_contention_errors_are_not_hidden():

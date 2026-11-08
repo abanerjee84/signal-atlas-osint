@@ -71,6 +71,7 @@ import {
   orbitalCountry,
 } from "./orbits.js";
 import { countryFlagImage } from "./country-flags.js";
+import { createDashboardMonitoring } from "./dashboard-monitoring.js";
 
 const $ = (selector) => document.querySelector(selector);
 const threatProviders = [
@@ -206,6 +207,7 @@ if (state.layers.has("cyber") || state.layers.has("threat")) {
   state.layers.add("threat");
 }
 let worldMap,
+  monitoring,
   chart,
   refreshController,
   busy = false,
@@ -647,8 +649,9 @@ function applyLayerSearch() {
   }
   const result = $("#layer-search-result");
   result.hidden = !query.trim();
-  result.textContent = matches.length
-    ? `${matches.length} related ${matches.length === 1 ? "layer" : "layers"}`
+  const count = matches.length + (monitoring?.search(query) || 0);
+  result.textContent = count
+    ? `${count} related ${count === 1 ? "layer" : "layers"}`
     : "No related layers. Try a topic such as flights, oil or space.";
 }
 $("#layer-search").addEventListener("input", applyLayerSearch);
@@ -1083,6 +1086,7 @@ function markSelectedRow() {
 
 const eventRows = new Map();
 function renderEvents() {
+  monitoring?.contextChanged();
   $("#radware-vector-panel").hidden = !state.layers.has("threat");
   renderVectorBreakdown(state.vectorSummary);
   $("#threat-map-references").hidden = !state.layers.has("threat");
@@ -1872,7 +1876,13 @@ async function selectCountry(code, fly = false) {
 
 function showView(view) {
   state.view = view;
-  for (const name of ["feed", "analysis", "sentiment", "military"]) {
+  for (const name of [
+    "feed",
+    "analysis",
+    "sentiment",
+    "military",
+    "monitoring",
+  ]) {
     $(`#${name}-view`).hidden = view !== name;
     $(`#${name}-tab`).setAttribute("aria-pressed", String(view === name));
   }
@@ -2843,6 +2853,33 @@ async function analyze(event) {
 }
 
 async function initialize() {
+  monitoring = createDashboardMonitoring({
+    open() {
+      showView("monitoring");
+      if ($("#workspace").classList.contains("right-collapsed"))
+        togglePanel("right");
+    },
+    context() {
+      const { start, end } = timeRange();
+      const playhead = Number($("#playhead").value);
+      return {
+        at:
+          playhead < 100
+            ? new Date(
+                start.getTime() + ((end - start) * playhead) / 100,
+              ).toISOString()
+            : state.period === "custom"
+              ? end.toISOString()
+              : null,
+        hours: Math.max(1, Math.min(168, Math.ceil((end - start) / 3600000))),
+        country: state.country,
+        world: state.world,
+        q: state.q,
+        bbox: $("#viewport-filter").checked ? worldMap?.bounds() : null,
+      };
+    },
+  });
+  monitoring.start();
   renderLayers();
   $("#sentiment-evidence").checked = state.sentimentEvidence;
   $("#reporting-signals-toggle").setAttribute(
@@ -2899,6 +2936,7 @@ async function initialize() {
       followStopped: () => setFollowedAircraft(null),
     });
     worldMap.setDensityWeighted(state.densityConfidence);
+    monitoring.attachMap(worldMap.map);
     applyReferenceLayers();
     refreshDisruptions(state.layers.has("disruptions"));
     await refreshOrbits();
@@ -2907,6 +2945,11 @@ async function initialize() {
     chart = charts({ selectReport: focusSocialPost });
     setTheme();
     await refresh();
+    if (location.hash === "#monitoring") {
+      showView("monitoring");
+      if ($("#workspace").classList.contains("right-collapsed"))
+        togglePanel("right");
+    }
   } catch (error) {
     message(error.message);
   }
@@ -3011,8 +3054,15 @@ for (const panel of ["left", "right", "bottom"])
   $(`[data-panel="${panel}"]`).addEventListener("click", () =>
     togglePanel(panel),
   );
-for (const view of ["feed", "analysis", "sentiment", "military"])
+for (const view of ["feed", "analysis", "sentiment", "military", "monitoring"])
   $(`#${view}-tab`).addEventListener("click", () => showView(view));
+window.addEventListener("hashchange", () => {
+  if (location.hash === "#monitoring") {
+    showView("monitoring");
+    if ($("#workspace").classList.contains("right-collapsed"))
+      togglePanel("right");
+  }
+});
 $("#settings-open").addEventListener("click", () =>
   $("#settings-dialog").showModal(),
 );

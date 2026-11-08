@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,13 @@ from backend.connectors.monitoring import AccuracyADSB, GroundStations, TfLCamer
 from backend.main import create_app
 from backend.models import AircraftMetadata, Category, Filters, stamp, utcnow
 from backend.monitoring import LAYERS, frame, gnss_cells, retain
+
+
+def test_offline_layer_manifest_matches_the_api_catalog():
+    path = Path(__file__).resolve().parents[2] / "src/monitoring-layers.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == [
+        {key: row[key] for key in ("id", "label", "group")} for row in LAYERS
+    ]
 
 
 def test_history_preserves_revisions_and_receipt_boundary(database, report):

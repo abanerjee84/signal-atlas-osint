@@ -1,0 +1,292 @@
+[
+  {
+    "id": "aircraft",
+    "label": "ADS-B aircraft",
+    "group": "Air & sea"
+  },
+  {
+    "id": "airborne",
+    "label": "Airborne aircraft",
+    "group": "Air & sea"
+  },
+  {
+    "id": "grounded",
+    "label": "Aircraft on ground",
+    "group": "Air & sea"
+  },
+  {
+    "id": "rotorcraft",
+    "label": "Rotorcraft",
+    "group": "Air & sea"
+  },
+  {
+    "id": "vessels",
+    "label": "AIS vessels",
+    "group": "Air & sea"
+  },
+  {
+    "id": "cargo",
+    "label": "Cargo vessels",
+    "group": "Air & sea"
+  },
+  {
+    "id": "tankers",
+    "label": "Tankers",
+    "group": "Air & sea"
+  },
+  {
+    "id": "passenger",
+    "label": "Passenger vessels",
+    "group": "Air & sea"
+  },
+  {
+    "id": "fishing",
+    "label": "Fishing vessels",
+    "group": "Air & sea"
+  },
+  {
+    "id": "cctv",
+    "label": "Public traffic cameras",
+    "group": "Sensors"
+  },
+  {
+    "id": "radio",
+    "label": "Public radio receivers",
+    "group": "Sensors"
+  },
+  {
+    "id": "ground-stations",
+    "label": "Satellite ground stations",
+    "group": "Sensors"
+  },
+  {
+    "id": "gnss",
+    "label": "GNSS low-accuracy cells",
+    "group": "Sensors"
+  },
+  {
+    "id": "weather-alerts",
+    "label": "Official weather warnings",
+    "group": "Environment"
+  },
+  {
+    "id": "space-weather",
+    "label": "Geomagnetic and solar observations",
+    "group": "Environment"
+  },
+  {
+    "id": "air-quality",
+    "label": "Air-quality measurements",
+    "group": "Environment"
+  },
+  {
+    "id": "volcanoes",
+    "label": "Volcano references",
+    "group": "Reference assets"
+  },
+  {
+    "id": "wastewater",
+    "label": "Authorized wastewater samples",
+    "group": "Environment"
+  },
+  {
+    "id": "published-assessments",
+    "label": "Published emergency assessments",
+    "group": "Environment"
+  },
+  {
+    "id": "rail",
+    "label": "Regional train positions",
+    "group": "Air & sea"
+  },
+  {
+    "id": "vessel-activity",
+    "label": "Apparent vessel activity",
+    "group": "Air & sea"
+  },
+  {
+    "id": "radio-receptions",
+    "label": "Digital-mode radio receptions",
+    "group": "Sensors"
+  },
+  {
+    "id": "satellite-receptions",
+    "label": "Satellite radio receptions",
+    "group": "Sensors"
+  },
+  {
+    "id": "connectivity",
+    "label": "Network probe states",
+    "group": "Cyber"
+  },
+  {
+    "id": "power-plants",
+    "label": "Power-plant references",
+    "group": "Reference assets"
+  },
+  {
+    "id": "data-centers",
+    "label": "Data-center references",
+    "group": "Reference assets"
+  },
+  {
+    "id": "cables",
+    "label": "Submarine cable references",
+    "group": "Reference assets"
+  },
+  {
+    "id": "suppliers",
+    "label": "Reviewed supplier references",
+    "group": "Reference assets"
+  },
+  {
+    "id": "military",
+    "label": "Military reporting",
+    "group": "Conflict"
+  },
+  {
+    "id": "drones",
+    "label": "Drone reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "missiles",
+    "label": "Missile reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "airstrikes",
+    "label": "Airstrike reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "artillery",
+    "label": "Artillery reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "naval",
+    "label": "Naval reporting",
+    "group": "Conflict"
+  },
+  {
+    "id": "exercises",
+    "label": "Military exercises",
+    "group": "Conflict"
+  },
+  {
+    "id": "deployments",
+    "label": "Deployment reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "ceasefires",
+    "label": "Ceasefire reporting",
+    "group": "Conflict"
+  },
+  {
+    "id": "evacuations",
+    "label": "Evacuation reports",
+    "group": "Conflict"
+  },
+  {
+    "id": "diplomacy",
+    "label": "Geopolitical reporting",
+    "group": "World"
+  },
+  {
+    "id": "sanctions",
+    "label": "Sanctions reporting",
+    "group": "World"
+  },
+  {
+    "id": "elections",
+    "label": "Election reporting",
+    "group": "World"
+  },
+  {
+    "id": "protests",
+    "label": "Protest reporting",
+    "group": "World"
+  },
+  {
+    "id": "economy",
+    "label": "Economic reporting",
+    "group": "World"
+  },
+  {
+    "id": "energy",
+    "label": "Energy reporting",
+    "group": "World"
+  },
+  {
+    "id": "humanitarian",
+    "label": "Humanitarian reporting",
+    "group": "Environment"
+  },
+  {
+    "id": "environment",
+    "label": "Environmental observations",
+    "group": "Environment"
+  },
+  {
+    "id": "earthquakes",
+    "label": "Earthquakes",
+    "group": "Environment"
+  },
+  {
+    "id": "fires",
+    "label": "Thermal / fire observations",
+    "group": "Environment"
+  },
+  {
+    "id": "floods",
+    "label": "Flood reporting",
+    "group": "Environment"
+  },
+  {
+    "id": "cyber",
+    "label": "Cyber reporting",
+    "group": "Cyber"
+  },
+  {
+    "id": "threats",
+    "label": "Threat reporting",
+    "group": "Cyber"
+  },
+  {
+    "id": "infrastructure",
+    "label": "Cyber infrastructure",
+    "group": "Cyber"
+  },
+  {
+    "id": "malware",
+    "label": "Malware intelligence",
+    "group": "Cyber"
+  },
+  {
+    "id": "c2",
+    "label": "C2 indicators",
+    "group": "Cyber"
+  },
+  {
+    "id": "vulnerabilities",
+    "label": "Vulnerability reporting",
+    "group": "Cyber"
+  },
+  {
+    "id": "scanning",
+    "label": "Scan observations",
+    "group": "Cyber"
+  },
+  {
+    "id": "shodan",
+    "label": "Shodan host observations",
+    "group": "Cyber"
+  },
+  {
+    "id": "discussion",
+    "label": "Public discussion",
+    "group": "World"
+  }
+]

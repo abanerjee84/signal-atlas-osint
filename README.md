@@ -34,7 +34,7 @@ _Example from a collected dataset. A fresh installation starts empty and fills a
 
 ## What you can do
 
-- **Monitor across domains and replay retained history:** open **Monitor** for 58 observation sublayers, orbital views, public cameras, ground stations, radio receptions, regional trains, weather warnings, space weather, air quality and optional GNSS accuracy cells. UTC playback uses retained observations and source receipt times. See [monitoring foundations](docs/SHADOWBROKER_MONITORING.md).
+- **Monitor across domains and replay retained history:** select **Observation layers (58)** in the main **Intelligence layers** sidebar, or search for cameras, trains, weather and other topics. Observations draw on the existing map and follow its timeline. **Monitoring tools** opens records, source health and investigation workflows in the right panel. The optional `/monitoring.html` workspace remains available with an explicit **Dashboard** return link. See [monitoring foundations](docs/SHADOWBROKER_MONITORING.md).
 - **Run monitoring investigations:** save area, route and entity watches; acknowledge alerts; inspect entity trails; import versioned infrastructure and suppliers; compare acquisition-dated Sentinel-2 and OPERA products; query passive DNS, RDAP, CT, Wikidata and OFAC records; and attach cited snapshots to cases. The [expansion setup guide](docs/SHADOWBROKER_EXPANSION.md) covers all 15 additions, credentials, authorized exports and optional raster processing. Registered sources and overlapping views are counted separately from healthy feeds.
 
 - **Explore the world map:** distinct layer symbols, heading-oriented yellow aircraft icons, clusters, density overlays, country filters and animated source connections.

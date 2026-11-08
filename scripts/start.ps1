@@ -1,4 +1,4 @@
-param([switch]$VerifyStartup)
+param([switch]$VerifyStartup, [switch]$Background)
 
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
@@ -11,6 +11,7 @@ $launchId = [guid]::NewGuid().ToString()
 $startedProcesses = @()
 $startupMutex = $null
 $startupLocked = $false
+$keepServices = $false
 
 function Test-LocalPort([int]$Port) {
     $client = New-Object System.Net.Sockets.TcpClient
@@ -161,7 +162,8 @@ try {
         try {
             $health = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/api/health' -UseBasicParsing -TimeoutSec 2
             $page = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing -TimeoutSec 2
-            if ($health.StatusCode -eq 200 -and $page.StatusCode -eq 200) {
+            $monitoring = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/api/monitoring/catalog' -UseBasicParsing -TimeoutSec 5
+            if ($health.StatusCode -eq 200 -and $page.StatusCode -eq 200 -and $monitoring.StatusCode -eq 200) {
                 $ready = $true
                 break
             }
@@ -175,7 +177,10 @@ try {
     Write-Host ''
     Write-Host 'Dashboard: http://127.0.0.1:5173/'
     Write-Host 'Logs: data\logs'
-    if (-not $VerifyStartup) {
+    if ($Background -and -not $VerifyStartup) {
+        $keepServices = $true
+        Write-Host 'Services running in the background. Run START.bat to restart them.'
+    } elseif (-not $VerifyStartup) {
         Start-Process 'http://127.0.0.1:5173/'
         Write-Host 'Edits to src\ are served immediately. Keep this window open while using the dashboard.'
         Read-Host 'Press Enter to stop all three services' | Out-Null
@@ -184,16 +189,18 @@ try {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 } finally {
-    foreach ($process in $startedProcesses) {
-        Stop-ComponentTree (Get-ProcessIdentity $process)
-    }
-    if (Test-Path -LiteralPath $processStatePath) {
-        try {
-            $saved = Get-Content -LiteralPath $processStatePath -Raw | ConvertFrom-Json
-            if ($saved.launcher_id -eq $launchId) { Remove-Item -LiteralPath $processStatePath }
-        } catch { }
+    if (-not $keepServices) {
+        foreach ($process in $startedProcesses) {
+            Stop-ComponentTree (Get-ProcessIdentity $process)
+        }
+        if (Test-Path -LiteralPath $processStatePath) {
+            try {
+                $saved = Get-Content -LiteralPath $processStatePath -Raw | ConvertFrom-Json
+                if ($saved.launcher_id -eq $launchId) { Remove-Item -LiteralPath $processStatePath }
+            } catch { }
+        }
     }
     if ($startupLocked) { $startupMutex.ReleaseMutex() }
     if ($startupMutex) { $startupMutex.Dispose() }
-    if ($startedProcesses.Count -gt 0) { Write-Host 'Dashboard services stopped.' }
+    if (-not $keepServices -and $startedProcesses.Count -gt 0) { Write-Host 'Dashboard services stopped.' }
 }

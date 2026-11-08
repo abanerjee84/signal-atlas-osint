@@ -1,0 +1,148 @@
+#monitoring-overlays {
+  padding: 16px 0;
+  border-block: 1px solid var(--border);
+  margin: 14px 0;
+}
+.monitoring-layer-jump {
+  width: 100%;
+  margin: 8px 0;
+  text-align: left;
+}
+#monitoring-overlays h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.monitoring-layer-group {
+  margin: 8px 0;
+}
+.monitoring-layer-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.monitoring-layer-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  min-height: 42px;
+}
+.monitoring-layer-row .layer-count {
+  font-size: 10px;
+}
+#monitoring-view {
+  padding-top: 12px;
+  overflow-wrap: anywhere;
+}
+#monitoring-view h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  margin: 14px 0 8px;
+}
+#monitoring-view .monitor-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+#monitoring-view button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#monitoring-view details {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+#monitoring-view summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+#monitoring-view form {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+}
+#monitoring-view label {
+  display: block;
+  color: var(--muted);
+  margin-top: 8px;
+}
+#monitoring-view input:not([type="checkbox"]):not([type="radio"]),
+#monitoring-view select,
+#monitoring-view textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+}
+#monitoring-view .check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#monitoring-view textarea {
+  resize: vertical;
+  max-height: 240px;
+}
+#monitoring-view .workflow-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+#monitoring-view .workflow-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+#monitoring-view .workflow-row > strong,
+#monitoring-view .workflow-row small {
+  display: block;
+  margin-bottom: 6px;
+}
+#monitoring-view .workflow-row button {
+  margin: 6px 6px 0 0;
+}
+#monitoring-view .workflow-facts {
+  display: grid;
+  grid-template-columns: minmax(75px, 1fr) minmax(0, 1.5fr);
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+#monitoring-view dt {
+  color: var(--muted);
+}
+#monitoring-view dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+#monitoring-view .workflow-preview {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  margin-top: 12px;
+}
+#monitoring-view .dashboard-observation-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-observation-row strong,
+.dashboard-observation-row small {
+  display: block;
+  line-height: 1.5;
+}
+.dashboard-observation-row small {
+  color: var(--muted);
+  margin-top: 5px;
+}
+#monitoring-view .muted {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+#right-content > .tab-buttons {
+  flex-wrap: wrap;
+}
