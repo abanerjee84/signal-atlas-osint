@@ -281,6 +281,7 @@ class Report(BaseModel):
 
 class Filters(BaseModel):
     categories: list[Category] = Field(default_factory=list)
+    source_id: str = Field(default="", pattern=r"^[a-z0-9_]{0,80}$")
     aircraft_categories: list[Annotated[int, Field(ge=0, le=20)]] = Field(default_factory=list, max_length=21)
     q: str = Field(default="", max_length=200)
     country: str | None = Field(default=None, pattern="^[A-Z]{2}$")

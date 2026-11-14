@@ -31,6 +31,7 @@ log = logging.getLogger("osint.api")
 
 def parse_filters(
     categories: str = Query("", max_length=200),
+    source_id: str = Query("", pattern=r"^[a-z0-9_]{0,80}$"),
     q: str = Query("", max_length=200),
     country: str | None = Query(None, pattern="^[A-Z]{2}$"),
     start: datetime | None = None,
@@ -44,6 +45,7 @@ def parse_filters(
         values = tuple(float(part) for part in bbox.split(",")) if bbox else None
         return Filters(
             categories=[Category(value) for value in categories.split(",") if value],
+            source_id=source_id,
             q=q,
             country=country,
             start=start,
@@ -218,8 +220,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             own = [
                 provider
                 for provider in providers
-                if provider.category in categories
-                or categories.intersection(provider.metadata().get("categories", []))
+                if not getattr(provider, "monitoring_lookup_only", False)
+                and (
+                    provider.category in categories
+                    or categories.intersection(provider.metadata().get("categories", []))
+                )
             ]
             states = [statuses.get(provider.source_id, {}) for provider in own]
             current = [item for item in states if item.get("state") == "ok" and not item.get("stale")]

@@ -171,7 +171,7 @@ npm run dev
 | `http://127.0.0.1:8000/api/docs`        | Generated interactive API reference               |
 | `http://127.0.0.1:8000/api/health`      | API/database health                               |
 
-API and worker must use the same `OSINT_DATABASE`. Initialization applies migrations automatically; the current schema includes migration **013**, covering watches, monotonic receipt cursors, alerts, asset versions, scenes, analyses and lookup history. Frontend changes reload through Vite. Backend and `.env` changes require restarting Python processes.
+API and worker must use the same `OSINT_DATABASE`. Initialization applies migrations automatically; migration **013** covers watches, monotonic receipt cursors, alerts, asset versions, scenes, analyses and lookup history. Migration **014** indexes event source and time for provider-filtered queries. Frontend changes reload through Vite. Backend and `.env` changes require restarting Python processes.
 
 To test the compiled frontend, run `npm run build` followed by `npm run preview`; preview uses port 4173 and still needs the API on 8000.
 

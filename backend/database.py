@@ -333,6 +333,9 @@ class Database:
         if filters.categories:
             terms.append(f"{prefix}category IN ({','.join('?' for _ in filters.categories)})")
             values.extend(filters.categories)
+        if filters.source_id:
+            terms.append(f"{prefix}source_id=?")
+            values.append(filters.source_id)
         if filters.aircraft_categories:
             terms.append(
                 f"({prefix}category!='aviation' OR ({prefix}aircraft_category IN "

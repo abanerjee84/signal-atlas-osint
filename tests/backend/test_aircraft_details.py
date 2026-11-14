@@ -1,9 +1,10 @@
+import asyncio
 import json
 import urllib.error
-import asyncio
+
 import pytest
 
-from backend.aircraft_details import AircraftLookup, CALLS, DB, photo_details
+from backend.aircraft_details import CALLS, DB, AircraftLookup, photo_details
 
 
 def test_callsign_join_rejects_namesakes_and_keeps_only_identity(tmp_path):

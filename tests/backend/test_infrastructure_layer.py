@@ -139,7 +139,10 @@ def test_public_layer_contract_provider_filter_and_location_coverage(settings):
             )
         )
         layer = next(row for row in client.get("/api/layers").json() if row["id"] == "infrastructure")
-        assert set(layer["sources"]) == {"dshield", "isc_honeypots", "threatfox", "cloudflare_radar"}
+        assert set(layer["sources"]) == {
+            "dshield", "isc_honeypots", "threatfox", "cloudflare_radar", "feodo", "urlhaus"
+        }
+        assert "shodan" not in layer["sources"]
         cy = next(row for row in client.get("/api/layers").json() if row["id"] == "cyber")
         assert "dshield" not in cy["sources"]
         result = client.get("/api/events?categories=infrastructure&infrastructure_provider=dshield").json()

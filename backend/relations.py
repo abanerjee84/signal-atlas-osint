@@ -156,6 +156,14 @@ def report_rows(database, filters, scope="news"):
         if scope == "news"
         else "(e.category='military' OR (e.category='geopolitical' AND r.sentiment_kind='news'))"
     )
+    # Cyber reports are sparse in a large news database. Start from their
+    # indexed events so SQLite does not scan every recent news report first.
+    tables = (
+        "events e INDEXED BY idx_events_category_time "
+        "CROSS JOIN reports r INDEXED BY idx_reports_event ON r.event_id=e.event_id"
+        if scope == "cyber"
+        else "reports r JOIN events e ON r.event_id=e.event_id"
+    )
     with database.connect() as db:
         db.create_function(
             "text_country_codes",
@@ -168,7 +176,7 @@ def report_rows(database, filters, scope="news"):
         rows = [
             dict(r)
             for r in db.execute(
-                f"SELECT r.*,e.category AS event_category FROM reports r JOIN events e ON r.event_id=e.event_id WHERE {where} AND {restriction} GROUP BY r.source_url ORDER BY r.published_at DESC,r.report_id LIMIT 1000",
+                f"SELECT r.*,e.category AS event_category FROM {tables} WHERE {where} AND {restriction} GROUP BY r.source_url ORDER BY r.published_at DESC,r.report_id LIMIT 1000",
                 values,
             )
         ]

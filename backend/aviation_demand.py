@@ -1,6 +1,7 @@
 """Short per-viewer leases: collect only while a live layer is visible."""
 
 from datetime import timedelta
+
 from .models import stamp, utcnow
 
 PREFIX = "view:aviation:"

@@ -76,7 +76,7 @@ test("selecting monitoring evidence draws on the main map and exposes the inspec
   await page.goto("/");
   await page.locator("#layer-search").fill("camera");
   await page.locator('[data-monitoring-layer="cctv"]').check();
-  await expect(page).toHaveURL(/5173\/$/);
+  await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).href);
   await expect(page.locator("#monitoring-view")).toBeVisible();
   await expect(page.locator("#monitor-message")).toContainText(
     "1 retained records",
@@ -169,7 +169,7 @@ test("mobile investigation tools stay on the dashboard and fit its width", async
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await expect(page).toHaveURL(/5173\/$/);
+  await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).href);
   await page.screenshot({
     path: "test-results/dashboard-monitoring-mobile.png",
     fullPage: true,
@@ -190,7 +190,7 @@ test("the legacy Monitor URL has layers during an outage and a clear return", as
   await page
     .getByRole("link", { name: "Back to intelligence dashboard", exact: true })
     .click();
-  await expect(page).toHaveURL(/5173\/$/);
+  await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).href);
   await expect(page.locator("#monitoring-open")).toBeVisible();
 });
 

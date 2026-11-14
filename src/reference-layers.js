@@ -289,7 +289,7 @@ export function referenceCard(id, properties, link) {
   card.append(title);
 
   const rows = [];
-  if (properties.country) rows.push(["Country", properties.country]);
+  rows.push(["Country", properties.country || "Not supplied"]);
   for (const [key, label] of [
     ["facility_type", "Type"],
     ["status", "Status"],

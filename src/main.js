@@ -2169,6 +2169,8 @@ async function refresh(options = {}) {
       });
     const interval =
       Number(state.period) > 168 || state.period === "custom" ? "day" : "hour";
+    // The briefing is independent of the core map refresh. Large report
+    // windows can take longer to analyze without holding the controls busy.
     const results = await Promise.allSettled([
       track(
         api(`events?${query}&limit=500&order=balanced`, { signal }),
@@ -2183,7 +2185,7 @@ async function refresh(options = {}) {
       Promise.resolve(null),
       Promise.resolve(null),
       track(api(`relations?${query}`, { signal }), "News connections"),
-      track(api(`military?${query}`, { signal }), "Military briefing"),
+      Promise.resolve(null),
       track(api("layers", { signal }), "Layer coverage"),
       track(api(`anomalies/regional?${query}`, { signal }), "Report surges"),
       track(
@@ -2191,10 +2193,7 @@ async function refresh(options = {}) {
         "Shared country evidence",
       ),
       track(api(`cyber/relations?${query}`, { signal }), "Cyber connections"),
-      track(
-        api(`events?${threatQuery}&limit=500`, { signal }),
-        "Cyber reports",
-      ),
+      Promise.resolve({ items: [] }),
       track(loadThreatTelemetry(telemetryQuery, signal), "Cyber observations"),
       track(
         fetch("/threatmap-status.json", { signal, cache: "no-store" })
@@ -2320,14 +2319,45 @@ async function refresh(options = {}) {
         state.layers.has("geopolitical") && $("#news-connections").checked,
       );
     }
-    if (results[7].status === "fulfilled") {
-      state.military = results[7].value;
-      renderMilitary(state.military, state.sources, {
+    api(`military?${query}`, { signal }).then((brief) => {
+      if (!brief || signal.aborted) return;
+      state.military = brief;
+      renderMilitary(brief, state.sources, {
         selectEvent,
         showTopic,
         analyzeTopic,
       });
-    }
+      showTopic(state.militaryTopic);
+    }).catch(() => {});
+    api(`events?${threatQuery}&limit=500`, { signal }).then((reports) => {
+      if (!reports || signal.aborted) return;
+      const oldCount = state.threatCount;
+      state.threatNetwork = buildThreatNetwork(
+        [
+          ...(results[13].status === "fulfilled"
+            ? state.threatEvents.filter((event) =>
+                event.tags?.includes("threat-telemetry"),
+              )
+            : []),
+          ...reports.items.filter((event) => event.category === "threat"),
+        ],
+        state.world.features.map((feature) => feature.properties),
+        {
+          country: state.country,
+          bbox: $("#viewport-filter").checked ? worldMap.bounds() : null,
+          q: state.q,
+        },
+      );
+      state.threatEvents = state.threatNetwork.events;
+      state.threatCount = state.threatEvents.length;
+      state.categoryCounts.threat = state.threatCount;
+      worldMap.setThreatNetwork(state.threatNetwork, state.layers.has("threat"));
+      if (state.layers.has("threat"))
+        state.total = Math.max(0, state.total - oldCount + state.threatCount);
+      renderEvents();
+      renderCountryActivity();
+      renderNetworkSummary();
+    }).catch(() => {});
     if (results[11].status === "fulfilled") {
       state.cyberNetwork = results[11].value;
       worldMap.setCyberNetwork(
@@ -2374,7 +2404,6 @@ async function refresh(options = {}) {
     renderEvents();
     // Country previews must see this refresh's reports before context markers
     // are rebuilt, including single-country reports outside the brief's top 12.
-    if (results[7].status === "fulfilled") showTopic(state.militaryTopic);
     renderAnomalyAlerts(results);
     const failures = results
       .slice(1)
@@ -3259,16 +3288,12 @@ setInterval(refreshVessels, 60000);
 
 async function loadThreatTelemetry(query, signal) {
   const results = await Promise.allSettled(
-    [
-      "Bitdefender detections:",
-      "BunkerWeb WAF:",
-      "Imperva daily attack requests:",
-      "Radware detections:",
-    ].map((name) => {
+    threatProviders.map((sourceId) => {
       const sourceQuery = new URLSearchParams(query);
-      sourceQuery.set("q", name);
+      sourceQuery.delete("q");
       sourceQuery.set("categories", "threat");
-      return api(`events?${sourceQuery}&limit=100&order=balanced`, { signal });
+      sourceQuery.set("source_id", sourceId);
+      return api(`events?${sourceQuery}&limit=100&order=latest`, { signal });
     }),
   );
   if (results.every((r) => r.status === "rejected")) throw results[0].reason;

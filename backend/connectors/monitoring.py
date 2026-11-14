@@ -183,6 +183,7 @@ class ShodanHosts(Connector):
     homepage = "https://developer.shodan.io/api"
     interval = 86400
     manual = True
+    monitoring_lookup_only = True
     limitation = "Authenticated operator lookup only; no active scanning or scheduled global search"
 
     def access(self):

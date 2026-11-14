@@ -75,7 +75,10 @@ def test_layer_health_matches_status_freshness_and_access(settings):
         )
         assert layers["cyber"]["health"]["current"] == 1
         assert states["opensky"]["state"] == "access_required"
-        assert layers["aviation"]["health"]["needs_access"] == 1
+        assert layers["aviation"]["health"]["needs_access"] == sum(
+            states[source_id]["state"] == "access_required"
+            for source_id in layers["aviation"]["sources"]
+        )
 
 
 def test_aircraft_collection_interval_is_suitable_for_visible_updates(settings):

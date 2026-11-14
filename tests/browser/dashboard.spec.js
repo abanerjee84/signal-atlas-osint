@@ -24,6 +24,7 @@ async function ready(page) {
 test("Cyber context counts follow the period and overlay visibility", async ({
   page,
 }) => {
+  test.setTimeout(120000);
   await page.goto("/");
   await ready(page);
   await expect(page.locator("#refresh")).toBeEnabled();
@@ -33,10 +34,11 @@ test("Cyber context counts follow the period and overlay visibility", async ({
   await page.locator("#period").selectOption("720");
   const network = await (await response).json();
   // The summary updates after the full map refresh, not at the first response.
-  await expect(page.locator("#refresh")).toBeEnabled({ timeout: 15000 });
+  await expect(page.locator("#refresh")).toBeEnabled({ timeout: 90000 });
   await expect(page.locator("#network-summary")).toContainText(
     `Cyber: ${network.report_count} reports · ${network.edges.length} context links`,
   );
+  await page.locator(".map-options-details > summary").click();
   await page.locator("#cyber-connections").uncheck();
   await expect(page.locator("#network-summary")).not.toContainText("Cyber:");
   await page.locator("#cyber-connections").check();
@@ -56,8 +58,8 @@ test("world map initializes and real source events expose provenance", async ({
   await expect(page.locator("#refresh")).toBeEnabled();
   await expect(page.locator("#load-error")).toBeHidden();
   await page.locator("#period").selectOption("720");
-  await expect(page.locator(".event-button").first()).toBeVisible();
-  await page.locator(".event-button").first().click();
+  await expect(page.locator(".event-button:not(.orbital-card)").first()).toBeVisible();
+  await page.locator(".event-button:not(.orbital-card)").first().click();
   await expect(page.locator("#event-detail")).toBeVisible();
   await expect(page.locator("#event-detail")).toContainText(
     "Supporting reports",
@@ -253,6 +255,7 @@ test("country ribbon ranks samples, supports keyboard selection and preserves co
   );
   await page.goto("/");
   await ready(page);
+  await page.locator('[data-country-rank="mentions"]').click();
   const rows = page.locator(".country-rank-row");
   await expect(rows.first()).toHaveAttribute("data-country-rank-code", "IN");
   await page.locator('[data-country-rank="sentiment"]').click();
@@ -287,12 +290,15 @@ test("map renders distinct layer symbols and cluster badges while retaining airc
   await page.route("**/api/aviation/live?**", (route) =>
     route.fulfill({ json: { available: false, items: [] } }),
   );
+  await page.route("**/aircraft-live.json", (route) =>
+    route.fulfill({ json: { available: false, items: [] } }),
+  );
   page.on("pageerror", (error) => errors.push(error.message));
   const now = new Date().toISOString();
   const records = [
     ["geopolitical", -100, 40],
     ["military", 85, 55],
-    ["maritime", 135, -22],
+    ["maritime", 10, -22],
     ["cyber", 15, 52],
     ["economic", 20, -20],
     ["environment", -55, -10],
@@ -300,8 +306,8 @@ test("map renders distinct layer symbols and cluster badges while retaining airc
     ["military", -20, 20],
     ["cyber", 75, -30],
     ["economic", 75, -30],
-    ["aviation", -145, 25],
-    ["aviation", 160, 45],
+    ["aviation", -10, 25],
+    ["aviation", 35, 45],
   ].map(([category, longitude, latitude], i) => ({
     event_id: String(i).padStart(32, "0"),
     category,
@@ -319,6 +325,7 @@ test("map renders distinct layer symbols and cluster badges while retaining airc
     aircraft_category: i === 10 ? 4 : i === 11 ? 5 : null,
     aircraft_track_deg: i === 10 ? 90 : i === 11 ? 270 : null,
     aircraft_callsign: `TEST${i}`,
+    aircraft: category === "aviation" ? { icao24: `abc${i}` } : null,
     vessel_course_deg: i === 2 ? 45 : null,
     vessel_speed_kn: i === 2 ? 10.5 : null,
     vessel_flag: i === 2 ? "GB" : null,

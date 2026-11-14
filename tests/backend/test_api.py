@@ -47,6 +47,17 @@ def test_api_contract(client, report):
     assert client.get("/api/events?format=geojson").json()["features"][0]["geometry"]["type"] == "Point"
 
 
+def test_events_filter_by_source_id(client, report):
+    db = client.app.state.database
+    selected = db.ingest(report)
+    db.ingest(report.model_copy(update={"external_id": "other", "source_id": "other", "source_url": "https://example.org/other"}))
+    result = client.get("/api/events?source_id=synthetic").json()
+    assert result["total"] == 1
+    assert result["items"][0]["event_id"] == selected
+    assert result["category_counts"] == {"geopolitical": 1}
+    assert client.get("/api/events?source_id=bad%20value").status_code == 422
+
+
 @pytest.mark.parametrize(
     "query",
     [

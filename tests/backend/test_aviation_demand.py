@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
+
 from backend.aviation_demand import aviation_requested, set_demand
 from backend.main import create_app
 from backend.models import stamp, utcnow

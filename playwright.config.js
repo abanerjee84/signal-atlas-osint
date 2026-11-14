@@ -6,7 +6,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "http://127.0.0.1:5187",
     headless: true,
     viewport: { width: 1440, height: 960 },
     launchOptions: {
@@ -25,12 +25,12 @@ export default defineConfig({
           ? ".venv\\Scripts\\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000"
           : ".venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000",
       url: "http://127.0.0.1:8000/api/health",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
     },
     {
-      command: "npm run dev",
-      url: "http://127.0.0.1:5173",
-      reuseExistingServer: !process.env.CI,
+      command: "npm run dev -- --port 5187",
+      url: "http://127.0.0.1:5187",
+      reuseExistingServer: false,
     },
   ],
 });

@@ -196,9 +196,12 @@ async def test_robots_redirect_is_validated_and_disallow_stops_collection(settin
 def test_retention_caps_telemetry_without_deleting_published_reports(settings, database, report):
     database.ingest(report)
     provider = BunkerWebMap(settings)
-    for index in range(2002):
-        database.ingest(
-            provider.normalize(observation({"attacker": "SG", "target": "FR"}, "synthetic-cap", index))
+    for start in range(0, 2002, 100):
+        database.ingest_many(
+            [
+                provider.normalize(observation({"attacker": "SG", "target": "FR"}, "synthetic-cap", index))
+                for index in range(start, min(start + 100, 2002))
+            ]
         )
     assert database.prune_threat_telemetry(provider.source_id) == 2
     assert database.events(Filters(categories=["threat"]))["total"] == 2000

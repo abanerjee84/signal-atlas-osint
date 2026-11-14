@@ -10,8 +10,8 @@ import hashlib
 import json
 import logging
 import re
-import ssl
 import sqlite3
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -19,10 +19,11 @@ import uuid
 from datetime import datetime
 from urllib.parse import urlencode, urlsplit
 
+from scripts.collection_status import write_status
+
 from .config import ROOT, Settings
 from .database import Database
 from .models import stamp, utcnow
-from scripts.collection_status import write_status
 
 log = logging.getLogger(__name__)
 DB = "https://static.airplanes.live/db/"

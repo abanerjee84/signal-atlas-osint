@@ -148,12 +148,20 @@ test("reference points grow with zoom so they stay reachable", async ({
       ) > 0,
     { timeout: 25000 },
   );
+  await expect(page.locator("#map canvas")).toHaveAttribute(
+    "data-reference-hover-point",
+    /.+/,
+  );
   // The world view alone must not leave 3px dots that a pointer cannot find.
   const before = await page.getAttribute(
     "#map canvas",
     "data-reference-hover-point",
   );
   expect(before).toBeTruthy();
+  await page.locator("#load-error").evaluate((node) => {
+    node.textContent = "A panel is temporarily unavailable";
+    node.hidden = false;
+  });
   for (let i = 0; i < 3; i++) {
     await page.locator(".maplibregl-ctrl-zoom-in").click();
     await page.waitForTimeout(600);

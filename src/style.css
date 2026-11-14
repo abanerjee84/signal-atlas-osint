@@ -1586,6 +1586,7 @@ summary span {
 }
 .map-error {
   position: absolute;
+  pointer-events: none;
   top: 74px;
   left: 24px;
   right: 24px;
