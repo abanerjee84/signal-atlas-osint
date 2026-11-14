@@ -14,8 +14,17 @@ The generated schema is at `/api/openapi.json`; the interactive development refe
 | `GET /api/countries/{code}`                      | Country metadata, up to 50 matching events and news coverage sentiment                        |
 | `GET /api/sentiment`                             | Report-based sample coverage, distributions, trends, regional scores and cited keyword groups |
 | `GET /api/relations`                             | Bounded source-backed publisher/country and country co-mention connections                    |
+| `GET /api/cyber/relations`                       | Source-backed cyber country context links and report counts                                   |
 | `GET /api/military`                              | Official/media military evidence topics, cited reports, period comparisons and map networks   |
 | `GET /api/timeline`                              | Up to 3,000 event count buckets                                                               |
+| `GET /api/monitoring/catalog`                    | Monitoring sublayers, retained history limits, source status and workflow capabilities        |
+| `GET /api/monitoring/frame`                      | Bounded retained observations at a UTC time; overlapping sublayers and truncation are stated  |
+| `GET /api/v1/osint/search`                       | Protected by default; indexed investigation records in a `data`/`meta` envelope              |
+| `GET /api/v1/osint/records/{record_id}`           | Investigation record with source and licensing context                                        |
+| `GET/POST /api/v1/cases`                          | Protected case listing and creation                                                            |
+| `GET /api/v1/cases/{case_id}`                     | Protected case with saved evidence and notes                                                   |
+| `POST /api/v1/cases/{case_id}/evidence`           | Protected attachment of an existing evidence reference                                         |
+| `POST /api/v1/cases/{case_id}/notes`              | Protected case note creation                                                                   |
 | `GET /api/statistics`                            | Up to 3,300 daily/category aggregate records                                                  |
 | `GET /api/sources`                               | Source metadata and access requirements without credentials                                   |
 | `GET /api/anomalies`                             | Deterministic 6-hour volume comparisons with supporting event IDs                             |
@@ -28,7 +37,7 @@ The generated schema is at `/api/openapi.json`; the interactive development refe
 
 ## Shared filters
 
-`categories` is a comma-separated list of layer category identifiers. `q` is a literal search string, at most 200 characters. `country` is an uppercase ISO alpha-2 code. `start` and `end` are timezone-qualified ISO 8601 values; reversed or timezone-less ranges are rejected. `bbox` is `west,south,east,north` in degrees and supports dateline crossing when west is greater than east. Missing coordinates do not match a bbox.
+`categories` is a comma-separated list of layer category identifiers. `source_id` selects one exact source ID (lowercase letters, digits and underscores, at most 80 characters). `q` is a literal search string, at most 200 characters. `country` is an uppercase ISO alpha-2 code. `start` and `end` are timezone-qualified ISO 8601 values; reversed or timezone-less ranges are rejected. `bbox` is `west,south,east,north` in degrees and supports dateline crossing when west is greater than east. Missing coordinates do not match a bbox.
 
 `aircraft_categories=4,5` restricts aviation observations to those classes with a valid reported ground track and location. It applies before pagination and to category totals and timeline queries; other categories are unaffected. The collector samples every class OpenSky reports (0-20), so any subset may be requested. The dashboard does not send the filter and filters classes in the browser instead, so switching the Countries-panel selector does not re-query. Omitting it retains the raw historical API view. The map draws the latest loaded observation per transponder, so map symbols are aircraft rather than a count of every historical observation.
 
@@ -60,6 +69,8 @@ Example:
 ```text
 /api/events?categories=environment,geopolitical&country=IN&start=2026-10-09T00:00:00Z&end=2026-10-10T00:00:00Z&limit=100
 ```
+
+For a source-specific page, use `/api/events?categories=infrastructure&source_id=dshield&limit=20`. The optional [MCP adapter](MCP.md) provides bounded versions of common API reads and protected case actions to local MCP hosts; the HTTP API remains the full integration surface.
 
 ## Protected requests
 

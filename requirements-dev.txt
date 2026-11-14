@@ -1,4 +1,4 @@
--r requirements.txt
+-r requirements-mcp.txt
 boolean.py==5.0
 CacheControl==0.14.4
 colorama==0.4.6

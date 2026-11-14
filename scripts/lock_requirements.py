@@ -29,11 +29,18 @@ for name in (
     "defusedxml",
     "vaderSentiment",
     "langdetect",
+    "pillow",
+    "websockets",
 ):
     visit(name)
 pins = {
     package.metadata["Name"].lower().replace("_", "-"): f"{package.metadata['Name']}=={package.version}"
     for package in distributions()
+}
+optional_mcp = {
+    Requirement(line).name.lower().replace("_", "-")
+    for line in (root / "requirements-mcp.txt").read_text(encoding="utf-8").splitlines()
+    if line and not line.startswith(("#", "-r"))
 }
 (root / "requirements.txt").write_text(
     "# Resolved runtime pins, Python 3.12. Regenerate with scripts/lock_requirements.py.\n"
@@ -42,8 +49,10 @@ pins = {
     encoding="utf-8",
 )
 (root / "requirements-dev.txt").write_text(
-    "-r requirements.txt\n"
-    + "\n".join(pin for name, pin in sorted(pins.items()) if name not in runtime and name != "pip")
+    "-r requirements-mcp.txt\n"
+    + "\n".join(
+        pin for name, pin in sorted(pins.items()) if name not in runtime and name not in optional_mcp and name != "pip"
+    )
     + "\n",
     encoding="utf-8",
 )

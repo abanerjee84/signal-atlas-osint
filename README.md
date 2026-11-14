@@ -10,6 +10,8 @@ Signal Atlas collects international reporting, aircraft and vessel observations,
 
 The interface has four roles: **Map layers** chooses map content, **Map records** inspects specific feed records, **Tools** runs monitoring and analysis workflows, and **Cases** holds saved investigations. Collection runs in a separate Python worker; the browser reads retained data through FastAPI.
 
+For integrations, start with the [HTTP API reference](docs/API.md), the [MCP setup and tool catalog](docs/MCP.md), or the [investigation and case API](docs/ADVANCED_OSINT.md#versioned-api).
+
 ![Current Signal Atlas dashboard with the unified Map layers sidebar, topic groups, country rankings, source connections, intelligence feed and timeline](docs/screenshots/dashboard-current.png)
 
 _Current interface captured on 8 November 2026 using real collected public-source data. Counts and headlines describe that capture, not guaranteed coverage. A new installation starts without seeded intelligence records. [Capture details](docs/screenshots/capture.json)._
@@ -26,6 +28,7 @@ _Current interface captured on 8 November 2026 using real collected public-sourc
 - [Imagery and measured change](#imagery-and-measured-change)
 - [Architecture and codebase](#architecture-and-codebase)
 - [API](#api)
+- [MCP integration](#mcp-integration)
 - [Data interpretation and limits](#data-interpretation-and-limits)
 - [Operations and deployment](#operations-and-deployment)
 - [Testing and screenshot capture](#testing-and-screenshot-capture)
@@ -301,6 +304,8 @@ flowchart LR
   Providers[Public and authorized providers] --> Worker[Python collection worker]
   Worker --> Store[(SQLite WAL and FTS5)]
   Browser[Dashboard, Map records, Tools and Cases] --> API[FastAPI]
+  MCPClient[MCP host] --> MCP[MCP adapter]
+  MCP --> API
   API --> Store
   Worker --> Elements[Versioned orbital elements]
   Elements --> Browser
@@ -312,11 +317,12 @@ flowchart LR
 ```text
 backend/
   main.py, config.py, database.py   API composition, settings and storage
+  mcp_server.py                    MCP tool adapter over the HTTP API
   worker.py                        Scheduling, polling lanes and heartbeat
   connectors/                      Provider adapters and registration
   monitoring*.py                   History, geometry, watches, imagery, recon, imports
   advanced/                        Cases, evidence, search, graphs, media, queued jobs
-  migrations/                      Versioned SQL schema, through 013
+  migrations/                      Versioned SQL schema, through 014
 src/
   main.js, map.js                   Dashboard state and MapLibre rendering
   layer-picker.js                  Topic groups, search and selected-only view
@@ -378,6 +384,10 @@ curl --fail 'http://127.0.0.1:8000/api/events?categories=infrastructure&infrastr
 PowerShell can use `Invoke-RestMethod` or `curl.exe`. Protected requests use `Authorization: Bearer <OSINT_ADMIN_TOKEN>`. Provider keys stay in backend settings.
 
 Event requests support categories, query, country, timezone-aware dates, bbox and time basis. Monitoring frames default to 2,000 records, cap at 5,000, and disclose truncation; views can overlap. Latest entity versions are selected before sublayer filtering. The investigation API uses `data`/`meta` envelopes and its own pagination. [API guide](docs/API.md) and [investigation API](docs/ADVANCED_OSINT.md#versioned-api).
+
+## MCP integration
+
+The optional local stdio MCP adapter exposes bounded source, event, timeline, cyber and monitoring reads through the existing FastAPI service. With an administrator token, it can also search protected investigation records and manage cases. Network integrations use the HTTP API. Install [requirements-mcp.txt](requirements-mcp.txt) and see the [MCP setup and tool catalog](docs/MCP.md) for host configuration, examples, limits and security.
 
 ## Data interpretation and limits
 
@@ -451,6 +461,8 @@ The script captures the real UI without mocked responses, refuses populated oper
 
 ## Documentation
 
+- [HTTP API reference](docs/API.md)
+- [MCP setup and tool catalog](docs/MCP.md)
 - [Architecture and evidence rules](docs/ARCHITECTURE.md)
 - [Map interface and country rankings](docs/MAP_INTERFACE.md)
 - [Monitoring foundations and Time Machine](docs/SHADOWBROKER_MONITORING.md)

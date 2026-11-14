@@ -1,0 +1,18 @@
+# Optional MCP adapter dependencies. Resolved on Python 3.12 with mcp 2.3.0.
+-r requirements.txt
+cffi==2.1.1
+cryptography==50.0.2
+httpcore2==2.16.0
+httpx2==2.16.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+mcp==2.3.0
+mcp-types==2.3.0
+pycparser==3.12
+pyjwt==2.15.1
+python-multipart==0.0.33
+pywin32==312; sys_platform == "win32"
+referencing==0.37.0
+rpds-py==2026.9.1
+sse-starlette==3.7.0
+truststore==0.10.5
